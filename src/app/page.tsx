@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { getCalendarConnectionStatus } from "@/lib/google/calendar";
 
 export default async function Home() {
   const supabase = await createClient();
@@ -18,6 +19,10 @@ export default async function Home() {
   const { count: goalsCount } = user
     ? await supabase.from("goals").select("id", { count: "exact", head: true }).eq("user_id", user.id)
     : { count: 0 };
+
+  const calendarConnection = user
+    ? await getCalendarConnectionStatus(supabase, user.id)
+    : { connected: false as const, expiresAt: null as string | null };
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-4xl flex-col px-6 py-12">
@@ -57,13 +62,24 @@ export default async function Home() {
               <p className="text-xs uppercase tracking-wide text-zinc-500">Focus block</p>
               <p className="mt-2 text-2xl font-semibold text-zinc-900">{profile?.focus_block_minutes ?? "-"}</p>
             </div>
+            <div className="rounded-lg bg-zinc-50 p-4">
+              <p className="text-xs uppercase tracking-wide text-zinc-500">Google Calendar</p>
+              <p className="mt-2 text-2xl font-semibold text-zinc-900">
+                {calendarConnection.connected ? "Connected" : "Not connected"}
+              </p>
+            </div>
           </div>
           <p className="text-sm text-zinc-700">
             Work hours: {profile?.work_start_time ?? "--:--"} - {profile?.work_end_time ?? "--:--"} | Workout: {profile?.workout_preference ?? "none"}
           </p>
-          <Link className="inline-flex rounded-lg bg-zinc-900 px-5 py-2 text-sm font-medium text-white" href="/onboarding">
-            Edit onboarding
-          </Link>
+          <div className="flex flex-wrap gap-3">
+            <Link className="inline-flex rounded-lg bg-zinc-900 px-5 py-2 text-sm font-medium text-white" href="/onboarding">
+              Edit onboarding
+            </Link>
+            <Link className="inline-flex rounded-lg border border-zinc-300 px-5 py-2 text-sm font-medium text-zinc-900" href="/calendar">
+              Open calendar
+            </Link>
+          </div>
         </section>
       )}
     </main>
