@@ -6,6 +6,7 @@ Build PersonalAgent into a mobile-first personal life agent.
 ## V1 Sprint
 
 **Scope:** Focus on better schedule input, goals that feel real, and a schedule view. Keep V1 shippable so mobile migration can start after.
+**Out of scope for V1:** Food suggestions, chat-based replanning, and travel-time routing.
 
 ### Data Model
 - Daily schedule profile:
@@ -13,9 +14,12 @@ Build PersonalAgent into a mobile-first personal life agent.
   - School hours
   - Usual sleep time
   - Wake-up time
+  - User timezone (required, used for all scheduling and display)
 - Goals:
   - Store goals (examples: save for a car, invest, learn a new language)
   - Support status tracking (active/completed)
+  - Store `completed_at` timestamp when completed
+  - Allow reopen from completed to active
 - *Body profile deferred to V2* (needed for food/activity suggestions; no V1 payoff)
 
 ### Product Features
@@ -32,7 +36,14 @@ Build PersonalAgent into a mobile-first personal life agent.
 - Schedule tab:
   - Daily view (required)
   - Weekly view (target)
-  - Monthly view (nice-to-have or V1.5)
+  - Monthly view (deferred to V1.5)
+
+### V1 Exit Criteria (Ship Gate)
+- User can create/update goals and mark completed.
+- User can set work/school/sleep/wake schedule.
+- Planner uses recurring blocks plus optional user-created events in daily planning.
+- Daily schedule view is stable and usable end-to-end.
+- Weekly view is read-only at minimum if included in V1.
 
 ## V2 Sprint
 - Body profile (from V1 deferral):
