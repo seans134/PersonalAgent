@@ -5,14 +5,14 @@ Phase 3D includes:
 - Onboarding form for goals, schedule constraints, and preferences
 - Google Calendar OAuth connect/disconnect + read-only events
 - Deterministic daily planner endpoint (`POST /api/plan/today`)
-- Optional OpenAI enhancement layer for plan wording and summary (times remain deterministic)
+- Optional Gemini enhancement layer for plan wording and summary (times remain deterministic)
 
 ## Prerequisites
 
 - Node.js 20+
 - A Supabase project
 - A Google Cloud OAuth client (Web application)
-- OpenAI API key (optional but recommended for enhancement)
+- Gemini API key (optional but recommended for enhancement)
 
 ## Setup
 
@@ -34,8 +34,8 @@ cp .env.example .env.local
 - `NEXT_PUBLIC_SITE_URL` (usually `http://localhost:3000`)
 - `GOOGLE_CLIENT_ID`
 - `GOOGLE_CLIENT_SECRET`
-- `OPENAI_API_KEY` (optional; if missing, planner still works with deterministic copy)
-- `OPENAI_MODEL` (optional; default `gpt-5-mini`)
+- `GEMINI_API_KEY` (optional; if missing, planner still works with deterministic copy)
+- `GEMINI_MODEL` (optional; default `gemini-2.0-flash`)
 
 4. Configure Google OAuth redirect URI in Google Cloud:
 
@@ -65,5 +65,5 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## Notes
 
-- Planner schedule times are deterministic and are never modified by OpenAI enhancement.
+- Planner schedule times are deterministic and are never modified by Gemini enhancement.
 - Enhancement failures or unsafe output trigger fallback to deterministic copy with warnings.

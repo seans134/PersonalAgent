@@ -1,4 +1,4 @@
-import { isOpenAIConfigured, requestPlanEnhancement } from "@/lib/openai/client";
+import { isGeminiConfigured, requestPlanEnhancement } from "@/lib/gemini/client";
 import type { DailyPlan, Goal, PlannerPreferences } from "./types";
 
 type EnhancementItem = {
@@ -114,8 +114,8 @@ export async function enhancePlanCopy(input: EnhancePlanInput): Promise<EnhanceP
   const generate =
     generateOutput ??
     (async () => {
-      if (!isOpenAIConfigured()) {
-        throw new Error("OpenAI enhancement skipped: OPENAI_API_KEY not configured.");
+      if (!isGeminiConfigured()) {
+        throw new Error("Gemini enhancement skipped: GEMINI_API_KEY not configured.");
       }
 
       return requestPlanEnhancement({
@@ -139,7 +139,7 @@ export async function enhancePlanCopy(input: EnhancePlanInput): Promise<EnhanceP
     if (hasUnsafeContent(validated)) {
       return {
         plan,
-        warning: "OpenAI enhancement skipped due to unsafe content.",
+        warning: "Gemini enhancement skipped due to unsafe content.",
       };
     }
 
@@ -151,7 +151,7 @@ export async function enhancePlanCopy(input: EnhancePlanInput): Promise<EnhanceP
     const message = error instanceof Error ? error.message : "Unknown enhancement error.";
     return {
       plan,
-      warning: `OpenAI enhancement skipped: ${message}`,
+      warning: `Gemini enhancement skipped: ${message}`,
     };
   }
 }
