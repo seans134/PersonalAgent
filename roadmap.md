@@ -5,40 +5,38 @@ Build PersonalAgent into a mobile-first personal life agent.
 
 ## V1 Sprint
 
+**Scope:** Focus on better schedule input, goals that feel real, and a schedule view. Keep V1 shippable so mobile migration can start after.
+
 ### Data Model
 - Daily schedule profile:
-  - Work hours
+  - Work hours (existing)
   - School hours
   - Usual sleep time
   - Wake-up time
-- Body profile:
-  - Gender
-  - Height
-  - Body weight
-  - Maintenance calories
-  - Suggested macros
 - Goals:
   - Store goals (examples: save for a car, invest, learn a new language)
   - Support status tracking (active/completed)
+- *Body profile deferred to V2* (needed for food/activity suggestions; no V1 payoff)
 
 ### Product Features
 - Goals tab:
   - Add goals
-  - Check mark when goal is achieved
+  - Mark goal as achieved (check mark)
+  - List goals with status (active/completed)
 - Recurring schedules:
-  - School
-  - Work
-  - Certain repeated events
-- Optional/planned events:
-  - Going on a run
-  - Going out with friends
-  - Other user-created events
+  - Work and school as explicit recurring blocks first
+  - "Certain repeated events" as a second pass (after work/school templates work)
+- Optional/planned events (minimal for V1):
+  - User-created blocks (e.g. run, going out): title + duration + optional preferred time
+  - Enough for planner and daily view; rich recurrence/editing later
 - Schedule tab:
-  - Daily view
-  - Weekly view
-  - Monthly view
+  - Daily view (required)
+  - Weekly view (target)
+  - Monthly view (nice-to-have or V1.5)
 
 ## V2 Sprint
+- Body profile (from V1 deferral):
+  - Gender, height, body weight, maintenance calories, suggested macros
 - Suggest foods based on:
   - Macro targets
   - Calories eaten today
