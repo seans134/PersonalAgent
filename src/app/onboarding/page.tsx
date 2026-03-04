@@ -53,7 +53,7 @@ export default async function OnboardingPage({
           <h2 className="text-lg font-semibold text-zinc-900">Goals</h2>
           <p className="text-sm text-zinc-600">Add one goal per line. Top lines are treated as higher priority.</p>
           <textarea
-            className="min-h-32 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+            className="min-h-32 w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-50 placeholder:text-zinc-300"
             defaultValue={goals?.map((goal) => goal.title).join("\n") ?? ""}
             name="goals"
             placeholder="Exercise 3x per week&#10;Deep work for 2 hours daily&#10;Read 20 pages nightly"
@@ -66,7 +66,7 @@ export default async function OnboardingPage({
               Work start
             </label>
             <input
-              className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-50"
               defaultValue={toTimeInputValue(profile?.work_start_time) || "09:00"}
               id="work_start_time"
               name="work_start_time"
@@ -79,7 +79,7 @@ export default async function OnboardingPage({
               Work end
             </label>
             <input
-              className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-50"
               defaultValue={toTimeInputValue(profile?.work_end_time) || "17:00"}
               id="work_end_time"
               name="work_end_time"
@@ -92,7 +92,7 @@ export default async function OnboardingPage({
               No meetings start (optional)
             </label>
             <input
-              className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-50"
               defaultValue={toTimeInputValue(profile?.no_meeting_start)}
               id="no_meeting_start"
               name="no_meeting_start"
@@ -104,7 +104,7 @@ export default async function OnboardingPage({
               No meetings end (optional)
             </label>
             <input
-              className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-50"
               defaultValue={toTimeInputValue(profile?.no_meeting_end)}
               id="no_meeting_end"
               name="no_meeting_end"
@@ -119,7 +119,7 @@ export default async function OnboardingPage({
               Preferred focus block (minutes)
             </label>
             <input
-              className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-50"
               defaultValue={profile?.focus_block_minutes ?? 60}
               id="focus_block_minutes"
               max={240}
@@ -134,7 +134,7 @@ export default async function OnboardingPage({
               Workout preference
             </label>
             <select
-              className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-50"
               defaultValue={profile?.workout_preference ?? "none"}
               id="workout_preference"
               name="workout_preference"

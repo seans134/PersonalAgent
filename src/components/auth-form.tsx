@@ -14,14 +14,14 @@ export function AuthForm({ title, actionLabel, action }: AuthFormProps) {
   const [state, formAction, pending] = useActionState(action, undefined);
 
   return (
-    <form action={formAction} className="space-y-3 rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
-      <h2 className="text-lg font-semibold text-zinc-900">{title}</h2>
+    <form action={formAction} className="space-y-3 rounded-xl border border-zinc-700 bg-zinc-900 p-6 shadow-sm">
+      <h2 className="text-lg font-semibold text-zinc-50">{title}</h2>
       <div className="space-y-2">
-        <label className="block text-sm text-zinc-700" htmlFor={`${actionLabel}-email`}>
+        <label className="block text-sm text-zinc-200" htmlFor={`${actionLabel}-email`}>
           Email
         </label>
         <input
-          className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+          className="w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-50 placeholder:text-zinc-300"
           id={`${actionLabel}-email`}
           name="email"
           type="email"
@@ -29,11 +29,11 @@ export function AuthForm({ title, actionLabel, action }: AuthFormProps) {
         />
       </div>
       <div className="space-y-2">
-        <label className="block text-sm text-zinc-700" htmlFor={`${actionLabel}-password`}>
+        <label className="block text-sm text-zinc-200" htmlFor={`${actionLabel}-password`}>
           Password
         </label>
         <input
-          className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+          className="w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-50 placeholder:text-zinc-300"
           id={`${actionLabel}-password`}
           name="password"
           type="password"
