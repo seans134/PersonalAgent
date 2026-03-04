@@ -109,6 +109,9 @@ export function TodayPlanPanel() {
           {planData.plan.explanation ? (
             <p className="rounded-lg border border-zinc-300 bg-zinc-50 px-4 py-3 text-sm text-zinc-700">{planData.plan.explanation}</p>
           ) : null}
+          {planData.summary ? (
+            <p className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-700">{planData.summary}</p>
+          ) : null}
 
           <ul className="space-y-3">
             {planData.plan.items.map((item, index) => (

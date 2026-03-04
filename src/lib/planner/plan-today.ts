@@ -1,5 +1,6 @@
 import { fetchTodayCalendarEvents } from "@/lib/google/calendar";
 import type { createClient } from "@/lib/supabase/server";
+import { enhancePlanCopy, type EnhancePlanResult } from "./enhance-plan";
 import {
   toPlannerCalendarEvents,
   toPlannerGoals,
@@ -14,6 +15,7 @@ type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 
 type PlanResponse = {
   plan: ReturnType<typeof generateDailyPlan>;
+  summary?: string;
   meta: {
     goalsCount: number;
     eventsCount: number;
@@ -31,8 +33,19 @@ export async function generateTodayPlanForUser(input: {
   supabase: SupabaseClient;
   userId: string;
   fetchEvents?: typeof fetchTodayCalendarEvents;
+  enhancePlan?: (input: {
+    plan: ReturnType<typeof generateDailyPlan>;
+    goals: ReturnType<typeof toPlannerGoals>;
+    preferences: ReturnType<typeof toPlannerPreferences>;
+    eventsCount: number;
+  }) => Promise<EnhancePlanResult>;
 }): Promise<PlanResult> {
-  const { supabase, userId, fetchEvents = fetchTodayCalendarEvents } = input;
+  const {
+    supabase,
+    userId,
+    fetchEvents = fetchTodayCalendarEvents,
+    enhancePlan = enhancePlanCopy,
+  } = input;
 
   const { data: goalsRows, error: goalsError } = await supabase
     .from("goals")
@@ -75,16 +88,27 @@ export async function generateTodayPlanForUser(input: {
     warnings.push(`Calendar read failed: ${message}`);
   }
 
-  const plan = generateDailyPlan({
+  const deterministicPlan = generateDailyPlan({
     goals,
     preferences,
     calendarEvents,
   });
+  const enhanced = await enhancePlan({
+    plan: deterministicPlan,
+    goals,
+    preferences,
+    eventsCount: calendarEvents.length,
+  });
+
+  if (enhanced.warning) {
+    warnings.push(enhanced.warning);
+  }
 
   return {
     status: 200,
     body: {
-      plan,
+      plan: enhanced.plan,
+      summary: enhanced.summary,
       meta: {
         goalsCount: goals.length,
         eventsCount: calendarEvents.length,

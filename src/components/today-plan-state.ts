@@ -97,6 +97,7 @@ export function parseTodayPlanResponse(payload: unknown): TodayPlanResponse {
       constrained: Boolean(plan.constrained),
       explanation: typeof plan.explanation === "string" ? plan.explanation : undefined,
     },
+    summary: typeof payload.summary === "string" ? payload.summary : undefined,
     meta: {
       goalsCount: asNumber(meta.goalsCount, "meta.goalsCount"),
       eventsCount: asNumber(meta.eventsCount, "meta.eventsCount"),

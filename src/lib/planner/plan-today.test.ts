@@ -73,6 +73,7 @@ describe("generateTodayPlanForUser", () => {
       }) as never,
       userId: "user-1",
       fetchEvents: async () => [],
+      enhancePlan: async ({ plan }) => ({ plan }),
     });
 
     expect(result.status).toBe(200);
@@ -94,6 +95,7 @@ describe("generateTodayPlanForUser", () => {
       }) as never,
       userId: "user-1",
       fetchEvents: async () => [],
+      enhancePlan: async ({ plan }) => ({ plan }),
     });
 
     expect(result.status).toBe(400);
@@ -117,6 +119,7 @@ describe("generateTodayPlanForUser", () => {
       fetchEvents: async () => {
         throw new Error("Calendar unavailable");
       },
+      enhancePlan: async ({ plan }) => ({ plan }),
     });
 
     expect(result.status).toBe(200);
