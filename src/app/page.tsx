@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getCalendarConnectionStatus } from "@/lib/google/calendar";
+import { TodayPlanPanel } from "@/components/today-plan-panel";
 
 export default async function Home() {
   const supabase = await createClient();
@@ -51,36 +52,39 @@ export default async function Home() {
           </Link>
         </section>
       ) : (
-        <section className="space-y-4 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-          <p className="text-sm text-zinc-600">Signed in as {user.email}</p>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="rounded-lg bg-zinc-50 p-4">
-              <p className="text-xs uppercase tracking-wide text-zinc-500">Goals saved</p>
-              <p className="mt-2 text-2xl font-semibold text-zinc-900">{goalsCount ?? 0}</p>
+        <div className="space-y-4">
+          <section className="space-y-4 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+            <p className="text-sm text-zinc-600">Signed in as {user.email}</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-lg bg-zinc-50 p-4">
+                <p className="text-xs uppercase tracking-wide text-zinc-500">Goals saved</p>
+                <p className="mt-2 text-2xl font-semibold text-zinc-900">{goalsCount ?? 0}</p>
+              </div>
+              <div className="rounded-lg bg-zinc-50 p-4">
+                <p className="text-xs uppercase tracking-wide text-zinc-500">Focus block</p>
+                <p className="mt-2 text-2xl font-semibold text-zinc-900">{profile?.focus_block_minutes ?? "-"}</p>
+              </div>
+              <div className="rounded-lg bg-zinc-50 p-4">
+                <p className="text-xs uppercase tracking-wide text-zinc-500">Google Calendar</p>
+                <p className="mt-2 text-2xl font-semibold text-zinc-900">
+                  {calendarConnection.connected ? "Connected" : "Not connected"}
+                </p>
+              </div>
             </div>
-            <div className="rounded-lg bg-zinc-50 p-4">
-              <p className="text-xs uppercase tracking-wide text-zinc-500">Focus block</p>
-              <p className="mt-2 text-2xl font-semibold text-zinc-900">{profile?.focus_block_minutes ?? "-"}</p>
+            <p className="text-sm text-zinc-700">
+              Work hours: {profile?.work_start_time ?? "--:--"} - {profile?.work_end_time ?? "--:--"} | Workout: {profile?.workout_preference ?? "none"}
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <Link className="inline-flex rounded-lg bg-zinc-900 px-5 py-2 text-sm font-medium text-white" href="/onboarding">
+                Edit onboarding
+              </Link>
+              <Link className="inline-flex rounded-lg border border-zinc-300 px-5 py-2 text-sm font-medium text-zinc-900" href="/calendar">
+                Open calendar
+              </Link>
             </div>
-            <div className="rounded-lg bg-zinc-50 p-4">
-              <p className="text-xs uppercase tracking-wide text-zinc-500">Google Calendar</p>
-              <p className="mt-2 text-2xl font-semibold text-zinc-900">
-                {calendarConnection.connected ? "Connected" : "Not connected"}
-              </p>
-            </div>
-          </div>
-          <p className="text-sm text-zinc-700">
-            Work hours: {profile?.work_start_time ?? "--:--"} - {profile?.work_end_time ?? "--:--"} | Workout: {profile?.workout_preference ?? "none"}
-          </p>
-          <div className="flex flex-wrap gap-3">
-            <Link className="inline-flex rounded-lg bg-zinc-900 px-5 py-2 text-sm font-medium text-white" href="/onboarding">
-              Edit onboarding
-            </Link>
-            <Link className="inline-flex rounded-lg border border-zinc-300 px-5 py-2 text-sm font-medium text-zinc-900" href="/calendar">
-              Open calendar
-            </Link>
-          </div>
-        </section>
+          </section>
+          <TodayPlanPanel />
+        </div>
       )}
     </main>
   );
