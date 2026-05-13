@@ -18,7 +18,10 @@ create table if not exists public.goals (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
   title text not null,
+  description text,
   priority smallint not null default 3 check (priority between 1 and 3),
+  end_date date,
+  completed_at timestamptz,
   created_at timestamptz not null default now()
 );
 

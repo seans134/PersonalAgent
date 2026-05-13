@@ -1,8 +1,15 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createGoal } from "./actions";
+import { GoalsList } from "./goals-list";
 
-export default async function GoalsPage() {
+export default async function GoalsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const params = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -14,8 +21,9 @@ export default async function GoalsPage() {
 
   const { data: goals } = await supabase
     .from("goals")
-    .select("id, title, priority")
+    .select("id, title, description, priority, end_date, completed_at")
     .eq("user_id", user.id)
+    .is("completed_at", null)
     .order("priority", { ascending: true })
     .order("created_at", { ascending: true });
 
@@ -31,26 +39,56 @@ export default async function GoalsPage() {
         </Link>
       </div>
 
-      <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-        {!goals?.length ? (
-          <div>
-            <p className="text-zinc-700">No goals saved yet.</p>
-            <Link className="mt-4 inline-flex rounded-lg bg-zinc-900 px-5 py-2 text-sm font-medium text-white" href="/onboarding">
-              Add goals
-            </Link>
+      <form action={createGoal} className="mb-6 space-y-4 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div>
+          <h2 className="text-lg font-semibold text-zinc-900">Add goal</h2>
+          <p className="mt-1 text-sm text-zinc-600">Create a goal with a clear title and target end date.</p>
+        </div>
+        {params.error ? <p className="text-sm text-red-600">{params.error}</p> : null}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <label className="block text-sm text-zinc-700" htmlFor="title">
+              Goal title
+            </label>
+            <input
+              className="w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-50 placeholder:text-zinc-300"
+              id="title"
+              name="title"
+              placeholder="Ex: Run a half marathon"
+              required
+              type="text"
+            />
           </div>
-        ) : (
-          <ul className="space-y-3">
-            {goals.map((goal) => (
-              <li className="rounded-lg border border-zinc-200 p-4" key={goal.id}>
-                <Link className="block" href={`/goals/${goal.id}`}>
-                  <p className="font-medium text-zinc-900">{goal.title}</p>
-                  <p className="mt-1 text-sm text-zinc-600">Priority {goal.priority}</p>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
+          <div className="space-y-2">
+            <label className="block text-sm text-zinc-700" htmlFor="end_date">
+              End date
+            </label>
+            <input
+              className="w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-50"
+              id="end_date"
+              name="end_date"
+              type="date"
+            />
+          </div>
+        </div>
+        <div className="space-y-2">
+          <label className="block text-sm text-zinc-700" htmlFor="description">
+            Description
+          </label>
+          <textarea
+            className="min-h-24 w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-50 placeholder:text-zinc-300"
+            id="description"
+            name="description"
+            placeholder="Optional notes about why this goal matters or what success looks like"
+          />
+        </div>
+        <button className="rounded-lg bg-zinc-900 px-5 py-2 text-sm font-medium text-white" type="submit">
+          Add goal
+        </button>
+      </form>
+
+      <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <GoalsList goals={goals ?? []} />
       </section>
     </main>
   );

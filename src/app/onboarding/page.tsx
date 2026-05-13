@@ -29,18 +29,12 @@ export default async function OnboardingPage({
     .eq("user_id", user.id)
     .maybeSingle();
 
-  const { data: goals } = await supabase
-    .from("goals")
-    .select("title")
-    .eq("user_id", user.id)
-    .order("priority", { ascending: true });
-
   return (
     <main className="mx-auto min-h-screen w-full max-w-3xl px-6 py-12">
       <div className="mb-8 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight text-zinc-900">Onboarding</h1>
-          <p className="mt-2 text-zinc-700">Set your goals, schedule constraints, and preferences for Atlas.</p>
+          <p className="mt-2 text-zinc-700">Set your schedule constraints and preferences for Atlas.</p>
         </div>
         <Link className="text-sm text-zinc-600 underline" href="/">
           Back home
@@ -49,17 +43,6 @@ export default async function OnboardingPage({
 
       <form action={saveOnboarding} className="space-y-6 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         {params.error ? <p className="text-sm text-red-600">{params.error}</p> : null}
-        <section className="space-y-3">
-          <h2 className="text-lg font-semibold text-zinc-900">Goals</h2>
-          <p className="text-sm text-zinc-600">Add one goal per line. Top lines are treated as higher priority.</p>
-          <textarea
-            className="min-h-32 w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-50 placeholder:text-zinc-300"
-            defaultValue={goals?.map((goal) => goal.title).join("\n") ?? ""}
-            name="goals"
-            placeholder="Exercise 3x per week&#10;Deep work for 2 hours daily&#10;Read 20 pages nightly"
-          />
-        </section>
-
         <section className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <label className="block text-sm text-zinc-700" htmlFor="work_start_time">

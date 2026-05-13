@@ -2,6 +2,12 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
+function formatDateOnly(value: string) {
+  const [year, month, day] = value.split("-");
+  if (!year || !month || !day) return value;
+  return `${month}/${day}/${year}`;
+}
+
 export default async function GoalPage({
   params,
 }: {
@@ -19,7 +25,7 @@ export default async function GoalPage({
 
   const { data: goal } = await supabase
     .from("goals")
-    .select("id, title, priority, created_at")
+    .select("id, title, description, priority, end_date, completed_at, created_at")
     .eq("id", id)
     .eq("user_id", user.id)
     .maybeSingle();
@@ -41,10 +47,19 @@ export default async function GoalPage({
       </div>
 
       <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        {goal.description ? <p className="mb-6 text-zinc-700">{goal.description}</p> : null}
         <dl className="grid gap-4 sm:grid-cols-2">
           <div className="rounded-lg bg-zinc-50 p-4">
-            <dt className="text-xs uppercase tracking-wide text-zinc-500">Priority</dt>
-            <dd className="mt-2 text-2xl font-semibold text-zinc-900">{goal.priority}</dd>
+            <dt className="text-xs uppercase tracking-wide text-zinc-500">Status</dt>
+            <dd className="mt-2 text-sm font-medium text-zinc-900">
+              {goal.completed_at ? "Complete" : "Active"}
+            </dd>
+          </div>
+          <div className="rounded-lg bg-zinc-50 p-4">
+            <dt className="text-xs uppercase tracking-wide text-zinc-500">End date</dt>
+            <dd className="mt-2 text-sm font-medium text-zinc-900">
+              {goal.end_date ? formatDateOnly(goal.end_date) : "No end date"}
+            </dd>
           </div>
           <div className="rounded-lg bg-zinc-50 p-4">
             <dt className="text-xs uppercase tracking-wide text-zinc-500">Created</dt>

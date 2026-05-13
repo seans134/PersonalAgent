@@ -51,6 +51,7 @@ export async function generateTodayPlanForUser(input: {
     .from("goals")
     .select("title, priority")
     .eq("user_id", userId)
+    .is("completed_at", null)
     .order("priority", { ascending: true });
 
   if (goalsError) {
