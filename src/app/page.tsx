@@ -78,6 +78,9 @@ export default async function Home() {
               <Link className="inline-flex rounded-lg bg-zinc-900 px-5 py-2 text-sm font-medium text-white" href="/onboarding">
                 Edit onboarding
               </Link>
+              <Link className="inline-flex rounded-lg border border-zinc-300 px-5 py-2 text-sm font-medium text-zinc-900" href="/goals">
+                Open goals
+              </Link>
               <Link className="inline-flex rounded-lg border border-zinc-300 px-5 py-2 text-sm font-medium text-zinc-900" href="/calendar">
                 Open calendar
               </Link>
