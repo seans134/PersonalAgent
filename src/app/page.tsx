@@ -44,7 +44,7 @@ export default async function Home() {
           <p className="text-sm font-medium uppercase tracking-wide text-zinc-500">Atlas</p>
           <h1 className="text-4xl font-semibold tracking-tight text-zinc-900">Personal AI life agent</h1>
           <p className="mt-3 max-w-xl text-zinc-700">
-            Phase 1 is live: authentication and onboarding for goals, constraints, and preferences.
+            Phase 1 is live: authentication, schedule setup, goals, and daily planning.
           </p>
         </div>
         {user ? (
@@ -91,8 +91,11 @@ export default async function Home() {
               Work hours: {profile?.work_start_time ?? "--:--"} - {profile?.work_end_time ?? "--:--"} | Workout: {profile?.workout_preference ?? "none"}
             </p>
             <div className="flex flex-wrap gap-3">
-              <Link className="inline-flex rounded-lg bg-zinc-900 px-5 py-2 text-sm font-medium text-white" href="/onboarding">
-                Edit onboarding
+              <Link className="inline-flex rounded-lg bg-zinc-900 px-5 py-2 text-sm font-medium text-white" href="/onboarding/schedule">
+                Edit schedule setup
+              </Link>
+              <Link className="inline-flex rounded-lg border border-zinc-300 px-5 py-2 text-sm font-medium text-zinc-900" href="/onboarding">
+                Edit weekly rhythm
               </Link>
               <Link className="inline-flex rounded-lg border border-zinc-300 px-5 py-2 text-sm font-medium text-zinc-900" href="/goals">
                 Open goals

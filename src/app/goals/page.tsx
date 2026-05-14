@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { OnboardingProgress } from "@/components/onboarding-progress";
 import { createClient } from "@/lib/supabase/server";
 import { createGoal } from "./actions";
 import { GoalsList } from "./goals-list";
@@ -31,13 +32,16 @@ export default async function GoalsPage({
     <main className="mx-auto min-h-screen w-full max-w-3xl px-6 py-12">
       <div className="mb-8 flex items-start justify-between gap-4">
         <div>
+          <p className="text-sm font-medium uppercase tracking-wide text-zinc-500">Step 3 of 3</p>
           <h1 className="text-3xl font-semibold tracking-tight text-zinc-900">Goals</h1>
-          <p className="mt-2 text-zinc-700">Review the goals Atlas uses to shape your daily plan.</p>
+          <p className="mt-2 text-zinc-700">Add the outcomes Atlas should use to shape your daily plan.</p>
         </div>
-        <Link className="text-sm text-zinc-600 underline" href="/">
-          Back home
+        <Link className="text-sm text-zinc-600 underline" href="/onboarding">
+          Back
         </Link>
       </div>
+
+      <OnboardingProgress currentStep={3} />
 
       <form action={createGoal} className="mb-6 space-y-4 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div>
@@ -90,6 +94,15 @@ export default async function GoalsPage({
       <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <GoalsList goals={goals ?? []} />
       </section>
+
+      <div className="mt-6 flex flex-wrap items-center gap-3">
+        <Link className="rounded-lg bg-zinc-900 px-5 py-2 text-sm font-medium text-white" href="/">
+          Finish onboarding
+        </Link>
+        <Link className="text-sm text-zinc-600 underline" href="/">
+          Skip for now
+        </Link>
+      </div>
     </main>
   );
 }

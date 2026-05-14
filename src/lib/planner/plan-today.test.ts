@@ -24,10 +24,14 @@ function createSupabaseMock(state: MockState) {
             return {
               eq() {
                 return {
-                  order: async () => ({
-                    data: state.goals ?? [],
-                    error: state.goalsError ? { message: state.goalsError } : null,
-                  }),
+                  is() {
+                    return {
+                      order: async () => ({
+                        data: state.goals ?? [],
+                        error: state.goalsError ? { message: state.goalsError } : null,
+                      }),
+                    };
+                  },
                 };
               },
             };

@@ -49,5 +49,6 @@ export async function saveOnboarding(formData: FormData) {
   }
 
   revalidatePath("/");
-  redirect("/");
+  revalidatePath("/goals");
+  redirect("/goals");
 }

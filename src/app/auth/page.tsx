@@ -11,7 +11,7 @@ export default async function AuthPage() {
   } = await supabase.auth.getUser();
 
   if (user) {
-    redirect("/onboarding");
+    redirect("/onboarding/schedule");
   }
 
   return (
@@ -20,7 +20,7 @@ export default async function AuthPage() {
         <div className="space-y-4">
           <h1 className="text-3xl font-semibold tracking-tight text-zinc-900">Atlas</h1>
           <p className="text-zinc-700">
-            Sign in or create an account to start your onboarding for goals, constraints, and preferences.
+            Sign in or create an account to add school, work, goals, and planning preferences.
           </p>
           <Link className="text-sm text-zinc-600 underline" href="/">
             Back to home
@@ -28,7 +28,7 @@ export default async function AuthPage() {
         </div>
         <div className="space-y-4">
           <AuthForm title="Sign in" actionLabel="Sign in" action={signIn} />
-          <AuthForm title="Create account" actionLabel="Sign up" action={signUp} />
+          <AuthForm title="Create account" actionLabel="Sign up" action={signUp} requirePasswordConfirmation />
         </div>
       </section>
     </main>
