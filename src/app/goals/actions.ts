@@ -92,6 +92,7 @@ export async function removeGoal(formData: FormData) {
   }
 
   const id = String(formData.get("id") ?? "").trim();
+  const returnTo = String(formData.get("return_to") ?? "/goals").trim();
 
   if (!id) {
     redirect("/goals?error=Goal%20id%20is%20required");
@@ -105,7 +106,8 @@ export async function removeGoal(formData: FormData) {
 
   revalidatePath("/");
   revalidatePath("/goals");
-  redirect("/goals");
+  revalidatePath("/goals/completed");
+  redirect(returnTo === "/goals/completed" ? "/goals/completed" : "/goals");
 }
 
 export async function completeGoal(formData: FormData) {

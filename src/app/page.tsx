@@ -17,8 +17,20 @@ export default async function Home() {
         .maybeSingle()
     : { data: null };
 
-  const { count: goalsCount } = user
-    ? await supabase.from("goals").select("id", { count: "exact", head: true }).eq("user_id", user.id)
+  const { count: activeGoalsCount } = user
+    ? await supabase
+        .from("goals")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .is("completed_at", null)
+    : { count: 0 };
+
+  const { count: completedGoalsCount } = user
+    ? await supabase
+        .from("goals")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .not("completed_at", "is", null)
     : { count: 0 };
 
   const calendarConnection = user
@@ -57,8 +69,12 @@ export default async function Home() {
             <p className="text-sm text-zinc-600">Signed in as {user.email}</p>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="rounded-lg bg-zinc-50 p-4">
-                <p className="text-xs uppercase tracking-wide text-zinc-500">Goals saved</p>
-                <p className="mt-2 text-2xl font-semibold text-zinc-900">{goalsCount ?? 0}</p>
+                <p className="text-xs uppercase tracking-wide text-zinc-500">Active goals</p>
+                <p className="mt-2 text-2xl font-semibold text-zinc-900">{activeGoalsCount ?? 0}</p>
+              </div>
+              <div className="rounded-lg bg-zinc-50 p-4">
+                <p className="text-xs uppercase tracking-wide text-zinc-500">Completed goals</p>
+                <p className="mt-2 text-2xl font-semibold text-zinc-900">{completedGoalsCount ?? 0}</p>
               </div>
               <div className="rounded-lg bg-zinc-50 p-4">
                 <p className="text-xs uppercase tracking-wide text-zinc-500">Focus block</p>
@@ -80,6 +96,9 @@ export default async function Home() {
               </Link>
               <Link className="inline-flex rounded-lg border border-zinc-300 px-5 py-2 text-sm font-medium text-zinc-900" href="/goals">
                 Open goals
+              </Link>
+              <Link className="inline-flex rounded-lg border border-zinc-300 px-5 py-2 text-sm font-medium text-zinc-900" href="/goals/completed">
+                Completed goals
               </Link>
               <Link className="inline-flex rounded-lg border border-zinc-300 px-5 py-2 text-sm font-medium text-zinc-900" href="/calendar">
                 Open calendar
