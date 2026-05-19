@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { getCalendarConnectionStatus } from "@/lib/google/calendar";
 import { TodayPlanPanel } from "@/components/today-plan-panel";
 
 export default async function Home() {
@@ -33,9 +32,28 @@ export default async function Home() {
         .not("completed_at", "is", null)
     : { count: 0 };
 
-  const calendarConnection = user
-    ? await getCalendarConnectionStatus(supabase, user.id)
-    : { connected: false as const, expiresAt: null as string | null };
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const todayEnd = new Date();
+  todayEnd.setHours(23, 59, 59, 999);
+
+  const { count: mealsLoggedCount } = user
+    ? await supabase
+        .from("meal_logs")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .gte("logged_at", todayStart.toISOString())
+        .lte("logged_at", todayEnd.toISOString())
+    : { count: 0 };
+
+  const { count: workoutsLoggedCount } = user
+    ? await supabase
+        .from("workout_logs")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .gte("logged_at", todayStart.toISOString())
+        .lte("logged_at", todayEnd.toISOString())
+    : { count: 0 };
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-4xl flex-col px-6 py-12">
@@ -77,14 +95,12 @@ export default async function Home() {
                 <p className="mt-2 text-2xl font-semibold text-zinc-900">{completedGoalsCount ?? 0}</p>
               </div>
               <div className="rounded-lg bg-zinc-50 p-4">
-                <p className="text-xs uppercase tracking-wide text-zinc-500">Focus block</p>
-                <p className="mt-2 text-2xl font-semibold text-zinc-900">{profile?.focus_block_minutes ?? "-"}</p>
+                <p className="text-xs uppercase tracking-wide text-zinc-500">Meals logged today</p>
+                <p className="mt-2 text-2xl font-semibold text-zinc-900">{mealsLoggedCount ?? 0}</p>
               </div>
               <div className="rounded-lg bg-zinc-50 p-4">
-                <p className="text-xs uppercase tracking-wide text-zinc-500">Google Calendar</p>
-                <p className="mt-2 text-2xl font-semibold text-zinc-900">
-                  {calendarConnection.connected ? "Connected" : "Not connected"}
-                </p>
+                <p className="text-xs uppercase tracking-wide text-zinc-500">Workouts logged today</p>
+                <p className="mt-2 text-2xl font-semibold text-zinc-900">{workoutsLoggedCount ?? 0}</p>
               </div>
             </div>
             <p className="text-sm text-zinc-700">
@@ -102,6 +118,9 @@ export default async function Home() {
               </Link>
               <Link className="inline-flex rounded-lg border border-zinc-300 px-5 py-2 text-sm font-medium text-zinc-900" href="/goals/completed">
                 Completed goals
+              </Link>
+              <Link className="inline-flex rounded-lg border border-zinc-300 px-5 py-2 text-sm font-medium text-zinc-900" href="/tracking/meals">
+                Track meals
               </Link>
               <Link className="inline-flex rounded-lg border border-zinc-300 px-5 py-2 text-sm font-medium text-zinc-900" href="/calendar">
                 Open calendar

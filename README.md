@@ -45,6 +45,7 @@ cp .env.example .env.local
 
 - `db/schema.sql`
 - `db/google_calendar.sql`
+- `db/tracking.sql`
 
 6. Start dev server:
 
