@@ -6,6 +6,7 @@ import {
   parseBodyProfileLogFormData,
   parseMealLogFormData,
   parseMealLogUpdateFormData,
+  parseSavedMealFormData,
   parseWorkoutLogFormData,
   type TrackingActionResult,
 } from "@/lib/tracking";
@@ -45,6 +46,7 @@ async function getUserId() {
 function revalidateTrackingPaths() {
   revalidatePath("/");
   revalidatePath("/tracking");
+  revalidatePath("/tracking/meals");
 }
 
 export async function createMealLog(formData: FormData): Promise<TrackingActionResult> {
@@ -93,6 +95,113 @@ export async function updateMealLog(formData: FormData): Promise<TrackingActionR
     const input = parseMealLogUpdateFormData(formData);
 
     const { error } = await supabase.from("meal_logs").update(input).eq("id", id).eq("user_id", userId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    revalidateTrackingPaths();
+    return success();
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function saveMeal(formData: FormData): Promise<TrackingActionResult> {
+  try {
+    const { supabase, userId } = await getUserId();
+    const input = parseSavedMealFormData(formData);
+
+    const { error } = await supabase.from("saved_meals").insert({
+      user_id: userId,
+      ...input,
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    revalidateTrackingPaths();
+    return success();
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function updateSavedMeal(formData: FormData): Promise<TrackingActionResult> {
+  try {
+    const { supabase, userId } = await getUserId();
+    const id = getId(formData);
+    const input = parseSavedMealFormData(formData);
+
+    const { error } = await supabase
+      .from("saved_meals")
+      .update({
+        ...input,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id)
+      .eq("user_id", userId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    revalidateTrackingPaths();
+    return success();
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function removeSavedMeal(formData: FormData): Promise<TrackingActionResult> {
+  try {
+    const { supabase, userId } = await getUserId();
+    const id = getId(formData);
+
+    const { error } = await supabase.from("saved_meals").delete().eq("id", id).eq("user_id", userId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    revalidateTrackingPaths();
+    return success();
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function createMealLogFromSavedMeal(formData: FormData): Promise<TrackingActionResult> {
+  try {
+    const { supabase, userId } = await getUserId();
+    const savedMealId = String(formData.get("saved_meal_id") ?? "").trim();
+
+    if (!savedMealId) {
+      throw new Error("Saved meal id is required.");
+    }
+
+    const { data: savedMeal, error: loadError } = await supabase
+      .from("saved_meals")
+      .select("name, calories, protein_grams, carbs_grams, fat_grams, fiber_grams, notes")
+      .eq("id", savedMealId)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (loadError) {
+      throw new Error(loadError.message);
+    }
+
+    if (!savedMeal) {
+      throw new Error("Saved meal was not found.");
+    }
+
+    const { error } = await supabase.from("meal_logs").insert({
+      user_id: userId,
+      logged_at: new Date().toISOString(),
+      meal_type: "meal",
+      ...savedMeal,
+    });
 
     if (error) {
       throw new Error(error.message);

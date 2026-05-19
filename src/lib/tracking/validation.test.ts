@@ -3,6 +3,7 @@ import {
   parseBodyProfileLogFormData,
   parseMealLogFormData,
   parseMealLogUpdateFormData,
+  parseSavedMealFormData,
   parseWorkoutLogFormData,
 } from "./validation";
 
@@ -22,6 +23,7 @@ describe("tracking validation", () => {
         meal_type: "breakfast",
         calories: "420",
         protein_grams: "31.5",
+        fiber_grams: "7.2",
         notes: "Post-workout",
       }),
     );
@@ -31,6 +33,7 @@ describe("tracking validation", () => {
     expect(parsed.calories).toBe(420);
     expect(parsed.protein_grams).toBe(31.5);
     expect(parsed.carbs_grams).toBeNull();
+    expect(parsed.fiber_grams).toBe(7.2);
     expect(parsed.notes).toBe("Post-workout");
   });
 
@@ -53,8 +56,27 @@ describe("tracking validation", () => {
       protein_grams: 42,
       carbs_grams: null,
       fat_grams: null,
+      fiber_grams: null,
       notes: null,
     });
+  });
+
+  it("parses saved meals using reusable meal fields", () => {
+    const parsed = parseSavedMealFormData(
+      form({
+        name: "Chicken rice bowl",
+        calories: "720",
+        carbs_grams: "78.5",
+        fat_grams: "18",
+        fiber_grams: "9",
+      }),
+    );
+
+    expect(parsed.name).toBe("Chicken rice bowl");
+    expect(parsed.calories).toBe(720);
+    expect(parsed.carbs_grams).toBe(78.5);
+    expect(parsed.fat_grams).toBe(18);
+    expect(parsed.fiber_grams).toBe(9);
   });
 
   it("parses workout logs with typed defaults", () => {

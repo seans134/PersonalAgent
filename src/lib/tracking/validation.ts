@@ -3,6 +3,7 @@ import type {
   MealLogInput,
   MealLogUpdateInput,
   MealType,
+  SavedMealInput,
   WorkoutIntensity,
   WorkoutLogInput,
   WorkoutType,
@@ -103,6 +104,7 @@ export function parseMealLogFormData(formData: FormData): MealLogInput {
     protein_grams: optionalNonNegativeNumber(formData, "protein_grams", "Protein"),
     carbs_grams: optionalNonNegativeNumber(formData, "carbs_grams", "Carbs"),
     fat_grams: optionalNonNegativeNumber(formData, "fat_grams", "Fat"),
+    fiber_grams: optionalNonNegativeNumber(formData, "fiber_grams", "Fiber"),
     notes: optionalText(formData, "notes"),
   };
 }
@@ -114,8 +116,13 @@ export function parseMealLogUpdateFormData(formData: FormData): MealLogUpdateInp
     protein_grams: optionalNonNegativeNumber(formData, "protein_grams", "Protein"),
     carbs_grams: optionalNonNegativeNumber(formData, "carbs_grams", "Carbs"),
     fat_grams: optionalNonNegativeNumber(formData, "fat_grams", "Fat"),
+    fiber_grams: optionalNonNegativeNumber(formData, "fiber_grams", "Fiber"),
     notes: optionalText(formData, "notes"),
   };
+}
+
+export function parseSavedMealFormData(formData: FormData): SavedMealInput {
+  return parseMealLogUpdateFormData(formData);
 }
 
 export function parseWorkoutLogFormData(formData: FormData): WorkoutLogInput {

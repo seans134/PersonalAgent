@@ -22,7 +22,10 @@ function formatNumber(value: number | null) {
   return Number(value).toLocaleString();
 }
 
-function sumNullable(rows: MealLogListItem[], key: "calories" | "protein_grams" | "carbs_grams" | "fat_grams") {
+function sumNullable(
+  rows: MealLogListItem[],
+  key: "calories" | "protein_grams" | "carbs_grams" | "fat_grams" | "fiber_grams",
+) {
   return rows.reduce((total, row) => total + Number(row[key] ?? 0), 0);
 }
 
@@ -39,7 +42,7 @@ export default async function TrackMealsPage() {
   const { start, end } = todayBounds();
   const { data: mealLogs, error } = await supabase
     .from("meal_logs")
-    .select("id, logged_at, meal_type, name, calories, protein_grams, carbs_grams, fat_grams, notes")
+    .select("id, logged_at, meal_type, name, calories, protein_grams, carbs_grams, fat_grams, fiber_grams, notes")
     .eq("user_id", user.id)
     .gte("logged_at", start.toISOString())
     .lte("logged_at", end.toISOString())
@@ -65,8 +68,7 @@ export default async function TrackMealsPage() {
           Error: {error.message}
         </p>
       ) : null}
-
-      <div className="mb-6 grid gap-3 sm:grid-cols-4">
+      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
         <div className="rounded-lg bg-white p-4 shadow-sm">
           <p className="text-xs uppercase tracking-wide text-zinc-500">Meals</p>
           <p className="mt-2 text-2xl font-semibold text-zinc-900">{meals.length}</p>
@@ -80,15 +82,37 @@ export default async function TrackMealsPage() {
           <p className="mt-2 text-2xl font-semibold text-zinc-900">{formatNumber(sumNullable(meals, "protein_grams"))}</p>
         </div>
         <div className="rounded-lg bg-white p-4 shadow-sm">
-          <p className="text-xs uppercase tracking-wide text-zinc-500">Carbs / Fat g</p>
-          <p className="mt-2 text-2xl font-semibold text-zinc-900">
-            {formatNumber(sumNullable(meals, "carbs_grams"))} / {formatNumber(sumNullable(meals, "fat_grams"))}
-          </p>
+          <p className="text-xs uppercase tracking-wide text-zinc-500">Carbs g</p>
+          <p className="mt-2 text-2xl font-semibold text-zinc-900">{formatNumber(sumNullable(meals, "carbs_grams"))}</p>
+        </div>
+        <div className="rounded-lg bg-white p-4 shadow-sm">
+          <p className="text-xs uppercase tracking-wide text-zinc-500">Fat g</p>
+          <p className="mt-2 text-2xl font-semibold text-zinc-900">{formatNumber(sumNullable(meals, "fat_grams"))}</p>
+        </div>
+        <div className="rounded-lg bg-white p-4 shadow-sm">
+          <p className="text-xs uppercase tracking-wide text-zinc-500">Fiber g</p>
+          <p className="mt-2 text-2xl font-semibold text-zinc-900">{formatNumber(sumNullable(meals, "fiber_grams"))}</p>
         </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_0.9fr]">
-        <MealLogForm />
+        <div className="space-y-6">
+          <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-zinc-900">Saved meals</h2>
+                <p className="mt-1 text-sm text-zinc-600">Track meals you have saved before.</p>
+              </div>
+              <Link
+                className="rounded-lg bg-zinc-900 px-5 py-2 text-sm font-medium text-white"
+                href="/tracking/meals/saved"
+              >
+                Saved meals
+              </Link>
+            </div>
+          </section>
+          <MealLogForm />
+        </div>
 
         <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-zinc-900">Today&apos;s meals</h2>

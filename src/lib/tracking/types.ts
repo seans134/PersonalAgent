@@ -12,6 +12,7 @@ export type MealLogInput = {
   protein_grams: number | null;
   carbs_grams: number | null;
   fat_grams: number | null;
+  fiber_grams: number | null;
   notes: string | null;
 };
 
@@ -21,8 +22,11 @@ export type MealLogUpdateInput = {
   protein_grams: number | null;
   carbs_grams: number | null;
   fat_grams: number | null;
+  fiber_grams: number | null;
   notes: string | null;
 };
+
+export type SavedMealInput = MealLogUpdateInput;
 
 export type WorkoutLogInput = {
   logged_at: string;
