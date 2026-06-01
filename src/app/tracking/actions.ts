@@ -325,6 +325,78 @@ export async function createWorkoutLogFromScheduleItem(formData: FormData): Prom
   }
 }
 
+export async function createWorkoutLogsFromTodaySchedule(): Promise<TrackingActionResult> {
+  try {
+    const { supabase, userId } = await getUserId();
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+    const day = todayStart.getDay();
+    const dayOfWeek = day === 0 ? 7 : day;
+
+    const { data: scheduleItems, error: scheduleError } = await supabase
+      .from("workout_schedule_items")
+      .select("id, workout_type, tracking_method, title, duration_minutes, metrics, notes")
+      .eq("user_id", userId)
+      .eq("day_of_week", dayOfWeek)
+      .order("position", { ascending: true })
+      .order("created_at", { ascending: true });
+
+    if (scheduleError) {
+      throw new Error(scheduleError.message);
+    }
+
+    if (!scheduleItems || scheduleItems.length === 0) {
+      revalidateTrackingPaths();
+      return success();
+    }
+
+    const { data: existingLogs, error: existingError } = await supabase
+      .from("workout_logs")
+      .select("source_schedule_item_id")
+      .eq("user_id", userId)
+      .gte("logged_at", todayStart.toISOString())
+      .lte("logged_at", todayEnd.toISOString());
+
+    if (existingError) {
+      throw new Error(existingError.message);
+    }
+
+    const completedIds = new Set(
+      (existingLogs ?? []).flatMap((log) => (log.source_schedule_item_id ? [log.source_schedule_item_id] : [])),
+    );
+    const newLogs = scheduleItems
+      .filter((item) => !completedIds.has(item.id))
+      .map((item) => ({
+        user_id: userId,
+        source_schedule_item_id: item.id,
+        logged_at: new Date().toISOString(),
+        workout_type: item.workout_type,
+        tracking_method: item.tracking_method,
+        title: item.title,
+        duration_minutes: item.duration_minutes,
+        intensity: "moderate",
+        calories_burned: null,
+        metrics: item.metrics ?? {},
+        notes: item.notes,
+      }));
+
+    if (newLogs.length > 0) {
+      const { error } = await supabase.from("workout_logs").insert(newLogs);
+
+      if (error) {
+        throw new Error(error.message);
+      }
+    }
+
+    revalidateTrackingPaths();
+    return success();
+  } catch (error) {
+    return failure(error);
+  }
+}
+
 export async function createWorkoutScheduleItem(formData: FormData): Promise<TrackingActionResult> {
   try {
     const { supabase, userId } = await getUserId();
