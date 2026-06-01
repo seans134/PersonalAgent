@@ -1,8 +1,23 @@
 export type MealType = "breakfast" | "lunch" | "dinner" | "snack" | "meal";
 
-export type WorkoutType = "strength" | "cardio" | "mobility" | "sport" | "walk" | "other";
+export type WorkoutType = "strength" | "cardio" | "recovery" | "sport";
 
 export type WorkoutIntensity = "light" | "moderate" | "intense";
+
+export type WorkoutTrackingMethod =
+  | "sets_reps_weight"
+  | "bodyweight_sets"
+  | "distance_time"
+  | "time_only"
+  | "intervals"
+  | "mobility_flow"
+  | "stretching"
+  | "breathwork"
+  | "game"
+  | "practice"
+  | "skills";
+
+export type WorkoutMetrics = Record<string, string | number | null>;
 
 export type MealLogInput = {
   logged_at: string;
@@ -31,10 +46,22 @@ export type SavedMealInput = MealLogUpdateInput;
 export type WorkoutLogInput = {
   logged_at: string;
   workout_type: WorkoutType;
+  tracking_method: WorkoutTrackingMethod;
   title: string;
   duration_minutes: number;
   intensity: WorkoutIntensity;
   calories_burned: number | null;
+  metrics: WorkoutMetrics;
+  notes: string | null;
+};
+
+export type WorkoutScheduleItemInput = {
+  day_of_week: number;
+  workout_type: WorkoutType;
+  tracking_method: WorkoutTrackingMethod;
+  title: string;
+  duration_minutes: number | null;
+  metrics: WorkoutMetrics;
   notes: string | null;
 };
 

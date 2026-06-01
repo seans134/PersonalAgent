@@ -8,6 +8,7 @@ import {
   parseMealLogUpdateFormData,
   parseSavedMealFormData,
   parseWorkoutLogFormData,
+  parseWorkoutScheduleItemFormData,
   type TrackingActionResult,
 } from "@/lib/tracking";
 
@@ -47,6 +48,8 @@ function revalidateTrackingPaths() {
   revalidatePath("/");
   revalidatePath("/tracking");
   revalidatePath("/tracking/meals");
+  revalidatePath("/tracking/workouts");
+  revalidatePath("/tracking/workouts/plan");
 }
 
 export async function createMealLog(formData: FormData): Promise<TrackingActionResult> {
@@ -241,6 +244,128 @@ export async function removeWorkoutLog(formData: FormData): Promise<TrackingActi
     const id = getId(formData);
 
     const { error } = await supabase.from("workout_logs").delete().eq("id", id).eq("user_id", userId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    revalidateTrackingPaths();
+    return success();
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function createWorkoutLogFromScheduleItem(formData: FormData): Promise<TrackingActionResult> {
+  try {
+    const { supabase, userId } = await getUserId();
+    const id = getId(formData);
+
+    const { data: scheduleItem, error: loadError } = await supabase
+      .from("workout_schedule_items")
+      .select("id, workout_type, tracking_method, title, duration_minutes, metrics, notes")
+      .eq("id", id)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (loadError) {
+      throw new Error(loadError.message);
+    }
+
+    if (!scheduleItem) {
+      throw new Error("Planned workout was not found.");
+    }
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
+    const { data: existingLog, error: existingError } = await supabase
+      .from("workout_logs")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("source_schedule_item_id", scheduleItem.id)
+      .gte("logged_at", todayStart.toISOString())
+      .lte("logged_at", todayEnd.toISOString())
+      .limit(1)
+      .maybeSingle();
+
+    if (existingError) {
+      throw new Error(existingError.message);
+    }
+
+    if (existingLog) {
+      revalidateTrackingPaths();
+      return success();
+    }
+
+    const { error } = await supabase.from("workout_logs").insert({
+      user_id: userId,
+      source_schedule_item_id: scheduleItem.id,
+      logged_at: new Date().toISOString(),
+      workout_type: scheduleItem.workout_type,
+      tracking_method: scheduleItem.tracking_method,
+      title: scheduleItem.title,
+      duration_minutes: scheduleItem.duration_minutes,
+      intensity: "moderate",
+      calories_burned: null,
+      metrics: scheduleItem.metrics ?? {},
+      notes: scheduleItem.notes,
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    revalidateTrackingPaths();
+    return success();
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function createWorkoutScheduleItem(formData: FormData): Promise<TrackingActionResult> {
+  try {
+    const { supabase, userId } = await getUserId();
+    const input = parseWorkoutScheduleItemFormData(formData);
+
+    const { data: lastItem, error: loadError } = await supabase
+      .from("workout_schedule_items")
+      .select("position")
+      .eq("user_id", userId)
+      .eq("day_of_week", input.day_of_week)
+      .order("position", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (loadError) {
+      throw new Error(loadError.message);
+    }
+
+    const { error } = await supabase.from("workout_schedule_items").insert({
+      user_id: userId,
+      ...input,
+      position: Number(lastItem?.position ?? -1) + 1,
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    revalidateTrackingPaths();
+    return success();
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function removeWorkoutScheduleItem(formData: FormData): Promise<TrackingActionResult> {
+  try {
+    const { supabase, userId } = await getUserId();
+    const id = getId(formData);
+
+    const { error } = await supabase.from("workout_schedule_items").delete().eq("id", id).eq("user_id", userId);
 
     if (error) {
       throw new Error(error.message);

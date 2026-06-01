@@ -5,6 +5,7 @@ import {
   parseMealLogUpdateFormData,
   parseSavedMealFormData,
   parseWorkoutLogFormData,
+  parseWorkoutScheduleItemFormData,
 } from "./validation";
 
 function form(entries: Record<string, string>) {
@@ -89,8 +90,31 @@ describe("tracking validation", () => {
 
     expect(parsed.title).toBe("Upper body");
     expect(parsed.duration_minutes).toBe(55);
-    expect(parsed.workout_type).toBe("other");
+    expect(parsed.workout_type).toBe("strength");
+    expect(parsed.tracking_method).toBe("sets_reps_weight");
     expect(parsed.intensity).toBe("moderate");
+  });
+
+  it("parses cardio interval workout metrics", () => {
+    const parsed = parseWorkoutLogFormData(
+      form({
+        workout_type: "cardio",
+        tracking_method: "intervals",
+        title: "Bike intervals",
+        duration_minutes: "30",
+        intervals: "8",
+        work_seconds: "45",
+        rest_seconds: "75",
+      }),
+    );
+
+    expect(parsed.workout_type).toBe("cardio");
+    expect(parsed.tracking_method).toBe("intervals");
+    expect(parsed.metrics).toEqual({
+      intervals: 8,
+      work_seconds: 45,
+      rest_seconds: 75,
+    });
   });
 
   it("rejects invalid workout durations", () => {
@@ -102,6 +126,52 @@ describe("tracking validation", () => {
         }),
       ),
     ).toThrow(/duration/i);
+  });
+
+  it("parses workout schedule items", () => {
+    const parsed = parseWorkoutScheduleItemFormData(
+      form({
+        day_of_week: "2",
+        workout_type: "cardio",
+        tracking_method: "distance_time",
+        title: "Easy run",
+        duration_minutes: "35",
+      }),
+    );
+
+    expect(parsed).toEqual({
+      day_of_week: 2,
+      workout_type: "cardio",
+      tracking_method: "distance_time",
+      title: "Easy run",
+      duration_minutes: 35,
+      metrics: {},
+      notes: null,
+    });
+  });
+
+  it("parses sets, reps, and weight for scheduled strength workouts", () => {
+    const parsed = parseWorkoutScheduleItemFormData(
+      form({
+        day_of_week: "1",
+        workout_type: "strength",
+        tracking_method: "sets_reps_weight",
+        title: "Bench press",
+        duration_minutes: "45",
+        sets: "3",
+        reps: "10",
+        weight: "135",
+      }),
+    );
+
+    expect(parsed.duration_minutes).toBeNull();
+    expect(parsed.metrics).toEqual({
+      exercise_name: null,
+      sets: 3,
+      reps: 10,
+      weight: 135,
+      weight_unit: "lb",
+    });
   });
 
   it("parses body profile logs when at least one metric is present", () => {

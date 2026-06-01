@@ -6,12 +6,20 @@ import type {
   SavedMealInput,
   WorkoutIntensity,
   WorkoutLogInput,
+  WorkoutScheduleItemInput,
+  WorkoutTrackingMethod,
   WorkoutType,
 } from "./types";
 
 const MEAL_TYPES = new Set<MealType>(["breakfast", "lunch", "dinner", "snack", "meal"]);
-const WORKOUT_TYPES = new Set<WorkoutType>(["strength", "cardio", "mobility", "sport", "walk", "other"]);
+const WORKOUT_TYPES = new Set<WorkoutType>(["strength", "cardio", "recovery", "sport"]);
 const WORKOUT_INTENSITIES = new Set<WorkoutIntensity>(["light", "moderate", "intense"]);
+const WORKOUT_METHODS_BY_TYPE: Record<WorkoutType, WorkoutTrackingMethod[]> = {
+  strength: ["sets_reps_weight", "bodyweight_sets"],
+  cardio: ["distance_time", "time_only", "intervals"],
+  recovery: ["mobility_flow", "stretching", "breathwork"],
+  sport: ["game", "practice", "skills"],
+};
 
 function requiredText(formData: FormData, key: string, label: string) {
   const value = String(formData.get(key) ?? "").trim();
@@ -42,6 +50,19 @@ function optionalNonNegativeNumber(formData: FormData, key: string, label: strin
 
 function optionalNonNegativeInteger(formData: FormData, key: string, label: string) {
   const value = optionalNonNegativeNumber(formData, key, label);
+  if (value === null) {
+    return null;
+  }
+
+  if (!Number.isInteger(value)) {
+    throw new Error(`${label} must be a whole number.`);
+  }
+
+  return value;
+}
+
+function optionalPositiveInteger(formData: FormData, key: string, label: string) {
+  const value = optionalPositiveNumber(formData, key, label);
   if (value === null) {
     return null;
   }
@@ -126,25 +147,122 @@ export function parseSavedMealFormData(formData: FormData): SavedMealInput {
 }
 
 export function parseWorkoutLogFormData(formData: FormData): WorkoutLogInput {
-  const workoutTypeRaw = String(formData.get("workout_type") ?? "other").trim();
+  const workoutTypeRaw = String(formData.get("workout_type") ?? "strength").trim();
   const intensityRaw = String(formData.get("intensity") ?? "moderate").trim();
 
   const workoutType = WORKOUT_TYPES.has(workoutTypeRaw as WorkoutType)
     ? (workoutTypeRaw as WorkoutType)
-    : "other";
+    : "strength";
+  const validMethods = WORKOUT_METHODS_BY_TYPE[workoutType];
+  const methodRaw = String(formData.get("tracking_method") ?? validMethods[0]).trim();
+  const trackingMethod = validMethods.includes(methodRaw as WorkoutTrackingMethod)
+    ? (methodRaw as WorkoutTrackingMethod)
+    : validMethods[0];
   const intensity = WORKOUT_INTENSITIES.has(intensityRaw as WorkoutIntensity)
     ? (intensityRaw as WorkoutIntensity)
     : "moderate";
 
+  const metrics = parseWorkoutMetrics(formData, trackingMethod);
+
   return {
     logged_at: optionalLoggedAt(formData),
     workout_type: workoutType,
+    tracking_method: trackingMethod,
     title: requiredText(formData, "title", "Workout title"),
     duration_minutes: requiredIntegerInRange(formData, "duration_minutes", "Duration", 1, 1440),
     intensity,
     calories_burned: optionalNonNegativeInteger(formData, "calories_burned", "Calories burned"),
+    metrics,
     notes: optionalText(formData, "notes"),
   };
+}
+
+export function parseWorkoutScheduleItemFormData(formData: FormData): WorkoutScheduleItemInput {
+  const { workoutType, trackingMethod } = parseWorkoutTypeAndMethod(formData);
+  const usesPlannedStrengthMetrics = trackingMethod === "sets_reps_weight";
+
+  return {
+    day_of_week: requiredIntegerInRange(formData, "day_of_week", "Day", 1, 7),
+    workout_type: workoutType,
+    tracking_method: trackingMethod,
+    title: requiredText(formData, "title", "Workout title"),
+    duration_minutes: usesPlannedStrengthMetrics
+      ? null
+      : optionalPositiveInteger(formData, "duration_minutes", "Duration"),
+    metrics: usesPlannedStrengthMetrics ? parseWorkoutMetrics(formData, trackingMethod) : {},
+    notes: optionalText(formData, "notes"),
+  };
+}
+
+function parseWorkoutTypeAndMethod(formData: FormData) {
+  const workoutTypeRaw = String(formData.get("workout_type") ?? "strength").trim();
+  const workoutType = WORKOUT_TYPES.has(workoutTypeRaw as WorkoutType)
+    ? (workoutTypeRaw as WorkoutType)
+    : "strength";
+  const validMethods = WORKOUT_METHODS_BY_TYPE[workoutType];
+  const methodRaw = String(formData.get("tracking_method") ?? validMethods[0]).trim();
+  const trackingMethod = validMethods.includes(methodRaw as WorkoutTrackingMethod)
+    ? (methodRaw as WorkoutTrackingMethod)
+    : validMethods[0];
+
+  return { workoutType, trackingMethod };
+}
+
+function parseWorkoutMetrics(formData: FormData, method: WorkoutTrackingMethod) {
+  switch (method) {
+    case "sets_reps_weight":
+      return {
+        exercise_name: optionalText(formData, "exercise_name"),
+        sets: optionalPositiveInteger(formData, "sets", "Sets"),
+        reps: optionalPositiveInteger(formData, "reps", "Reps"),
+        weight: optionalNonNegativeNumber(formData, "weight", "Weight"),
+        weight_unit: optionalText(formData, "weight_unit") ?? "lb",
+      };
+    case "bodyweight_sets":
+      return {
+        exercise_name: optionalText(formData, "exercise_name"),
+        sets: optionalPositiveInteger(formData, "sets", "Sets"),
+        reps: optionalPositiveInteger(formData, "reps", "Reps"),
+      };
+    case "distance_time":
+      return {
+        distance: optionalNonNegativeNumber(formData, "distance", "Distance"),
+        distance_unit: optionalText(formData, "distance_unit") ?? "mi",
+      };
+    case "intervals":
+      return {
+        intervals: optionalPositiveInteger(formData, "intervals", "Intervals"),
+        work_seconds: optionalPositiveInteger(formData, "work_seconds", "Work interval"),
+        rest_seconds: optionalPositiveInteger(formData, "rest_seconds", "Rest interval"),
+      };
+    case "mobility_flow":
+    case "stretching":
+      return {
+        focus_area: optionalText(formData, "focus_area"),
+      };
+    case "breathwork":
+      return {
+        rounds: optionalPositiveInteger(formData, "rounds", "Rounds"),
+      };
+    case "game":
+      return {
+        sport_name: optionalText(formData, "sport_name"),
+        result: optionalText(formData, "result"),
+      };
+    case "practice":
+      return {
+        sport_name: optionalText(formData, "sport_name"),
+        drill: optionalText(formData, "drill"),
+      };
+    case "skills":
+      return {
+        sport_name: optionalText(formData, "sport_name"),
+        skill: optionalText(formData, "skill"),
+      };
+    case "time_only":
+    default:
+      return {};
+  }
 }
 
 export function parseBodyProfileLogFormData(formData: FormData): BodyProfileLogInput {
