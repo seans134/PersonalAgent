@@ -57,7 +57,7 @@ export default async function Home() {
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-4xl flex-col px-6 py-12">
-      <header className="mb-8 flex items-start justify-between gap-4">
+      <header className="mb-8">
         <div>
           <p className="text-sm font-medium uppercase tracking-wide text-zinc-500">Atlas</p>
           <h1 className="text-4xl font-semibold tracking-tight text-zinc-900">Personal AI life agent</h1>
@@ -65,13 +65,6 @@ export default async function Home() {
             Phase 1 is live: authentication, schedule setup, goals, and daily planning.
           </p>
         </div>
-        {user ? (
-          <form action="/logout" method="post">
-            <button className="rounded-lg border border-zinc-300 px-4 py-2 text-sm" type="submit">
-              Sign out
-            </button>
-          </form>
-        ) : null}
       </header>
 
       {!user ? (
@@ -106,29 +99,6 @@ export default async function Home() {
             <p className="text-sm text-zinc-700">
               Work hours: {profile?.work_start_time ?? "--:--"} - {profile?.work_end_time ?? "--:--"} | Workout: {profile?.workout_preference ?? "none"}
             </p>
-            <div className="flex flex-wrap gap-3">
-              <Link className="inline-flex rounded-lg bg-zinc-900 px-5 py-2 text-sm font-medium text-white" href="/onboarding/schedule">
-                Edit schedule setup
-              </Link>
-              <Link className="inline-flex rounded-lg border border-zinc-300 px-5 py-2 text-sm font-medium text-zinc-900" href="/onboarding">
-                Edit weekly rhythm
-              </Link>
-              <Link className="inline-flex rounded-lg border border-zinc-300 px-5 py-2 text-sm font-medium text-zinc-900" href="/goals">
-                Open goals
-              </Link>
-              <Link className="inline-flex rounded-lg border border-zinc-300 px-5 py-2 text-sm font-medium text-zinc-900" href="/goals/completed">
-                Completed goals
-              </Link>
-              <Link className="inline-flex rounded-lg border border-zinc-300 px-5 py-2 text-sm font-medium text-zinc-900" href="/tracking/meals">
-                Track meals
-              </Link>
-              <Link className="inline-flex rounded-lg border border-zinc-300 px-5 py-2 text-sm font-medium text-zinc-900" href="/tracking/workouts">
-                Track workouts
-              </Link>
-              <Link className="inline-flex rounded-lg border border-zinc-300 px-5 py-2 text-sm font-medium text-zinc-900" href="/calendar">
-                Open calendar
-              </Link>
-            </div>
           </section>
           <TodayPlanPanel />
         </div>

@@ -6,6 +6,7 @@ import type {
   SavedMealInput,
   WorkoutIntensity,
   WorkoutLogInput,
+  WorkoutMetrics,
   WorkoutScheduleItemInput,
   WorkoutTrackingMethod,
   WorkoutType,
@@ -208,7 +209,7 @@ function parseWorkoutTypeAndMethod(formData: FormData) {
   return { workoutType, trackingMethod };
 }
 
-function parseWorkoutMetrics(formData: FormData, method: WorkoutTrackingMethod) {
+function parseWorkoutMetrics(formData: FormData, method: WorkoutTrackingMethod): WorkoutMetrics {
   switch (method) {
     case "sets_reps_weight":
       return {
