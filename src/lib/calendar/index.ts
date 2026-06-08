@@ -44,6 +44,8 @@ type CalendarSnapshot = {
   events?: CalendarEvent[];
 };
 
+type CalendarEventPatch = Partial<Omit<CalendarEvent, "id">>;
+
 type MinuteRange = {
   start: number;
   end: number;
@@ -60,6 +62,13 @@ function assertClockTime(value: string, fieldName: string) {
 
 function assertDate(value: string) {
   if (!DATE_PATTERN.test(value)) {
+    throw new Error("date must be a valid YYYY-MM-DD date.");
+  }
+
+  const [year, month, day] = value.split("-").map(Number);
+  const parsed = new Date(year, month - 1, day);
+
+  if (parsed.getFullYear() !== year || parsed.getMonth() !== month - 1 || parsed.getDate() !== day) {
     throw new Error("date must be a valid YYYY-MM-DD date.");
   }
 }
@@ -116,6 +125,12 @@ function validateScheduleBlock(block: ScheduleBlock) {
     throw new Error("schedule block must include at least one day.");
   }
 
+  for (const day of block.daysOfWeek) {
+    if (!Number.isInteger(day) || day < 0 || day > 6) {
+      throw new Error("schedule block daysOfWeek must contain values from 0 to 6.");
+    }
+  }
+
   validateTimeRange(block.startTime, block.endTime);
 }
 
@@ -142,7 +157,11 @@ function sortEvents(events: CalendarEvent[]): CalendarEvent[] {
       return a.startTime < b.startTime ? -1 : 1;
     }
 
-    return a.endTime < b.endTime ? -1 : 1;
+    if (a.endTime !== b.endTime) {
+      return a.endTime < b.endTime ? -1 : 1;
+    }
+
+    return a.id.localeCompare(b.id);
   });
 }
 
@@ -192,7 +211,40 @@ export class Calendar {
 
   addEvent(event: CalendarEvent) {
     validateCalendarEvent(event);
+    if (this.events.some((existingEvent) => existingEvent.id === event.id)) {
+      throw new Error(`calendar event already exists: ${event.id}`);
+    }
+
     this.events.push({ ...event });
+    return { ...event };
+  }
+
+  updateEvent(id: string, patch: CalendarEventPatch): CalendarEvent {
+    const eventIndex = this.events.findIndex((event) => event.id === id);
+    if (eventIndex === -1) {
+      throw new Error(`calendar event not found: ${id}`);
+    }
+
+    const updatedEvent = { ...this.events[eventIndex], ...patch, id };
+    validateCalendarEvent(updatedEvent);
+    this.events[eventIndex] = updatedEvent;
+
+    return { ...updatedEvent };
+  }
+
+  removeEvent(id: string): boolean {
+    const eventIndex = this.events.findIndex((event) => event.id === id);
+    if (eventIndex === -1) {
+      return false;
+    }
+
+    this.events.splice(eventIndex, 1);
+    return true;
+  }
+
+  getEvent(id: string): CalendarEvent | null {
+    const event = this.events.find((existingEvent) => existingEvent.id === id);
+    return event ? { ...event } : null;
   }
 
   getScheduleBlocks(): ScheduleBlock[] {

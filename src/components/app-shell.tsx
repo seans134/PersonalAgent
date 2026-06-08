@@ -10,6 +10,7 @@ const navItems = [
   { href: "/onboarding/schedule", label: "Schedule" },
   { href: "/goals", label: "Goals" },
   { href: "/goals/completed", label: "Completed" },
+  { href: "/calendar/local", label: "Local calendar" },
   { href: "/calendar", label: "Calendar" },
   { href: "/tracking/meals", label: "Meals" },
   { href: "/tracking/meals/saved", label: "Saved meals" },
@@ -80,7 +81,7 @@ export function AppShell({
         <nav aria-label="Primary navigation" className="mt-8 flex flex-col gap-1">
           {navItems.map((item) => {
             const isActive =
-              item.href === "/" ? pathname === item.href : pathname.startsWith(item.href);
+              item.href === "/" ? pathname === item.href : pathname === item.href || pathname.startsWith(`${item.href}/`);
 
             return (
               <Link

@@ -102,6 +102,66 @@ describe("Calendar", () => {
     ).toThrow(/endTime must be after startTime/);
   });
 
+  it("rejects invalid calendar dates", () => {
+    expect(
+      () =>
+        new Calendar({
+          events: [
+            {
+              ...appointment,
+              date: "2026-02-31",
+            },
+          ],
+        }),
+    ).toThrow(/date must be a valid YYYY-MM-DD date/);
+  });
+
+  it("rejects invalid schedule weekdays", () => {
+    expect(
+      () =>
+        new Calendar({
+          scheduleBlocks: [
+            {
+              ...schoolBlock,
+              daysOfWeek: [7 as never],
+            },
+          ],
+        }),
+    ).toThrow(/daysOfWeek must contain values from 0 to 6/);
+  });
+
+  it("updates and removes dated events", () => {
+    const calendar = new Calendar({ events: [appointment] });
+
+    const updated = calendar.updateEvent("advisor", {
+      title: "Advisor sync",
+      startTime: "11:15",
+      endTime: "11:45",
+    });
+
+    expect(updated).toMatchObject({
+      id: "advisor",
+      title: "Advisor sync",
+      startTime: "11:15",
+      endTime: "11:45",
+    });
+    expect(calendar.getEvent("advisor")).toMatchObject(updated);
+    expect(calendar.getEventsForDate("2026-05-18").map((event) => event.title)).toEqual(["Advisor sync"]);
+
+    expect(calendar.removeEvent("advisor")).toBe(true);
+    expect(calendar.getEvent("advisor")).toBeNull();
+    expect(calendar.getEventsForDate("2026-05-18")).toEqual([]);
+  });
+
+  it("rejects duplicate stored event ids", () => {
+    expect(
+      () =>
+        new Calendar({
+          events: [appointment, { ...appointment, title: "Duplicate advisor" }],
+        }),
+    ).toThrow(/calendar event already exists/);
+  });
+
   it("serializes without exposing internal mutable arrays", () => {
     const calendar = new Calendar({ scheduleBlocks: [schoolBlock], events: [appointment] });
     const snapshot = calendar.toJSON();
