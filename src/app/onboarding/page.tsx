@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { NaturalLanguageOnboardingPanel } from "@/components/natural-language-onboarding-panel";
 import { OnboardingProgress } from "@/components/onboarding-progress";
 import { createClient } from "@/lib/supabase/server";
 import { OnboardingScheduleCalendar } from "./schedule/schedule-calendar";
@@ -51,6 +52,8 @@ export default async function OnboardingPage({
 
       {params.error ? <p className="mb-4 text-sm text-red-600">{params.error}</p> : null}
       <OnboardingProgress currentStep={2} />
+
+      <NaturalLanguageOnboardingPanel mode="weekly_rhythm" />
 
       <section className="mb-6">
         <OnboardingScheduleCalendar

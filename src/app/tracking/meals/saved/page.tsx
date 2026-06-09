@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { NaturalLanguageMealPanel } from "../natural-language-meal-panel";
 import { SavedMealForm } from "./saved-meal-form";
 import { SavedMealList, type SavedMealListItem } from "./saved-meal-list";
 
@@ -40,6 +41,8 @@ export default async function SavedMealsPage() {
           Error: {error.message}
         </p>
       ) : null}
+
+      <NaturalLanguageMealPanel mode="saved" />
 
       <div className="grid gap-6 lg:grid-cols-[1fr_0.9fr]">
         <SavedMealForm />

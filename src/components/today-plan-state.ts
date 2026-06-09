@@ -60,6 +60,30 @@ function asStringArray(value: unknown, label: string): string[] {
   return value;
 }
 
+function parseContextEvents(value: unknown): TodayPlanResponse["contextEvents"] {
+  if (value === undefined) {
+    return [];
+  }
+
+  if (!Array.isArray(value)) {
+    throw new Error("Invalid context events.");
+  }
+
+  return value.map((event, index) => {
+    if (!isRecord(event)) {
+      throw new Error(`Invalid context event at index ${index}.`);
+    }
+
+    return {
+      id: asString(event.id, "contextEvent.id"),
+      title: asString(event.title, "contextEvent.title"),
+      startTime: asString(event.startTime, "contextEvent.startTime"),
+      endTime: asString(event.endTime, "contextEvent.endTime"),
+      source: asString(event.source, "contextEvent.source") as "google" | "local" | "schedule",
+    };
+  });
+}
+
 export function parseTodayPlanResponse(payload: unknown): TodayPlanResponse {
   if (!isRecord(payload)) {
     throw new Error("Invalid response payload.");
@@ -97,6 +121,7 @@ export function parseTodayPlanResponse(payload: unknown): TodayPlanResponse {
       constrained: Boolean(plan.constrained),
       explanation: typeof plan.explanation === "string" ? plan.explanation : undefined,
     },
+    contextEvents: parseContextEvents(payload.contextEvents),
     summary: typeof payload.summary === "string" ? payload.summary : undefined,
     meta: {
       goalsCount: asNumber(meta.goalsCount, "meta.goalsCount"),

@@ -2,7 +2,7 @@
 
 import { useReducer } from "react";
 import type { TodayPlanResponse } from "@/lib/planner/client-types";
-import { PlanItemCard } from "./plan-item-card";
+import { TodayPlanCalendar } from "./today-plan-calendar";
 import {
   initialTodayPlanState,
   parseTodayPlanResponse,
@@ -113,11 +113,11 @@ export function TodayPlanPanel() {
             <p className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-700">{planData.summary}</p>
           ) : null}
 
-          <ul className="space-y-3">
-            {planData.plan.items.map((item, index) => (
-              <PlanItemCard item={item} key={`${item.type}-${item.title}-${item.startTime}-${index}`} />
-            ))}
-          </ul>
+          <TodayPlanCalendar
+            contextEvents={planData.contextEvents}
+            generatedAt={planData.meta.generatedAt}
+            items={planData.plan.items}
+          />
         </div>
       ) : (
         <p className="text-sm text-zinc-600">No plan generated yet.</p>

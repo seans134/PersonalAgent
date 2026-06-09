@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { Calendar, type ScheduleBlock, type ScheduleBlockCategory } from "@/lib/calendar";
 import { createClient } from "@/lib/supabase/client";
 
@@ -137,6 +137,10 @@ export function OnboardingScheduleCalendar({
 
   const calendar = useMemo(() => new Calendar({ scheduleBlocks: blocks }), [blocks]);
   const weekDays = Array.from({ length: 7 }, (_, index) => addDays(referenceWeekStart, index));
+
+  useEffect(() => {
+    setBlocks(initialBlocks.map(toScheduleBlock));
+  }, [initialBlocks]);
 
   function openModal(slot: SelectedSlot) {
     setError("");

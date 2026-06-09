@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { NaturalLanguageWorkoutPlanPanel } from "./natural-language-workout-plan-panel";
 import { WorkoutSchedulePanel, type WorkoutScheduleItem } from "../workout-schedule-panel";
 
 export default async function PlanWorkoutsPage() {
@@ -41,6 +42,8 @@ export default async function PlanWorkoutsPage() {
           Error: {error.message}
         </p>
       ) : null}
+
+      <NaturalLanguageWorkoutPlanPanel />
 
       <WorkoutSchedulePanel items={schedule} />
     </main>

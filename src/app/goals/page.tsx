@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { NaturalLanguageOnboardingPanel } from "@/components/natural-language-onboarding-panel";
 import { OnboardingProgress } from "@/components/onboarding-progress";
 import { createClient } from "@/lib/supabase/server";
 import { createGoal } from "./actions";
@@ -42,6 +43,8 @@ export default async function GoalsPage({
       </div>
 
       <OnboardingProgress currentStep={3} />
+
+      <NaturalLanguageOnboardingPanel mode="goals" />
 
       <form action={createGoal} className="mb-6 space-y-4 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div>

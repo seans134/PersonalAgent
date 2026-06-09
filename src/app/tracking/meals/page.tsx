@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { MealLogForm } from "./meal-log-form";
 import { MealLogList, type MealLogListItem } from "./meal-log-list";
+import { NaturalLanguageMealPanel } from "./natural-language-meal-panel";
 
 function todayBounds() {
   const start = new Date();
@@ -94,6 +95,8 @@ export default async function TrackMealsPage() {
           <p className="mt-2 text-2xl font-semibold text-zinc-900">{formatNumber(sumNullable(meals, "fiber_grams"))}</p>
         </div>
       </div>
+
+      <NaturalLanguageMealPanel mode="log" />
 
       <div className="grid gap-6 lg:grid-cols-[1fr_0.9fr]">
         <div className="space-y-6">
