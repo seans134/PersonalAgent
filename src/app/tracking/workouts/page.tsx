@@ -5,6 +5,7 @@ import { NaturalLanguageWorkoutLogPanel } from "./natural-language-workout-log-p
 import { PlannedWorkoutList, type PlannedWorkoutItem } from "./planned-workout-list";
 import { WorkoutLogForm } from "./workout-log-form";
 import { WorkoutLogList, type WorkoutLogListItem } from "./workout-log-list";
+import { WorkoutSuggestionPanel } from "./workout-suggestion-panel";
 
 function todayBounds() {
   const start = new Date();
@@ -83,6 +84,7 @@ export default async function TrackWorkoutsPage() {
       </section>
 
       <NaturalLanguageWorkoutLogPanel />
+      <WorkoutSuggestionPanel />
 
       {error ? (
         <p className="mb-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">

@@ -23,10 +23,45 @@ export type WorkoutScheduleParsePromptInput = {
   timezone: string;
 };
 
+export type WorkoutSuggestionPromptInput = {
+  timezone: string;
+  today: string;
+  currentTimeContext: unknown;
+  profile: unknown;
+  latestBodyProfile: unknown;
+  fitnessContext: unknown;
+  goals: unknown[];
+  todayWorkouts: unknown[];
+  recentWorkouts: unknown[];
+  plannedWorkouts: unknown[];
+  todayMeals: unknown[];
+  nutritionContext: unknown;
+  todayEvents: unknown[];
+  currentSuggestion?: unknown;
+  userFeedback?: string | null;
+};
+
 export type MealParsePromptInput = {
   mode: "log" | "saved";
   text: string;
   timezone: string;
+};
+
+export type MealSuggestionPromptInput = {
+  timezone: string;
+  today: string;
+  currentTimeContext: unknown;
+  profile: unknown;
+  latestBodyProfile: unknown;
+  nutritionContext: unknown;
+  goals: unknown[];
+  todayMeals: unknown[];
+  recentMeals: unknown[];
+  savedMeals: unknown[];
+  todayWorkouts: unknown[];
+  todayEvents: unknown[];
+  currentSuggestion?: unknown;
+  userFeedback?: string | null;
 };
 
 function buildSystemInstruction(): string {
@@ -84,6 +119,28 @@ function buildWorkoutScheduleParserInstruction(): string {
   ].join("\n");
 }
 
+function buildWorkoutSuggestionInstruction(): string {
+  return [
+    "Decide whether a workout suggestion is useful today.",
+    "Return strict JSON with shape: {should_suggest: boolean, suggestion: object | null, agent_reply: string, warnings: array}.",
+    "When should_suggest is true, suggestion shape is {logged_at, workout_type, tracking_method, title, duration_minutes, intensity, calories_burned, metrics, notes, suggestion_reason, suggested_timing, target_alignment}.",
+    "When should_suggest is false, set suggestion to null and explain why in agent_reply.",
+    "Use currentTimeContext as the source of truth for the user's current local date and time. Do not infer or invent the current time.",
+    "Use the user's fitness goals, body profile, workout history, today's planned/completed workouts, today's meals/nutrition context, and calendar events.",
+    "If the user already has a planned workout for today that is not completed, prefer adapting or recommending that workout instead of inventing a separate session.",
+    "If the user already completed enough similar work today, especially the same training type such as hypertrophy after hypertrophy, do not suggest another workout unless the user explicitly asks.",
+    "Match the workout to today's available time, recent training load, current meals/energy context, and stated workout preference.",
+    "Support the fitness goal without medical, injury rehab, guaranteed fat loss, or guaranteed performance claims.",
+    "Avoid extreme intensity, overtraining, unsafe behavior, shame-based wording, or instructions to ignore pain.",
+    "If currentSuggestion and userFeedback are provided, revise the current suggestion to match the feedback while preserving safety and valid schema.",
+    "If userFeedback asks a question, answer it directly in agent_reply. Keep or adjust the suggestion only if the answer implies a better fit.",
+    "If userFeedback asks for an alternative, another option, or a change, the returned suggestion must be meaningfully different from currentSuggestion unless unsafe or impossible.",
+    "Use conservative duration and intensity when context is incomplete. Include uncertainty in warnings.",
+    "Use valid workout_type and tracking_method combinations only.",
+    "Keep notes, suggestion_reason, and target_alignment concise and actionable.",
+  ].join("\n");
+}
+
 function buildMealParserInstruction(): string {
   return [
     "Extract one meal draft from the user's natural-language note.",
@@ -94,6 +151,31 @@ function buildMealParserInstruction(): string {
     "Use numeric values for calories and grams. Use null for unknown nutrition.",
     "Do not invent precise nutrition when the note is vague. Include a warning when nutrition is estimated or uncertain.",
     "Avoid medical advice, extreme dieting, unsafe restrictions, purging, or shame-based wording.",
+  ].join("\n");
+}
+
+function buildMealSuggestionInstruction(): string {
+  return [
+    "Decide whether a meal or snack suggestion is useful right now.",
+    "Return strict JSON with shape: {should_suggest: boolean, suggestion: object | null, agent_reply: string, warnings: array}.",
+    "When should_suggest is true, suggestion shape is {logged_at, meal_type, name, calories, protein_grams, carbs_grams, fat_grams, fiber_grams, notes, suggestion_reason, suggested_timing, target_alignment}.",
+    "When should_suggest is false, set suggestion to null and explain why in agent_reply.",
+    "Use currentTimeContext as the source of truth for the user's current local date and time. Do not infer or invent the current time.",
+    "Set logged_at to currentTimeContext.currentIso because accepting the suggestion logs the meal now.",
+    "Use the user's fitness goals, body profile, today's nutrition totals, meals from today, recent meals, saved meals, today's events, and workout/training sessions as context.",
+    "If the user has explicit calorie or macro targets in their goals, notes, saved meals, or body profile, suggest a meal that helps close the gap for today.",
+    "If there are no explicit calorie or macro targets, support the fitness goal qualitatively and do not invent a daily calorie target.",
+    "If the user has already eaten enough for the current context or no meal is needed now, do not suggest food unless the user explicitly asks.",
+    "If asked whether a calorie total is a target, clarify that logged intake so far is not a prescribed target unless an explicit target exists.",
+    "Consider whether the meal should fit before or after a training session, but do not give medical, clinical, or performance guarantees.",
+    "Prefer familiar foods from saved or recent meals when they fit; otherwise suggest a simple meal with common ingredients.",
+    "Use null for nutrition values when uncertain. Use approximate nutrition only for common foods or meals already logged/saved, and mention uncertainty in warnings.",
+    "If currentSuggestion and userFeedback are provided, revise the current suggestion to match the feedback while preserving safety and valid schema.",
+    "If userFeedback asks a question, answer it directly in agent_reply. Keep or adjust the suggestion only if the answer implies a better fit.",
+    "If userFeedback asks for an alternative, another option, or a change, the returned suggestion must be meaningfully different from currentSuggestion unless unsafe or impossible.",
+    "Use ISO date/time for logged_at near the suggested timing. Use meal_type values breakfast, lunch, dinner, snack, or meal.",
+    "Keep notes, suggestion_reason, and target_alignment concise, supportive, and non-judgmental.",
+    "Avoid medical advice, extreme dieting, unsafe restrictions, purging, shame-based wording, or rigid calorie targets.",
   ].join("\n");
 }
 
@@ -219,6 +301,32 @@ function buildWorkoutScheduleParserPrompt(input: WorkoutScheduleParsePromptInput
   });
 }
 
+function buildWorkoutSuggestionPrompt(input: WorkoutSuggestionPromptInput): string {
+  return JSON.stringify({
+    timezone: input.timezone,
+    today: input.today,
+    currentTimeContext: input.currentTimeContext,
+    profile: input.profile,
+    latestBodyProfile: input.latestBodyProfile,
+    fitnessContext: input.fitnessContext,
+    goals: input.goals,
+    todayWorkouts: input.todayWorkouts,
+    recentWorkouts: input.recentWorkouts,
+    plannedWorkouts: input.plannedWorkouts,
+    todayMeals: input.todayMeals,
+    nutritionContext: input.nutritionContext,
+    todayEvents: input.todayEvents,
+    currentSuggestion: input.currentSuggestion ?? null,
+    userFeedback: input.userFeedback ?? null,
+    expectedShape: {
+      should_suggest: "boolean",
+      suggestion: "workout object | null",
+      agent_reply: "string",
+      warnings: ["string"],
+    },
+  });
+}
+
 function buildMealParserPrompt(input: MealParsePromptInput): string {
   return JSON.stringify({
     mode: input.mode,
@@ -234,6 +342,31 @@ function buildMealParserPrompt(input: MealParsePromptInput): string {
       fat_grams: "number | null",
       fiber_grams: "number | null",
       notes: "string | null",
+      warnings: ["string"],
+    },
+  });
+}
+
+function buildMealSuggestionPrompt(input: MealSuggestionPromptInput): string {
+  return JSON.stringify({
+    timezone: input.timezone,
+    today: input.today,
+    currentTimeContext: input.currentTimeContext,
+    profile: input.profile,
+    latestBodyProfile: input.latestBodyProfile,
+    nutritionContext: input.nutritionContext,
+    goals: input.goals,
+    todayMeals: input.todayMeals,
+    recentMeals: input.recentMeals,
+    savedMeals: input.savedMeals,
+    todayWorkouts: input.todayWorkouts,
+    todayEvents: input.todayEvents,
+    currentSuggestion: input.currentSuggestion ?? null,
+    userFeedback: input.userFeedback ?? null,
+    expectedShape: {
+      should_suggest: "boolean",
+      suggestion: "meal object | null",
+      agent_reply: "string",
       warnings: ["string"],
     },
   });
@@ -479,6 +612,65 @@ export async function requestWorkoutScheduleParse(input: WorkoutScheduleParsePro
   }
 }
 
+export async function requestWorkoutSuggestion(input: WorkoutSuggestionPromptInput): Promise<unknown> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY is not configured.");
+  }
+
+  const model = process.env.GEMINI_MODEL ?? "gemini-2.0-flash";
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      systemInstruction: {
+        parts: [{ text: buildWorkoutSuggestionInstruction() }],
+      },
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: buildWorkoutSuggestionPrompt(input) }],
+        },
+      ],
+      generationConfig: {
+        temperature: 0.3,
+        responseMimeType: "application/json",
+      },
+    }),
+    cache: "no-store",
+  });
+
+  const payload = (await response.json()) as {
+    error?: { message?: string };
+    candidates?: Array<{
+      content?: {
+        parts?: Array<{
+          text?: string;
+        }>;
+      };
+    }>;
+  };
+
+  if (!response.ok) {
+    throw new Error(payload.error?.message ?? `Gemini request failed with status ${response.status}`);
+  }
+
+  const content = payload.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!content) {
+    throw new Error("Gemini returned empty content.");
+  }
+
+  try {
+    return JSON.parse(content);
+  } catch {
+    throw new Error("Gemini returned invalid JSON.");
+  }
+}
+
 export async function requestMealParse(input: MealParsePromptInput): Promise<unknown> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
@@ -505,6 +697,65 @@ export async function requestMealParse(input: MealParsePromptInput): Promise<unk
       ],
       generationConfig: {
         temperature: 0.1,
+        responseMimeType: "application/json",
+      },
+    }),
+    cache: "no-store",
+  });
+
+  const payload = (await response.json()) as {
+    error?: { message?: string };
+    candidates?: Array<{
+      content?: {
+        parts?: Array<{
+          text?: string;
+        }>;
+      };
+    }>;
+  };
+
+  if (!response.ok) {
+    throw new Error(payload.error?.message ?? `Gemini request failed with status ${response.status}`);
+  }
+
+  const content = payload.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!content) {
+    throw new Error("Gemini returned empty content.");
+  }
+
+  try {
+    return JSON.parse(content);
+  } catch {
+    throw new Error("Gemini returned invalid JSON.");
+  }
+}
+
+export async function requestMealSuggestion(input: MealSuggestionPromptInput): Promise<unknown> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY is not configured.");
+  }
+
+  const model = process.env.GEMINI_MODEL ?? "gemini-2.0-flash";
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      systemInstruction: {
+        parts: [{ text: buildMealSuggestionInstruction() }],
+      },
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: buildMealSuggestionPrompt(input) }],
+        },
+      ],
+      generationConfig: {
+        temperature: 0.3,
         responseMimeType: "application/json",
       },
     }),

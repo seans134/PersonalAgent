@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { MealLogForm } from "./meal-log-form";
 import { MealLogList, type MealLogListItem } from "./meal-log-list";
+import { MealSuggestionPanel } from "./meal-suggestion-panel";
 import { NaturalLanguageMealPanel } from "./natural-language-meal-panel";
 
 function todayBounds() {
@@ -97,6 +98,7 @@ export default async function TrackMealsPage() {
       </div>
 
       <NaturalLanguageMealPanel mode="log" />
+      <MealSuggestionPanel />
 
       <div className="grid gap-6 lg:grid-cols-[1fr_0.9fr]">
         <div className="space-y-6">
