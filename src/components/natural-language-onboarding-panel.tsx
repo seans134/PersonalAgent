@@ -233,7 +233,7 @@ export function NaturalLanguageOnboardingPanel({ mode }: { mode: NaturalLanguage
                     <li key={`${goal.title}-${index}`}>
                       <span className="font-medium text-zinc-900">{goal.title}</span>
                       <br />
-                      Priority {goal.priority}
+                      Priority {goal.priority} - {goal.taskType} - {goal.minimumDailyMinutes} min/day minimum
                       {goal.endDate ? `, by ${goal.endDate}` : ""}
                     </li>
                   ))}

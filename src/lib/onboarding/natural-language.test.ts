@@ -19,6 +19,8 @@ describe("validateNaturalLanguageOnboardingDraft", () => {
             title: "Learn Spanish",
             description: "Practice most weekdays",
             priority: 1,
+            taskType: "focus",
+            minimumDailyMinutes: 30,
             endDate: "2026-12-31",
           },
         ],
@@ -56,6 +58,8 @@ describe("validateNaturalLanguageOnboardingDraft", () => {
             title: "Learn Spanish",
             description: "Practice most weekdays",
             priority: 1,
+            taskType: "focus",
+            minimumDailyMinutes: 30,
             endDate: "2026-12-31",
           },
         ],
@@ -78,8 +82,68 @@ describe("validateNaturalLanguageOnboardingDraft", () => {
       title: "Learn Spanish",
       description: "Practice most weekdays",
       priority: 1,
+      taskType: "focus",
+      minimumDailyMinutes: 30,
       endDate: "2026-12-31",
     });
+  });
+
+  it("normalizes goal planning hints and caps oversized daily minimums", () => {
+    const draft = validateNaturalLanguageOnboardingDraft(
+      {
+        profile: {},
+        goals: [
+          {
+            title: "Get jacked",
+            priority: 1,
+            taskType: "exercise",
+            minimumDailyMinutes: 9999,
+          },
+          {
+            title: "Keep inbox clean",
+            priority: 3,
+            taskType: "admin",
+            minimumDailyMinutes: 0,
+          },
+          {
+            title: "Mystery goal",
+            priority: 2,
+            taskType: "chaos",
+            minimumDailyMinutes: -45,
+          },
+        ],
+        scheduleBlocks: [],
+      },
+      "goals",
+    );
+
+    expect(draft.goals).toEqual([
+      {
+        title: "Get jacked",
+        description: null,
+        priority: 1,
+        taskType: "fitness",
+        minimumDailyMinutes: 720,
+        endDate: null,
+      },
+      {
+        title: "Keep inbox clean",
+        description: null,
+        priority: 3,
+        taskType: "admin",
+        minimumDailyMinutes: 0,
+        endDate: null,
+      },
+      {
+        title: "Mystery goal",
+        description: null,
+        priority: 2,
+        taskType: "general",
+        minimumDailyMinutes: 0,
+        endDate: null,
+      },
+    ]);
+    expect(draft.warnings).toEqual(expect.arrayContaining([expect.stringMatching(/capped to 720 minutes/i)]));
   });
 
   it("keeps weekly rhythm blocks separate from school and work", () => {

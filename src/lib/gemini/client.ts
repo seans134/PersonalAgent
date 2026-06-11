@@ -50,6 +50,8 @@ function buildOnboardingParserInstruction(): string {
     "Use 24-hour HH:MM times only. Use null or omit fields when uncertain.",
     "Valid schedule categories are school, work, study, personal, unavailable.",
     "Valid workoutPreference values are none, light, moderate, intense.",
+    "Valid goal taskType values are general, focus, fitness, wellness, admin.",
+    "For goals, extract minimumDailyMinutes as an integer from 0 to 720. Use 0 when there is no clear daily minimum.",
     "Do not invent specific goals, times, or dates. Include uncertainty in warnings.",
     "Avoid medical advice, extreme dieting, sleep deprivation, overtraining, or unsafe behavior.",
   ].join("\n");
@@ -123,6 +125,8 @@ function buildOnboardingParserPrompt(input: OnboardingParsePromptInput): string 
           title: "string",
           description: "string | null",
           priority: "1 | 2 | 3",
+          taskType: "general | focus | fitness | wellness | admin",
+          minimumDailyMinutes: "number | null",
           endDate: "YYYY-MM-DD | null",
         },
       ],

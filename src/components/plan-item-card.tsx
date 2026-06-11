@@ -3,7 +3,8 @@ import type { PlannedItem } from "@/lib/planner";
 const TYPE_CLASS: Record<PlannedItem["type"], string> = {
   goal: "bg-sky-100 text-sky-800",
   focus: "bg-indigo-100 text-indigo-800",
-  wellbeing: "bg-emerald-100 text-emerald-800",
+  fitness: "bg-emerald-100 text-emerald-800",
+  wellness: "bg-teal-100 text-teal-800",
   fallback: "bg-amber-100 text-amber-800",
 };
 

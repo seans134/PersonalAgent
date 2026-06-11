@@ -7,6 +7,8 @@ type GoalListItem = {
   id: string;
   title: string;
   description: string | null;
+  task_type: string;
+  minimum_daily_minutes: number | null;
   end_date: string | null;
   completed_at: string | null;
 };
@@ -61,6 +63,39 @@ export function GoalsList({ goals }: { goals: GoalListItem[] }) {
                     />
                   </div>
                 </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <label className="block text-sm text-zinc-700" htmlFor={`task-type-${goal.id}`}>
+                      Task type
+                    </label>
+                    <select
+                      className="w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-50"
+                      defaultValue={goal.task_type ?? "general"}
+                      id={`task-type-${goal.id}`}
+                      name="task_type"
+                    >
+                      <option value="general">General</option>
+                      <option value="focus">Focus</option>
+                      <option value="fitness">Fitness</option>
+                      <option value="wellness">Wellness</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-sm text-zinc-700" htmlFor={`minimum-daily-minutes-${goal.id}`}>
+                      Minimum daily minutes
+                    </label>
+                    <input
+                      className="w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-50"
+                      defaultValue={goal.minimum_daily_minutes ?? 0}
+                      id={`minimum-daily-minutes-${goal.id}`}
+                      max={720}
+                      min={0}
+                      name="minimum_daily_minutes"
+                      type="number"
+                    />
+                  </div>
+                </div>
                 <div className="space-y-2">
                   <label className="block text-sm text-zinc-700" htmlFor={`description-${goal.id}`}>
                     Description
@@ -96,6 +131,9 @@ export function GoalsList({ goals }: { goals: GoalListItem[] }) {
                       : goal.end_date
                         ? `Ends ${formatDateOnly(goal.end_date)}`
                         : "No end date"}
+                  </p>
+                  <p className="mt-1 text-sm text-zinc-600">
+                    {goal.task_type ?? "general"} · {goal.minimum_daily_minutes ?? 0} min/day minimum
                   </p>
                 </div>
                 <div className="flex shrink-0 flex-wrap justify-end gap-2">

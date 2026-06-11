@@ -4,6 +4,30 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
+const VALID_TASK_TYPES = new Set(["general", "focus", "fitness", "wellness", "admin", "exercise", "wellbeing"]);
+
+function parseTaskType(formData: FormData) {
+  const raw = String(formData.get("task_type") ?? "general").trim().toLowerCase();
+  if (raw === "exercise") {
+    return "fitness";
+  }
+
+  if (raw === "wellbeing") {
+    return "wellness";
+  }
+
+  return VALID_TASK_TYPES.has(raw) ? raw : "general";
+}
+
+function parseMinimumDailyMinutes(formData: FormData) {
+  const raw = Number(formData.get("minimum_daily_minutes") ?? "0");
+  if (!Number.isFinite(raw)) {
+    return 0;
+  }
+
+  return Math.max(0, Math.min(720, Math.round(raw)));
+}
+
 export async function createGoal(formData: FormData) {
   const supabase = await createClient();
   const {
@@ -17,6 +41,8 @@ export async function createGoal(formData: FormData) {
   const title = String(formData.get("title") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim();
   const endDate = String(formData.get("end_date") ?? "").trim();
+  const taskType = parseTaskType(formData);
+  const minimumDailyMinutes = parseMinimumDailyMinutes(formData);
 
   if (!title) {
     redirect("/goals?error=Goal%20title%20is%20required");
@@ -26,6 +52,8 @@ export async function createGoal(formData: FormData) {
     user_id: user.id,
     title,
     description: description || null,
+    task_type: taskType,
+    minimum_daily_minutes: minimumDailyMinutes,
     end_date: endDate || null,
   });
 
@@ -52,6 +80,8 @@ export async function updateGoal(formData: FormData) {
   const title = String(formData.get("title") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim();
   const endDate = String(formData.get("end_date") ?? "").trim();
+  const taskType = parseTaskType(formData);
+  const minimumDailyMinutes = parseMinimumDailyMinutes(formData);
 
   if (!id) {
     redirect("/goals?error=Goal%20id%20is%20required");
@@ -66,6 +96,8 @@ export async function updateGoal(formData: FormData) {
     .update({
       title,
       description: description || null,
+      task_type: taskType,
+      minimum_daily_minutes: minimumDailyMinutes,
       end_date: endDate || null,
     })
     .eq("id", id)

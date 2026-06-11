@@ -25,7 +25,7 @@ export default async function GoalPage({
 
   const { data: goal } = await supabase
     .from("goals")
-    .select("id, title, description, priority, end_date, completed_at, created_at")
+    .select("id, title, description, priority, task_type, minimum_daily_minutes, end_date, completed_at, created_at")
     .eq("id", id)
     .eq("user_id", user.id)
     .maybeSingle();
@@ -59,6 +59,18 @@ export default async function GoalPage({
             <dt className="text-xs uppercase tracking-wide text-zinc-500">End date</dt>
             <dd className="mt-2 text-sm font-medium text-zinc-900">
               {goal.end_date ? formatDateOnly(goal.end_date) : "No end date"}
+            </dd>
+          </div>
+          <div className="rounded-lg bg-zinc-50 p-4">
+            <dt className="text-xs uppercase tracking-wide text-zinc-500">Task type</dt>
+            <dd className="mt-2 text-sm font-medium capitalize text-zinc-900">
+              {goal.task_type ?? "general"}
+            </dd>
+          </div>
+          <div className="rounded-lg bg-zinc-50 p-4">
+            <dt className="text-xs uppercase tracking-wide text-zinc-500">Minimum daily time</dt>
+            <dd className="mt-2 text-sm font-medium text-zinc-900">
+              {goal.minimum_daily_minutes ?? 0} minutes
             </dd>
           </div>
           <div className="rounded-lg bg-zinc-50 p-4">

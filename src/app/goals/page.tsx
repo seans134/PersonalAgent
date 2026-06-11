@@ -23,7 +23,7 @@ export default async function GoalsPage({
 
   const { data: goals } = await supabase
     .from("goals")
-    .select("id, title, description, priority, end_date, completed_at")
+    .select("id, title, description, priority, task_type, minimum_daily_minutes, end_date, completed_at")
     .eq("user_id", user.id)
     .is("completed_at", null)
     .order("priority", { ascending: true })
@@ -75,6 +75,39 @@ export default async function GoalsPage({
               id="end_date"
               name="end_date"
               type="date"
+            />
+          </div>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <label className="block text-sm text-zinc-700" htmlFor="task_type">
+              Task type
+            </label>
+            <select
+              className="w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-50"
+              defaultValue="general"
+              id="task_type"
+              name="task_type"
+            >
+              <option value="general">General</option>
+              <option value="focus">Focus</option>
+              <option value="fitness">Fitness</option>
+              <option value="wellness">Wellness</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label className="block text-sm text-zinc-700" htmlFor="minimum_daily_minutes">
+              Minimum daily minutes
+            </label>
+            <input
+              className="w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-50"
+              defaultValue={0}
+              id="minimum_daily_minutes"
+              max={720}
+              min={0}
+              name="minimum_daily_minutes"
+              type="number"
             />
           </div>
         </div>

@@ -107,7 +107,7 @@ export function parseTodayPlanResponse(payload: unknown): TodayPlanResponse {
     }
 
     return {
-      type: asString(item.type, "item.type") as "goal" | "focus" | "wellbeing" | "fallback",
+      type: asString(item.type, "item.type") as "goal" | "focus" | "fitness" | "wellness" | "fallback",
       title: asString(item.title, "item.title"),
       reason: asString(item.reason, "item.reason"),
       startTime: asString(item.startTime, "item.startTime"),

@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest";
 import { generateTodayPlanForUser } from "./plan-today";
 
 type MockState = {
-  goals?: Array<{ title: string; priority: number }>;
+  goals?: Array<{
+    title: string;
+    priority: number;
+    task_type?: string | null;
+    minimum_daily_minutes?: number | null;
+  }>;
   goalsError?: string;
   localEvents?: Array<{
     id: string;
@@ -188,7 +193,7 @@ describe("generateTodayPlanForUser", () => {
       },
     ]);
     expect(result.body.meta.eventsCount).toBe(1);
-    expect(result.body.plan.items[0]?.startTime).toBe("10:00");
+    expect(result.body.plan.items[0]?.startTime).toBe("10:30");
   });
 
   it("returns 400 when profile is missing", async () => {

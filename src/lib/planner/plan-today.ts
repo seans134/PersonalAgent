@@ -29,6 +29,7 @@ type PlanResponse = {
 type LocalCalendarEventRow = {
   id: string;
   title: string;
+  category?: CalendarEvent["category"] | null;
   event_date: string;
   start_time: string;
   end_time: string;
@@ -37,9 +38,14 @@ type LocalCalendarEventRow = {
 type ScheduleBlockRow = {
   id: string;
   title: string;
+  category?: CalendarEvent["category"] | null;
   days_of_week: number[];
   start_time: string;
   end_time: string;
+};
+
+type LocalTodayContextEvent = TodayPlanContextEvent & {
+  category?: CalendarEvent["category"];
 };
 
 function toDateKey(value: Date) {
@@ -53,23 +59,24 @@ function normalizeDbTime(value: string) {
   return value.slice(0, 5);
 }
 
-function toPlannerEvent(event: TodayPlanContextEvent): CalendarEvent {
+function toPlannerEvent(event: LocalTodayContextEvent): CalendarEvent {
   return {
     id: event.id,
     title: event.title,
+    category: event.category,
     startTime: event.startTime,
     endTime: event.endTime,
   };
 }
 
-async function fetchLocalTodayContextEvents(supabase: SupabaseClient, userId: string): Promise<TodayPlanContextEvent[]> {
+async function fetchLocalTodayContextEvents(supabase: SupabaseClient, userId: string): Promise<LocalTodayContextEvent[]> {
   const today = new Date();
   const todayKey = toDateKey(today);
   const dayOfWeek = today.getDay();
 
   const { data: localEvents, error: localEventsError } = await supabase
     .from("calendar_events")
-    .select("id, title, event_date, start_time, end_time")
+    .select("id, title, category, event_date, start_time, end_time")
     .eq("user_id", userId)
     .eq("event_date", todayKey)
     .order("start_time", { ascending: true });
@@ -80,7 +87,7 @@ async function fetchLocalTodayContextEvents(supabase: SupabaseClient, userId: st
 
   const { data: scheduleBlocks, error: scheduleBlocksError } = await supabase
     .from("schedule_blocks")
-    .select("id, title, days_of_week, start_time, end_time")
+    .select("id, title, category, days_of_week, start_time, end_time")
     .eq("user_id", userId)
     .order("start_time", { ascending: true });
 
@@ -91,6 +98,7 @@ async function fetchLocalTodayContextEvents(supabase: SupabaseClient, userId: st
   const events = ((localEvents ?? []) as LocalCalendarEventRow[]).map((event) => ({
     id: `local-${event.id}`,
     title: event.title,
+    category: event.category ?? undefined,
     startTime: normalizeDbTime(event.start_time),
     endTime: normalizeDbTime(event.end_time),
     source: "local" as const,
@@ -101,6 +109,7 @@ async function fetchLocalTodayContextEvents(supabase: SupabaseClient, userId: st
     .map((block) => ({
       id: `schedule-${block.id}`,
       title: block.title,
+      category: block.category ?? undefined,
       startTime: normalizeDbTime(block.start_time),
       endTime: normalizeDbTime(block.end_time),
       source: "schedule" as const,
@@ -134,7 +143,7 @@ export async function generateTodayPlanForUser(input: {
 
   const { data: goalsRows, error: goalsError } = await supabase
     .from("goals")
-    .select("title, priority")
+    .select("title, description, priority, task_type, minimum_daily_minutes")
     .eq("user_id", userId)
     .is("completed_at", null)
     .order("priority", { ascending: true });
@@ -185,7 +194,14 @@ export async function generateTodayPlanForUser(input: {
 
   try {
     const localContextEvents = await fetchLocalTodayContextEvents(supabase, userId);
-    contextEvents = [...contextEvents, ...localContextEvents].sort((a, b) => (a.startTime < b.startTime ? -1 : 1));
+    const publicLocalContextEvents = localContextEvents.map((event) => ({
+      id: event.id,
+      title: event.title,
+      startTime: event.startTime,
+      endTime: event.endTime,
+      source: event.source,
+    }));
+    contextEvents = [...contextEvents, ...publicLocalContextEvents].sort((a, b) => (a.startTime < b.startTime ? -1 : 1));
     calendarEvents = [...calendarEvents, ...localContextEvents.map(toPlannerEvent)];
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to load local schedule.";

@@ -20,6 +20,21 @@ function overlaps(event: CalendarEvent, item: { startTime: string; endTime: stri
   return !(item.endTime <= event.startTime || item.startTime >= event.endTime);
 }
 
+function gapBetween(first: { endTime: string }, second: { startTime: string }) {
+  const [firstHours, firstMinutes] = first.endTime.split(":").map(Number);
+  const [secondHours, secondMinutes] = second.startTime.split(":").map(Number);
+  return secondHours * 60 + secondMinutes - (firstHours * 60 + firstMinutes);
+}
+
+function durationMinutes(item: { startTime: string; endTime: string }) {
+  return clockMinutes(item.endTime) - clockMinutes(item.startTime);
+}
+
+function clockMinutes(value: string) {
+  const [hours, minutes] = value.split(":").map(Number);
+  return hours * 60 + minutes;
+}
+
 describe("generateDailyPlan", () => {
   it("avoids overlap with calendar events", () => {
     const calendarEvents: CalendarEvent[] = [
@@ -73,7 +88,26 @@ describe("generateDailyPlan", () => {
     expect(plan.items.some((item) => item.type === "fallback")).toBe(true);
   });
 
-  it("includes wellbeing action when workout preference is enabled", () => {
+  it("places constrained fallbacks in the largest remaining free window", () => {
+    const plan = generateDailyPlan({
+      goals: baseGoals,
+      preferences: {
+        ...basePreferences,
+        workoutPreference: "none",
+      },
+      calendarEvents: [
+        { id: "packed", startTime: "09:00", endTime: "16:50" },
+      ],
+    });
+
+    const fallback = plan.items.find((item) => item.type === "fallback");
+
+    expect(plan.constrained).toBe(true);
+    expect(fallback?.startTime).toBe("16:50");
+    expect(fallback?.endTime).toBe("17:00");
+  });
+
+  it("does not create fitness blocks from workout preference alone", () => {
     const plan = generateDailyPlan({
       goals: baseGoals,
       preferences: {
@@ -83,6 +117,182 @@ describe("generateDailyPlan", () => {
       calendarEvents: [],
     });
 
-    expect(plan.items.some((item) => item.type === "wellbeing")).toBe(true);
+    expect(plan.items.some((item) => item.type === "fitness")).toBe(false);
+  });
+
+  it("does not add automatic focus blocks", () => {
+    const plan = generateDailyPlan({
+      goals: [{ title: "Ship roadmap", priority: 1 }],
+      preferences: {
+        ...basePreferences,
+        workoutPreference: "none",
+      },
+      calendarEvents: [],
+    });
+
+    expect(plan.items.some((item) => item.type === "focus")).toBe(false);
+    expect(plan.items.map((item) => item.title)).not.toContain("Focus block");
+  });
+
+  it("adds spacing between generated items when the day has room", () => {
+    const plan = generateDailyPlan({
+      goals: baseGoals,
+      preferences: {
+        ...basePreferences,
+        workoutPreference: "none",
+      },
+      calendarEvents: [],
+    });
+
+    const planned = plan.items.filter((item) => item.type !== "fallback");
+
+    expect(planned.length).toBeGreaterThan(1);
+    for (let index = 1; index < planned.length; index += 1) {
+      expect(gapBetween(planned[index - 1], planned[index])).toBeGreaterThanOrEqual(15);
+    }
+  });
+
+  it("prefers a natural buffered start after existing events when possible", () => {
+    const plan = generateDailyPlan({
+      goals: [{ title: "Ship proposal", priority: 1 }],
+      preferences: {
+        ...basePreferences,
+        workoutPreference: "none",
+      },
+      calendarEvents: [{ id: "class", startTime: "09:00", endTime: "10:00" }],
+    });
+
+    expect(plan.items[0]?.startTime).toBe("10:30");
+  });
+
+  it("uses short free windows for short tasks instead of wasting larger windows", () => {
+    const plan = generateDailyPlan({
+      goals: [{ title: "Pay tuition bill", priority: 3, taskType: "admin", minimumDailyMinutes: 0 }],
+      preferences: {
+        ...basePreferences,
+        workoutPreference: "none",
+      },
+      calendarEvents: [
+        { id: "busy-1", title: "Busy", startTime: "09:00", endTime: "10:00" },
+        { id: "busy-2", title: "Busy", startTime: "10:45", endTime: "12:00" },
+        { id: "busy-3", title: "Busy", startTime: "13:00", endTime: "15:00" },
+      ],
+    });
+
+    const shortGoal = plan.items.find((item) => item.title === "Pay tuition bill");
+
+    expect(clockMinutes(shortGoal!.startTime)).toBeLessThan(clockMinutes("13:00"));
+    expect(durationMinutes(shortGoal!)).toBe(25);
+  });
+
+  it("uses goal task type and minimum daily minutes for fitness goals", () => {
+    const plan = generateDailyPlan({
+      goals: [{ title: "Get jacked", priority: 1, taskType: "fitness", minimumDailyMinutes: 60 }],
+      preferences: {
+        ...basePreferences,
+        workoutPreference: "none",
+      },
+      calendarEvents: [],
+    });
+
+    const fitnessGoal = plan.items.find((item) => item.title === "Get jacked");
+
+    expect(fitnessGoal?.type).toBe("fitness");
+    expect(durationMinutes(fitnessGoal!)).toBe(60);
+    expect(fitnessGoal?.reason).toMatch(/minimum 60 minute daily fitness goal/i);
+  });
+
+  it("keeps fitness goals as the only strength-training source", () => {
+    const plan = generateDailyPlan({
+      goals: [{ title: "Get jacked", priority: 1, taskType: "fitness", minimumDailyMinutes: 60 }],
+      preferences: {
+        ...basePreferences,
+        workoutPreference: "moderate",
+      },
+      calendarEvents: [],
+    });
+
+    const fitnessItems = plan.items.filter((item) => item.type === "fitness");
+
+    expect(fitnessItems).toHaveLength(1);
+    expect(fitnessItems[0]?.title).toBe("Get jacked");
+  });
+
+  it("avoids placing movement between nearby academic blocks", () => {
+    const plan = generateDailyPlan({
+      goals: [{ title: "Strength training", priority: 1, taskType: "fitness", minimumDailyMinutes: 30 }],
+      preferences: {
+        ...basePreferences,
+        focusBlockMinutes: 45,
+        workoutPreference: "none",
+      },
+      calendarEvents: [
+        { id: "review", title: "Exam review", category: "school", startTime: "09:00", endTime: "10:00" },
+        { id: "lecture", title: "Math lecture", category: "school", startTime: "12:00", endTime: "13:00" },
+      ],
+    });
+
+    const movement = plan.items.find((item) => item.type === "fitness");
+
+    expect(clockMinutes(movement!.startTime)).toBeGreaterThanOrEqual(clockMinutes("13:00"));
+  });
+
+  it("infers movement goals from text and avoids academic sandwiches", () => {
+    const plan = generateDailyPlan({
+      goals: [{ title: "Get jacked", priority: 1, minimumDailyMinutes: 60 }],
+      preferences: {
+        workStartTime: "08:00",
+        workEndTime: "23:00",
+        noMeetingStartTime: null,
+        noMeetingEndTime: null,
+        focusBlockMinutes: 60,
+        workoutPreference: "none",
+      },
+      calendarEvents: [
+        { id: "review", title: "Exam review", category: "school", startTime: "08:00", endTime: "09:00" },
+        { id: "lecture", title: "Math lecture", category: "school", startTime: "10:00", endTime: "13:00" },
+        { id: "class", title: "Math class", category: "school", startTime: "14:00", endTime: "15:00" },
+        { id: "friends", title: "Hangout with friends", category: "personal", startTime: "17:00", endTime: "20:00" },
+      ],
+    });
+
+    const movementGoal = plan.items.find((item) => item.title === "Get jacked");
+
+    expect(movementGoal?.type).toBe("fitness");
+    expect(movementGoal?.startTime).not.toBe("09:00");
+    expect(clockMinutes(movementGoal!.startTime)).toBeGreaterThanOrEqual(clockMinutes("20:00"));
+  });
+
+  it("keeps zero minute goal minimums on the default priority duration", () => {
+    const plan = generateDailyPlan({
+      goals: [{ title: "Keep desk clean", priority: 3, taskType: "admin", minimumDailyMinutes: 0 }],
+      preferences: {
+        ...basePreferences,
+        workoutPreference: "none",
+      },
+      calendarEvents: [],
+    });
+
+    const adminGoal = plan.items.find((item) => item.title === "Keep desk clean");
+
+    expect(adminGoal?.type).toBe("goal");
+    expect(durationMinutes(adminGoal!)).toBe(25);
+  });
+
+  it("caps ridiculous goal minimums to a schedulable block size", () => {
+    const plan = generateDailyPlan({
+      goals: [{ title: "Practice forever", priority: 1, taskType: "focus", minimumDailyMinutes: 9999 }],
+      preferences: {
+        ...basePreferences,
+        workoutPreference: "none",
+      },
+      calendarEvents: [],
+    });
+
+    const cappedGoal = plan.items.find((item) => item.title === "Practice forever");
+
+    expect(cappedGoal?.type).toBe("focus");
+    expect(durationMinutes(cappedGoal!)).toBe(180);
+    expect(cappedGoal?.reason).toMatch(/minimum 180 minute daily focus goal/i);
   });
 });

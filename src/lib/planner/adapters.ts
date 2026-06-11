@@ -2,7 +2,10 @@ import type { CalendarEvent, Goal, PlannerPreferences } from "./types";
 
 export type GoalRow = {
   title: string;
+  description?: string | null;
   priority: number;
+  task_type?: string | null;
+  minimum_daily_minutes?: number | null;
 };
 
 export type UserProfileRow = {
@@ -26,6 +29,29 @@ function normalizePriority(priority: number): 1 | 2 | 3 {
   if (priority <= 1) return 1;
   if (priority === 2) return 2;
   return 3;
+}
+
+function normalizeTaskType(value: string | null | undefined): Goal["taskType"] {
+  if (
+    value === "focus" ||
+    value === "fitness" ||
+    value === "wellness" ||
+    value === "admin" ||
+    value === "exercise" ||
+    value === "wellbeing"
+  ) {
+    return value;
+  }
+
+  return "general";
+}
+
+function normalizeMinimumDailyMinutes(value: number | null | undefined): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return 0;
+  }
+
+  return Math.max(0, Math.min(720, Math.round(value)));
 }
 
 function normalizeClockTime(value: string): string {
@@ -65,7 +91,10 @@ export function toPlannerGoals(rows: GoalRow[]): Goal[] {
   return rows
     .map((row) => ({
       title: row.title.trim(),
+      description: row.description?.trim() || null,
       priority: normalizePriority(row.priority),
+      taskType: normalizeTaskType(row.task_type),
+      minimumDailyMinutes: normalizeMinimumDailyMinutes(row.minimum_daily_minutes),
     }))
     .filter((goal) => goal.title.length > 0)
     .sort((a, b) => a.priority - b.priority);

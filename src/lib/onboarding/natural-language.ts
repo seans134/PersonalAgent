@@ -1,9 +1,13 @@
 import { isGeminiConfigured, requestOnboardingParse } from "@/lib/gemini/client";
 
+export type OnboardingGoalTaskType = "general" | "focus" | "fitness" | "wellness" | "admin";
+
 export type OnboardingGoalDraft = {
   title: string;
   description?: string | null;
   priority: 1 | 2 | 3;
+  taskType: OnboardingGoalTaskType;
+  minimumDailyMinutes: number;
   endDate?: string | null;
 };
 
@@ -45,6 +49,7 @@ const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const CATEGORIES = new Set(["school", "work", "study", "personal", "unavailable"]);
 const WORKOUT_PREFERENCES = new Set(["none", "light", "moderate", "intense"]);
+const GOAL_TASK_TYPES = new Set(["general", "focus", "fitness", "wellness", "admin"]);
 
 const MODE_CATEGORIES: Record<NaturalLanguageOnboardingMode, Set<OnboardingScheduleBlockDraft["category"]>> = {
   school_work: new Set(["school", "work"]),
@@ -117,6 +122,45 @@ function normalizePriority(value: unknown): 1 | 2 | 3 {
   return 3;
 }
 
+function normalizeGoalTaskType(value: unknown): OnboardingGoalTaskType {
+  const text = optionalString(value)?.toLowerCase();
+  if (text === "exercise") {
+    return "fitness";
+  }
+
+  if (text === "wellbeing") {
+    return "wellness";
+  }
+
+  if (text && GOAL_TASK_TYPES.has(text)) {
+    return text as OnboardingGoalTaskType;
+  }
+
+  return "general";
+}
+
+function normalizeMinimumDailyMinutes(value: unknown, label: string, warnings: string[]): number {
+  const numericValue =
+    typeof value === "number"
+      ? value
+      : typeof value === "string" && value.trim().length > 0
+        ? Number(value)
+        : 0;
+
+  if (!Number.isFinite(numericValue)) {
+    return 0;
+  }
+
+  const rounded = Math.round(numericValue);
+  const clamped = Math.max(0, Math.min(720, rounded));
+
+  if (clamped !== rounded) {
+    warnings.push(`${label} was capped to ${clamped} minutes.`);
+  }
+
+  return clamped;
+}
+
 function normalizeProfile(value: unknown, warnings: string[]): OnboardingProfileDraft {
   const profile = asObject(value);
   if (!profile) {
@@ -168,6 +212,12 @@ function normalizeGoals(value: unknown, warnings: string[]): OnboardingGoalDraft
       title: title.slice(0, 160),
       description: optionalString(goal.description)?.slice(0, 500) ?? null,
       priority: normalizePriority(goal.priority),
+      taskType: normalizeGoalTaskType(goal.taskType),
+      minimumDailyMinutes: normalizeMinimumDailyMinutes(
+        goal.minimumDailyMinutes,
+        `Goal ${index + 1} minimum daily minutes`,
+        warnings,
+      ),
       endDate: normalizeDate(goal.endDate, `Goal ${index + 1} end date`, warnings),
     });
   }

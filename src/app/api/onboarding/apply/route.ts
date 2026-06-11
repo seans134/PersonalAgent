@@ -77,6 +77,8 @@ export async function POST(request: Request) {
         title: goal.title,
         description: goal.description || null,
         priority: goal.priority,
+        task_type: goal.taskType,
+        minimum_daily_minutes: goal.minimumDailyMinutes,
         end_date: goal.endDate || null,
       })),
     );
