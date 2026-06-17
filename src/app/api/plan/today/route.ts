@@ -1,21 +1,18 @@
 import { NextResponse } from "next/server";
 import { generateTodayPlanForUser } from "@/lib/planner/plan-today";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthenticatedRequestClient } from "@/lib/supabase/request";
 
-export async function POST() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+export async function POST(request?: Request) {
+  const auth = await getAuthenticatedRequestClient(request);
 
-  if (!user) {
+  if (!auth) {
     return NextResponse.json({ error: "Authentication required." }, { status: 401 });
   }
 
   try {
     const result = await generateTodayPlanForUser({
-      supabase,
-      userId: user.id,
+      supabase: auth.supabase,
+      userId: auth.user.id,
     });
 
     return NextResponse.json(result.body, { status: result.status });

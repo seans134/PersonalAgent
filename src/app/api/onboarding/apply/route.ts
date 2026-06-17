@@ -4,7 +4,7 @@ import {
   type NaturalLanguageOnboardingDraft,
   validateNaturalLanguageOnboardingDraft,
 } from "@/lib/onboarding/natural-language";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthenticatedRequestClient } from "@/lib/supabase/request";
 
 const MODES = new Set(["school_work", "weekly_rhythm", "goals"]);
 
@@ -35,12 +35,9 @@ function toProfilePayload(draft: NaturalLanguageOnboardingDraft, userId: string)
 }
 
 export async function POST(request: Request) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const auth = await getAuthenticatedRequestClient(request);
 
-  if (!user) {
+  if (!auth) {
     return NextResponse.json({ error: "Authentication required." }, { status: 401 });
   }
 
@@ -61,9 +58,9 @@ export async function POST(request: Request) {
   }
 
   if (hasProfilePatch(draft)) {
-    const { error } = await supabase
+    const { error } = await auth.supabase
       .from("user_profiles")
-      .upsert(toProfilePayload(draft, user.id), { onConflict: "user_id" });
+      .upsert(toProfilePayload(draft, auth.user.id), { onConflict: "user_id" });
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
@@ -71,9 +68,9 @@ export async function POST(request: Request) {
   }
 
   if (draft.goals.length > 0) {
-    const { error } = await supabase.from("goals").insert(
+    const { error } = await auth.supabase.from("goals").insert(
       draft.goals.map((goal) => ({
-        user_id: user.id,
+        user_id: auth.user.id,
         title: goal.title,
         description: goal.description || null,
         priority: goal.priority,
@@ -89,9 +86,9 @@ export async function POST(request: Request) {
   }
 
   if (draft.scheduleBlocks.length > 0) {
-    const { error } = await supabase.from("schedule_blocks").insert(
+    const { error } = await auth.supabase.from("schedule_blocks").insert(
       draft.scheduleBlocks.map((block) => ({
-        user_id: user.id,
+        user_id: auth.user.id,
         title: block.title,
         category: block.category,
         days_of_week: block.daysOfWeek,

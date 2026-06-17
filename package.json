@@ -2,6 +2,9 @@
   "name": "personal-agent",
   "version": "0.1.0",
   "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -10,6 +13,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@personal-agent/core": "file:packages/core",
     "@supabase/ssr": "^0.9.0",
     "@supabase/supabase-js": "^2.98.0",
     "next": "16.1.6",
