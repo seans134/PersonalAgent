@@ -123,7 +123,25 @@ export function AppShell({
         </div>
       </aside>
 
-      <div className="min-w-0 pt-10">{children}</div>
+      <div className="flex min-h-screen min-w-0 flex-col pt-10">
+        <div className="flex-1">{children}</div>
+        <footer className="border-t border-zinc-200 px-6 py-5">
+          <nav
+            aria-label="Legal and support links"
+            className="mx-auto flex w-full max-w-4xl flex-wrap gap-x-5 gap-y-2 text-sm text-zinc-600"
+          >
+            <Link className="transition hover:text-zinc-950" href="/privacy">
+              Privacy
+            </Link>
+            <Link className="transition hover:text-zinc-950" href="/terms">
+              Terms
+            </Link>
+            <Link className="transition hover:text-zinc-950" href="/support">
+              Support
+            </Link>
+          </nav>
+        </footer>
+      </div>
     </div>
   );
 }
