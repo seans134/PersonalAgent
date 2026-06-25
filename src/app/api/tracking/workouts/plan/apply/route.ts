@@ -1,7 +1,7 @@
 import { revalidatePath } from "next/cache";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { validateNaturalLanguageWorkoutScheduleDraft } from "@/lib/tracking/natural-language-workout";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthenticatedRequestClient } from "@/lib/supabase/request";
 
 function revalidateTrackingPaths() {
   revalidatePath("/");
@@ -9,13 +9,10 @@ function revalidateTrackingPaths() {
   revalidatePath("/tracking/workouts/plan");
 }
 
-export async function POST(request: Request) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+export async function POST(request: NextRequest) {
+  const auth = await getAuthenticatedRequestClient(request);
 
-  if (!user) {
+  if (!auth) {
     return NextResponse.json({ error: "Authentication required." }, { status: 401 });
   }
 
@@ -28,10 +25,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No workout plan items to save." }, { status: 400 });
     }
 
-    const { data: existingItems, error: loadError } = await supabase
+    const { data: existingItems, error: loadError } = await auth.supabase
       .from("workout_schedule_items")
       .select("day_of_week, position")
-      .eq("user_id", user.id);
+      .eq("user_id", auth.user.id);
 
     if (loadError) {
       return NextResponse.json({ error: loadError.message }, { status: 500 });
@@ -49,13 +46,13 @@ export async function POST(request: Request) {
       nextPositionByDay.set(item.day_of_week, position + 1);
 
       return {
-        user_id: user.id,
+        user_id: auth.user.id,
         ...item,
         position,
       };
     });
 
-    const { error } = await supabase.from("workout_schedule_items").insert(rows);
+    const { error } = await auth.supabase.from("workout_schedule_items").insert(rows);
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });

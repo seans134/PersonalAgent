@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { fetchTodayCalendarEvents } from "@/lib/google/calendar";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthenticatedRequestClient } from "@/lib/supabase/request";
 import { suggestWorkout } from "@/lib/tracking/workout-suggestions";
 
 type CalendarContextEvent = {
@@ -116,15 +116,14 @@ function optionalFeedback(value: unknown) {
   return trimmed.length > 0 ? trimmed.slice(0, 500) : null;
 }
 
-export async function POST(request: Request) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+export async function POST(request: NextRequest) {
+  const auth = await getAuthenticatedRequestClient(request);
 
-  if (!user) {
+  if (!auth) {
     return NextResponse.json({ error: "Authentication required." }, { status: 401 });
   }
+
+  const { supabase, user } = auth;
 
   const payload = (await request.json().catch(() => ({}))) as {
     currentIso?: unknown;

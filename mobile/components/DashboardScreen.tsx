@@ -13,7 +13,7 @@ import {
   type MobileTodayPlanResponse,
 } from "../lib/api";
 import { readCachedTodayPlan, writeCachedTodayPlan } from "../lib/cache";
-import { schedulePlanReminder } from "../lib/notifications";
+import { readNotificationPreferences, scheduleTodayPlanReminders } from "../lib/notifications";
 
 type DashboardScreenProps = {
   accessToken: string;
@@ -76,13 +76,18 @@ export function DashboardScreen({
     setGeneratingPlan(false);
   }
 
-  async function scheduleReminder() {
+  async function scheduleReminders() {
     setMessage(undefined);
     setSchedulingReminder(true);
 
     try {
-      await schedulePlanReminder();
-      setMessage("Reminder scheduled for one hour from now.");
+      const preferences = await readNotificationPreferences();
+      const count = await scheduleTodayPlanReminders(plan?.plan.items ?? [], preferences.planLeadMinutes);
+      setMessage(
+        count > 0
+          ? `${count} reminder${count === 1 ? "" : "s"} scheduled for today's remaining plan.`
+          : "No future plan items are available to remind you about.",
+      );
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Unable to schedule reminder.");
     }
@@ -145,13 +150,13 @@ export function DashboardScreen({
 
           <Pressable
             disabled={schedulingReminder}
-            onPress={scheduleReminder}
+            onPress={scheduleReminders}
             style={({ pressed }) => [styles.secondaryAction, (pressed || schedulingReminder) && styles.buttonPressed]}
           >
             {schedulingReminder ? (
               <ActivityIndicator color="#0f766e" />
             ) : (
-              <Text style={styles.secondaryActionText}>Remind Me In 1 Hour</Text>
+              <Text style={styles.secondaryActionText}>{"Schedule Today's Reminders"}</Text>
             )}
           </Pressable>
         </View>

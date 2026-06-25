@@ -1,14 +1,11 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { parseNaturalLanguageWorkout } from "@/lib/tracking/natural-language-workout";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthenticatedRequestClient } from "@/lib/supabase/request";
 
-export async function POST(request: Request) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+export async function POST(request: NextRequest) {
+  const auth = await getAuthenticatedRequestClient(request);
 
-  if (!user) {
+  if (!auth) {
     return NextResponse.json({ error: "Authentication required." }, { status: 401 });
   }
 

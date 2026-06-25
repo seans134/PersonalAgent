@@ -9,10 +9,14 @@ import {
   View,
 } from "react-native";
 import {
+  applyMobileWorkoutPlan,
   createMobileWorkoutPlanItem,
   deleteMobileWorkoutPlanItem,
   fetchMobileWorkoutPlan,
+  parseMobileWorkoutPlan,
   type MobileWorkoutMetrics,
+  type MobileWorkoutScheduleDraft,
+  type MobileWorkoutScheduleDraftItem,
   type MobileWorkoutScheduleItem,
   type MobileWorkoutTrackingMethod,
   type MobileWorkoutType,
@@ -134,12 +138,32 @@ function itemSummary(item: MobileWorkoutScheduleItem) {
   return parts.join(" - ");
 }
 
+function draftItemSummary(item: MobileWorkoutScheduleDraftItem) {
+  const metrics = Object.entries(item.metrics ?? {}).flatMap(([key, value]) =>
+    value === null || value === "" ? [] : [`${titleCase(key)}: ${value}`],
+  );
+  const parts = [
+    titleCase(item.workout_type),
+    titleCase(item.tracking_method),
+    item.duration_minutes ? `${item.duration_minutes} min` : null,
+    ...metrics,
+    item.notes,
+  ].filter(Boolean);
+
+  return parts.join(" - ");
+}
+
 export function WorkoutPlanScreen({ accessToken }: WorkoutPlanScreenProps) {
   const [items, setItems] = useState<MobileWorkoutScheduleItem[]>([]);
   const [form, setForm] = useState<PlanForm>(initialForm);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [planText, setPlanText] = useState("");
+  const [draft, setDraft] = useState<MobileWorkoutScheduleDraft | null>(null);
+  const [parsing, setParsing] = useState(false);
+  const [applying, setApplying] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const groupedItems = useMemo(
@@ -231,6 +255,48 @@ export function WorkoutPlanScreen({ accessToken }: WorkoutPlanScreenProps) {
     }
   }
 
+  async function parsePlan() {
+    if (planText.trim().length < 8) {
+      setError("Add a little more workout plan detail before parsing.");
+      return;
+    }
+
+    setParsing(true);
+    setDraft(null);
+    setMessage(null);
+    setError(null);
+
+    try {
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Toronto";
+      const response = await parseMobileWorkoutPlan(accessToken, planText.trim(), timezone);
+      setDraft(response.draft);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to parse workout plan.");
+    } finally {
+      setParsing(false);
+    }
+  }
+
+  async function applyPlan() {
+    if (!draft || draft.items.length === 0) return;
+
+    setApplying(true);
+    setMessage(null);
+    setError(null);
+
+    try {
+      const response = await applyMobileWorkoutPlan(accessToken, draft);
+      setMessage(`Added ${response.applied.scheduleItemsCreated} planned workouts.`);
+      setPlanText("");
+      setDraft(null);
+      await loadPlan();
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to save workout plan.");
+    } finally {
+      setApplying(false);
+    }
+  }
+
   const usesStrengthMetrics = form.trackingMethod === "sets_reps_weight" || form.trackingMethod === "bodyweight_sets";
 
   return (
@@ -247,6 +313,58 @@ export function WorkoutPlanScreen({ accessToken }: WorkoutPlanScreenProps) {
       </View>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
+      {message ? <Text style={styles.success}>{message}</Text> : null}
+
+      <View style={styles.panel}>
+        <Text style={styles.panelTitle}>Plan from text</Text>
+        <Text style={styles.helperText}>Describe your weekly workouts, then review them before saving.</Text>
+        <TextInput
+          multiline
+          onChangeText={setPlanText}
+          placeholder="Monday upper body 3x10, Wednesday 30 minute run, Friday basketball practice."
+          placeholderTextColor="#94a3b8"
+          style={[styles.input, styles.planTextInput]}
+          value={planText}
+        />
+        <Pressable
+          disabled={parsing || planText.trim().length < 8}
+          onPress={parsePlan}
+          style={[styles.primaryButton, (parsing || planText.trim().length < 8) && styles.disabled]}
+        >
+          <Text style={styles.primaryButtonText}>{parsing ? "Parsing..." : "Review Workout Plan"}</Text>
+        </Pressable>
+
+        {draft ? (
+          <View style={styles.draftSection}>
+            <Text style={styles.draftTitle}>Review parsed workouts</Text>
+            {draft.items.length === 0 ? <Text style={styles.emptyText}>No planned workouts found.</Text> : null}
+            {draft.items.map((item, index) => (
+              <View key={`${item.day_of_week}-${item.title}-${index}`} style={styles.draftItem}>
+                <Text style={styles.draftDay}>{days.find((day) => day.value === item.day_of_week)?.fullLabel}</Text>
+                <Text style={styles.itemTitle}>{item.title}</Text>
+                <Text style={styles.itemDetail}>{draftItemSummary(item)}</Text>
+              </View>
+            ))}
+
+            {draft.warnings.length > 0 ? (
+              <View style={styles.warningBox}>
+                <Text style={styles.warningTitle}>Review notes</Text>
+                {draft.warnings.map((warning, index) => (
+                  <Text key={`${warning}-${index}`} style={styles.warningText}>- {warning}</Text>
+                ))}
+              </View>
+            ) : null}
+
+            <Pressable
+              disabled={applying || draft.items.length === 0}
+              onPress={applyPlan}
+              style={[styles.secondaryActionButton, (applying || draft.items.length === 0) && styles.disabled]}
+            >
+              <Text style={styles.secondaryActionText}>{applying ? "Saving..." : "Add Planned Workouts"}</Text>
+            </Pressable>
+          </View>
+        ) : null}
+      </View>
 
       <View style={styles.panel}>
         <Text style={styles.panelTitle}>Add planned workout</Text>
@@ -442,6 +560,16 @@ const styles = StyleSheet.create({
     minHeight: 46,
     paddingHorizontal: 12,
   },
+  planTextInput: {
+    minHeight: 108,
+    paddingTop: 12,
+    textAlignVertical: "top",
+  },
+  helperText: {
+    color: "#64748b",
+    fontSize: 14,
+    lineHeight: 20,
+  },
   fieldRow: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -506,6 +634,20 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "800",
   },
+  secondaryActionButton: {
+    alignItems: "center",
+    borderColor: "#0f766e",
+    borderRadius: 8,
+    borderWidth: 1,
+    minHeight: 46,
+    justifyContent: "center",
+    paddingHorizontal: 14,
+  },
+  secondaryActionText: {
+    color: "#0f766e",
+    fontSize: 14,
+    fontWeight: "800",
+  },
   secondaryButton: {
     alignItems: "center",
     borderColor: "#cbd5e1",
@@ -525,6 +667,47 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     gap: 10,
     paddingTop: 14,
+  },
+  draftSection: {
+    borderTopColor: "#e2e8f0",
+    borderTopWidth: 1,
+    gap: 10,
+    paddingTop: 14,
+  },
+  draftTitle: {
+    color: "#111827",
+    fontSize: 16,
+    fontWeight: "800",
+  },
+  draftItem: {
+    backgroundColor: "#f8fafc",
+    borderRadius: 8,
+    gap: 3,
+    padding: 12,
+  },
+  draftDay: {
+    color: "#0f766e",
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase",
+  },
+  warningBox: {
+    backgroundColor: "#fffbeb",
+    borderColor: "#fde68a",
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 5,
+    padding: 12,
+  },
+  warningTitle: {
+    color: "#92400e",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  warningText: {
+    color: "#92400e",
+    fontSize: 13,
+    lineHeight: 19,
   },
   dayTitle: {
     color: "#111827",
@@ -585,6 +768,17 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     color: "#b91c1c",
+    fontSize: 14,
+    fontWeight: "700",
+    lineHeight: 20,
+    padding: 12,
+  },
+  success: {
+    backgroundColor: "#ecfdf5",
+    borderColor: "#a7f3d0",
+    borderRadius: 8,
+    borderWidth: 1,
+    color: "#047857",
     fontSize: 14,
     fontWeight: "700",
     lineHeight: 20,

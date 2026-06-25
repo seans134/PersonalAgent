@@ -1,7 +1,7 @@
 import { revalidatePath } from "next/cache";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { validateNaturalLanguageMealDraft } from "@/lib/tracking/natural-language-meal";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthenticatedRequestClient } from "@/lib/supabase/request";
 
 function revalidateTrackingPaths() {
   revalidatePath("/");
@@ -9,13 +9,10 @@ function revalidateTrackingPaths() {
   revalidatePath("/tracking/meals/saved");
 }
 
-export async function POST(request: Request) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+export async function POST(request: NextRequest) {
+  const auth = await getAuthenticatedRequestClient(request);
 
-  if (!user) {
+  if (!auth) {
     return NextResponse.json({ error: "Authentication required." }, { status: 401 });
   }
 
@@ -27,8 +24,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid saved meal draft." }, { status: 400 });
     }
 
-    const { error } = await supabase.from("saved_meals").insert({
-      user_id: user.id,
+    const { error } = await auth.supabase.from("saved_meals").insert({
+      user_id: auth.user.id,
       name: draft.name,
       calories: draft.calories,
       protein_grams: draft.protein_grams,

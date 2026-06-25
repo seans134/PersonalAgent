@@ -1,20 +1,17 @@
 import { revalidatePath } from "next/cache";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { validateNaturalLanguageWorkoutDraft } from "@/lib/tracking/natural-language-workout";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthenticatedRequestClient } from "@/lib/supabase/request";
 
 function revalidateTrackingPaths() {
   revalidatePath("/");
   revalidatePath("/tracking/workouts");
 }
 
-export async function POST(request: Request) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+export async function POST(request: NextRequest) {
+  const auth = await getAuthenticatedRequestClient(request);
 
-  if (!user) {
+  if (!auth) {
     return NextResponse.json({ error: "Authentication required." }, { status: 401 });
   }
 
@@ -23,8 +20,8 @@ export async function POST(request: Request) {
   try {
     const draft = validateNaturalLanguageWorkoutDraft(payload.draft);
 
-    const { error } = await supabase.from("workout_logs").insert({
-      user_id: user.id,
+    const { error } = await auth.supabase.from("workout_logs").insert({
+      user_id: auth.user.id,
       logged_at: draft.logged_at,
       workout_type: draft.workout_type,
       tracking_method: draft.tracking_method,

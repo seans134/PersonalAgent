@@ -31,6 +31,7 @@ cp .env.example .env.local
 3. Fill in `.env.local`:
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY` (server-only; required for in-app account deletion)
 - `NEXT_PUBLIC_SITE_URL` (usually `http://localhost:3000`)
 - `GOOGLE_CLIENT_ID`
 - `GOOGLE_CLIENT_SECRET`

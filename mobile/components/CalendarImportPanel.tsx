@@ -17,6 +17,7 @@ import { readCachedCalendar, writeCachedCalendar } from "../lib/cache";
 
 type CalendarImportPanelProps = {
   accessToken: string;
+  reloadKey?: number;
 };
 
 type TodayCalendarItem = {
@@ -82,7 +83,7 @@ function categoryStyle(category: MobileCalendarCategory) {
   return styles.unavailablePill;
 }
 
-export function CalendarImportPanel({ accessToken }: CalendarImportPanelProps) {
+export function CalendarImportPanel({ accessToken, reloadKey = 0 }: CalendarImportPanelProps) {
   const [calendar, setCalendar] = useState<MobileCalendarResponse | null>(null);
   const [cacheMessage, setCacheMessage] = useState<string | undefined>();
   const [message, setMessage] = useState<string | undefined>();
@@ -143,15 +144,15 @@ export function CalendarImportPanel({ accessToken }: CalendarImportPanelProps) {
     }, 0);
 
     return () => clearTimeout(timeout);
-  }, [loadCachedCalendar, loadCalendar]);
+  }, [loadCachedCalendar, loadCalendar, reloadKey]);
 
   return (
     <View style={styles.panel}>
       <View style={styles.headerRow}>
         <View style={styles.headerText}>
-          <Text style={styles.panelLabel}>Calendar From Web</Text>
+          <Text style={styles.panelLabel}>Today</Text>
           <Text style={styles.panelBody}>
-            Imported visibility, classes, recurring blocks, and local events.
+            Shared classes, recurring blocks, and local events.
           </Text>
         </View>
         <Pressable

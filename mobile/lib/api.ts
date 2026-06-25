@@ -1,4 +1,5 @@
 import type { TodayPlanResponse } from "@personal-agent/core/planner/client-types";
+import { captureEvent, captureException } from "./analytics";
 import { requireMobileEnv } from "./env";
 
 type BackendSessionResponse =
@@ -58,6 +59,29 @@ export type MobileCalendarResponse = {
   events: MobileCalendarEvent[];
 };
 
+export type MobileCalendarEventInput = {
+  id?: string;
+  kind: "event";
+  title: string;
+  category: MobileCalendarCategory;
+  date: string;
+  startTime: string;
+  endTime: string;
+};
+
+export type MobileScheduleBlockInput = {
+  id?: string;
+  kind: "block";
+  title: string;
+  category: MobileCalendarCategory;
+  daysOfWeek: number[];
+  startTime: string;
+  endTime: string;
+  timezone?: string;
+};
+
+export type MobileCalendarItemInput = MobileCalendarEventInput | MobileScheduleBlockInput;
+
 export type MobileMealInput = {
   id?: string;
   mealType?: "breakfast" | "lunch" | "dinner" | "snack" | "meal";
@@ -92,6 +116,42 @@ export type MobileSavedMeal = {
   fat_grams: number | null;
   fiber_grams: number | null;
   notes: string | null;
+};
+
+type MobileMealDraftBase = {
+  name: string;
+  calories: number | null;
+  protein_grams: number | null;
+  carbs_grams: number | null;
+  fat_grams: number | null;
+  fiber_grams: number | null;
+  notes: string | null;
+  warnings: string[];
+};
+
+export type MobileMealLogDraft = MobileMealDraftBase & {
+  mode: "log";
+  logged_at: string;
+  meal_type: "breakfast" | "lunch" | "dinner" | "snack" | "meal";
+};
+
+export type MobileSavedMealDraft = MobileMealDraftBase & {
+  mode: "saved";
+};
+
+export type MobileMealDraft = MobileMealLogDraft | MobileSavedMealDraft;
+
+export type MobileMealSuggestionDraft = MobileMealLogDraft & {
+  suggestion_reason: string;
+  suggested_timing: string | null;
+  target_alignment: string | null;
+  agent_reply: string | null;
+};
+
+export type MobileMealSuggestionResponse = {
+  agent_reply: string;
+  draft: MobileMealSuggestionDraft | null;
+  warnings: string[];
 };
 
 export type MobileGoalInput = {
@@ -160,6 +220,32 @@ export type MobileWorkoutLog = {
   notes: string | null;
 };
 
+export type MobileWorkoutDraft = {
+  logged_at: string;
+  workout_type: MobileWorkoutType;
+  tracking_method: MobileWorkoutTrackingMethod;
+  title: string;
+  duration_minutes: number;
+  intensity: MobileWorkoutIntensity;
+  calories_burned: number | null;
+  metrics: MobileWorkoutMetrics;
+  notes: string | null;
+  warnings: string[];
+};
+
+export type MobileWorkoutSuggestionDraft = MobileWorkoutDraft & {
+  suggestion_reason: string;
+  suggested_timing: string | null;
+  target_alignment: string | null;
+  agent_reply: string | null;
+};
+
+export type MobileWorkoutSuggestionResponse = {
+  agent_reply: string;
+  draft: MobileWorkoutSuggestionDraft | null;
+  warnings: string[];
+};
+
 export type MobilePlannedWorkout = {
   id: string;
   day_of_week?: number;
@@ -187,6 +273,21 @@ export type MobileWorkoutScheduleInput = {
   notes?: string | null;
 };
 
+export type MobileWorkoutScheduleDraftItem = {
+  day_of_week: number;
+  workout_type: MobileWorkoutType;
+  tracking_method: MobileWorkoutTrackingMethod;
+  title: string;
+  duration_minutes: number | null;
+  metrics: MobileWorkoutMetrics;
+  notes: string | null;
+};
+
+export type MobileWorkoutScheduleDraft = {
+  items: MobileWorkoutScheduleDraftItem[];
+  warnings: string[];
+};
+
 export async function fetchBackendSession(accessToken: string): Promise<BackendSessionResponse> {
   const { apiBaseUrl } = requireMobileEnv();
   const response = await fetch(`${apiBaseUrl.replace(/\/$/, "")}/api/mobile/session`, {
@@ -202,6 +303,13 @@ export async function fetchBackendSession(accessToken: string): Promise<BackendS
   }
 
   return body;
+}
+
+export async function deleteMobileAccount(accessToken: string) {
+  return fetchJson<{ deleted: true }>("/api/mobile/account", accessToken, {
+    method: "DELETE",
+    body: JSON.stringify({ confirmation: "DELETE" }),
+  });
 }
 
 export async function saveMobileOnboarding(accessToken: string, input: MobileOnboardingInput) {
@@ -220,6 +328,7 @@ export async function saveMobileOnboarding(accessToken: string, input: MobileOnb
     throw new Error(body.error ?? "Unable to save onboarding.");
   }
 
+  captureEvent("onboarding_completed", { goals_created: body.goalsCreated ?? 0 });
   return body;
 }
 
@@ -238,6 +347,7 @@ export async function generateMobileTodayPlan(accessToken: string): Promise<Mobi
     throw new Error("error" in body && body.error ? body.error : "Unable to generate today plan.");
   }
 
+  captureEvent("plan_generated");
   return body as MobileTodayPlanResponse;
 }
 
@@ -272,10 +382,45 @@ async function fetchJson<T>(path: string, accessToken: string, init: RequestInit
 
   if (!response.ok) {
     const errorBody = body as { error?: string };
-    throw new Error(errorBody.error ?? "Request failed.");
+    const error = new Error(errorBody.error ?? "Request failed.");
+    captureEvent("api_request_failed", { path, status: response.status });
+    if (response.status >= 500) captureException(error, { path, status: response.status });
+    throw error;
   }
 
   return body as T;
+}
+
+export async function createMobileCalendarItem(accessToken: string, input: MobileCalendarItemInput) {
+  const response = await fetchJson<{ event?: MobileCalendarEvent; scheduleBlock?: MobileScheduleBlock }>(
+    "/api/mobile/calendar",
+    accessToken,
+    { method: "POST", body: JSON.stringify(input) },
+  );
+  captureEvent("calendar_item_created", { kind: input.kind, category: input.category });
+  return response;
+}
+
+export async function updateMobileCalendarItem(
+  accessToken: string,
+  input: MobileCalendarItemInput & { id: string },
+) {
+  const response = await fetchJson<{ event?: MobileCalendarEvent; scheduleBlock?: MobileScheduleBlock }>(
+    "/api/mobile/calendar",
+    accessToken,
+    { method: "PATCH", body: JSON.stringify(input) },
+  );
+  captureEvent("calendar_item_updated", { kind: input.kind, category: input.category });
+  return response;
+}
+
+export async function deleteMobileCalendarItem(accessToken: string, kind: "event" | "block", id: string) {
+  const response = await fetchJson<{ ok: true }>("/api/mobile/calendar", accessToken, {
+    method: "DELETE",
+    body: JSON.stringify({ kind, id }),
+  });
+  captureEvent("calendar_item_deleted", { kind });
+  return response;
 }
 
 export async function fetchMobileMeals(accessToken: string) {
@@ -283,10 +428,12 @@ export async function fetchMobileMeals(accessToken: string) {
 }
 
 export async function createMobileMeal(accessToken: string, input: MobileMealInput) {
-  return fetchJson<{ meal: MobileMealLog }>("/api/mobile/meals", accessToken, {
+  const response = await fetchJson<{ meal: MobileMealLog }>("/api/mobile/meals", accessToken, {
     method: "POST",
     body: JSON.stringify(input),
   });
+  captureEvent("meal_logged", { source: "manual", meal_type: input.mealType ?? "meal" });
+  return response;
 }
 
 export async function updateMobileMeal(accessToken: string, input: MobileMealInput & { id: string }) {
@@ -329,10 +476,12 @@ export async function deleteMobileSavedMeal(accessToken: string, id: string) {
 }
 
 export async function trackMobileSavedMeal(accessToken: string, id: string) {
-  return fetchJson<{ meal: MobileMealLog }>("/api/mobile/meals/saved", accessToken, {
+  const response = await fetchJson<{ meal: MobileMealLog }>("/api/mobile/meals/saved", accessToken, {
     method: "PUT",
     body: JSON.stringify({ id }),
   });
+  captureEvent("meal_logged", { source: "saved" });
+  return response;
 }
 
 export async function fetchMobileGoals(accessToken: string) {
@@ -340,10 +489,12 @@ export async function fetchMobileGoals(accessToken: string) {
 }
 
 export async function createMobileGoal(accessToken: string, input: MobileGoalInput) {
-  return fetchJson<{ goal: MobileGoal }>("/api/mobile/goals", accessToken, {
+  const response = await fetchJson<{ goal: MobileGoal }>("/api/mobile/goals", accessToken, {
     method: "POST",
     body: JSON.stringify(input),
   });
+  captureEvent("goal_created", { task_type: input.taskType, priority: input.priority });
+  return response;
 }
 
 export async function updateMobileGoal(accessToken: string, input: MobileGoalInput & { id: string }) {
@@ -375,17 +526,21 @@ export async function fetchMobileWorkouts(accessToken: string) {
 }
 
 export async function createMobileWorkout(accessToken: string, input: MobileWorkoutInput) {
-  return fetchJson<{ workout: MobileWorkoutLog }>("/api/mobile/workouts", accessToken, {
+  const response = await fetchJson<{ workout: MobileWorkoutLog }>("/api/mobile/workouts", accessToken, {
     method: "POST",
     body: JSON.stringify(input),
   });
+  captureEvent("workout_logged", { source: "manual", workout_type: input.workoutType });
+  return response;
 }
 
 export async function trackMobilePlannedWorkout(accessToken: string, scheduleItemId: string) {
-  return fetchJson<{ workout: MobileWorkoutLog }>("/api/mobile/workouts", accessToken, {
+  const response = await fetchJson<{ workout: MobileWorkoutLog }>("/api/mobile/workouts", accessToken, {
     method: "PUT",
     body: JSON.stringify({ scheduleItemId }),
   });
+  captureEvent("workout_logged", { source: "planned" });
+  return response;
 }
 
 export async function deleteMobileWorkout(accessToken: string, id: string) {
@@ -410,5 +565,125 @@ export async function deleteMobileWorkoutPlanItem(accessToken: string, id: strin
   return fetchJson<{ ok: true }>("/api/mobile/workouts/plan", accessToken, {
     method: "DELETE",
     body: JSON.stringify({ id }),
+  });
+}
+
+export async function parseMobileWorkoutPlan(accessToken: string, text: string, timezone: string) {
+  return fetchJson<{ draft: MobileWorkoutScheduleDraft }>("/api/tracking/workouts/plan/parse", accessToken, {
+    method: "POST",
+    body: JSON.stringify({ text, timezone }),
+  });
+}
+
+export async function applyMobileWorkoutPlan(accessToken: string, draft: MobileWorkoutScheduleDraft) {
+  return fetchJson<{ applied: { scheduleItemsCreated: number } }>(
+    "/api/tracking/workouts/plan/apply",
+    accessToken,
+    {
+      method: "POST",
+      body: JSON.stringify({ draft }),
+    },
+  );
+}
+
+export async function parseMobileWorkout(accessToken: string, text: string, timezone: string) {
+  return fetchJson<{ draft: MobileWorkoutDraft }>("/api/tracking/workouts/parse", accessToken, {
+    method: "POST",
+    body: JSON.stringify({ text, timezone }),
+  });
+}
+
+export async function applyMobileWorkoutDraft(accessToken: string, draft: MobileWorkoutDraft) {
+  const response = await fetchJson<{ applied: { workoutsCreated: number } }>("/api/tracking/workouts/apply", accessToken, {
+    method: "POST",
+    body: JSON.stringify({ draft }),
+  });
+  captureEvent("workout_logged", { source: "ai_text", workout_type: draft.workout_type });
+  return response;
+}
+
+export async function suggestMobileWorkout(
+  accessToken: string,
+  options: { currentDraft?: MobileWorkoutSuggestionDraft | null; feedback?: string | null } = {},
+) {
+  const now = new Date();
+  const todayStart = new Date(now);
+  todayStart.setHours(0, 0, 0, 0);
+  const todayEnd = new Date(now);
+  todayEnd.setHours(23, 59, 59, 999);
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  const hours = String(now.getHours()).padStart(2, "0");
+  const minutes = String(now.getMinutes()).padStart(2, "0");
+
+  return fetchJson<MobileWorkoutSuggestionResponse>("/api/tracking/workouts/suggest", accessToken, {
+    method: "POST",
+    body: JSON.stringify({
+      currentDraft: options.currentDraft ?? null,
+      feedback: options.feedback ?? null,
+      currentIso: now.toISOString(),
+      currentLocalDate: `${year}-${month}-${day}`,
+      currentLocalTime: `${hours}:${minutes}`,
+      todayEndIso: todayEnd.toISOString(),
+      todayStartIso: todayStart.toISOString(),
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Toronto",
+    }),
+  });
+}
+
+export async function parseMobileMeal(
+  accessToken: string,
+  mode: "log" | "saved",
+  text: string,
+  timezone: string,
+) {
+  const path = mode === "log" ? "/api/tracking/meals/parse" : "/api/tracking/meals/saved/parse";
+  return fetchJson<{ draft: MobileMealDraft }>(path, accessToken, {
+    method: "POST",
+    body: JSON.stringify({ text, timezone }),
+  });
+}
+
+export async function applyMobileMealDraft(accessToken: string, draft: MobileMealDraft) {
+  const path = draft.mode === "log" ? "/api/tracking/meals/apply" : "/api/tracking/meals/saved/apply";
+  const response = await fetchJson<{ applied: { mealsLogged?: number; savedMealsCreated?: number } }>(path, accessToken, {
+    method: "POST",
+    body: JSON.stringify({ draft }),
+  });
+  captureEvent(draft.mode === "log" ? "meal_logged" : "saved_meal_created", {
+    source: "ai_text",
+    ...(draft.mode === "log" ? { meal_type: draft.meal_type } : {}),
+  });
+  return response;
+}
+
+export async function suggestMobileMeal(
+  accessToken: string,
+  options: { currentDraft?: MobileMealSuggestionDraft | null; feedback?: string | null } = {},
+) {
+  const now = new Date();
+  const todayStart = new Date(now);
+  todayStart.setHours(0, 0, 0, 0);
+  const todayEnd = new Date(now);
+  todayEnd.setHours(23, 59, 59, 999);
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  const hours = String(now.getHours()).padStart(2, "0");
+  const minutes = String(now.getMinutes()).padStart(2, "0");
+
+  return fetchJson<MobileMealSuggestionResponse>("/api/tracking/meals/suggest", accessToken, {
+    method: "POST",
+    body: JSON.stringify({
+      currentDraft: options.currentDraft ?? null,
+      feedback: options.feedback ?? null,
+      currentIso: now.toISOString(),
+      currentLocalDate: `${year}-${month}-${day}`,
+      currentLocalTime: `${hours}:${minutes}`,
+      todayEndIso: todayEnd.toISOString(),
+      todayStartIso: todayStart.toISOString(),
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Toronto",
+    }),
   });
 }

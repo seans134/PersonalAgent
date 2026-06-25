@@ -1,13 +1,17 @@
-import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 export type MobileScreen =
   | "dashboard"
   | "onboarding"
   | "calendar"
+  | "notifications"
+  | "settings"
   | "goals"
   | "meals"
+  | "mealCoach"
   | "workouts"
-  | "workoutPlan";
+  | "workoutPlan"
+  | "workoutCoach";
 
 type MobileAppShellProps = {
   activeScreen: MobileScreen;
@@ -23,10 +27,14 @@ const navItems: Array<{ screen: MobileScreen; label: string; subtitle: string }>
   { screen: "dashboard", label: "Dashboard", subtitle: "Today plan" },
   { screen: "onboarding", label: "Onboarding", subtitle: "Profile and goals" },
   { screen: "calendar", label: "Local Calendar", subtitle: "Classes and blocks" },
+  { screen: "notifications", label: "Notifications", subtitle: "Reminder schedule" },
   { screen: "goals", label: "Goals", subtitle: "Active outcomes" },
   { screen: "meals", label: "Meals", subtitle: "Nutrition logs" },
+  { screen: "mealCoach", label: "Meal Coach", subtitle: "Suggestions and text logs" },
   { screen: "workouts", label: "Workouts", subtitle: "Training logs" },
   { screen: "workoutPlan", label: "Workout Plan", subtitle: "Weekly schedule" },
+  { screen: "workoutCoach", label: "Workout Coach", subtitle: "Suggestions and text logs" },
+  { screen: "settings", label: "Settings & Legal", subtitle: "Support and account" },
 ];
 
 function titleForScreen(screen: MobileScreen) {
@@ -67,7 +75,7 @@ export function MobileAppShell({
               <Text style={styles.drawerSubtitle}>Personal agent</Text>
             </View>
 
-            <View style={styles.navList}>
+            <ScrollView contentContainerStyle={styles.navList} style={styles.navScroller}>
               {navItems.map((item) => {
                 const isActive = item.screen === activeScreen;
 
@@ -85,7 +93,7 @@ export function MobileAppShell({
                   </Pressable>
                 );
               })}
-            </View>
+            </ScrollView>
 
             <Pressable
               onPress={() => {
@@ -186,7 +194,11 @@ const styles = StyleSheet.create({
   },
   navList: {
     gap: 8,
-    marginTop: 22,
+    paddingBottom: 14,
+    paddingTop: 22,
+  },
+  navScroller: {
+    flex: 1,
   },
   navItem: {
     borderRadius: 8,

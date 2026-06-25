@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { CalendarEditorPanel } from "./CalendarEditorPanel";
 import { CalendarImportPanel } from "./CalendarImportPanel";
 
 type CalendarScreenProps = {
@@ -6,16 +8,19 @@ type CalendarScreenProps = {
 };
 
 export function CalendarScreen({ accessToken }: CalendarScreenProps) {
+  const [reloadKey, setReloadKey] = useState(0);
+
   return (
     <ScrollView contentContainerStyle={styles.content}>
       <View style={styles.header}>
         <Text style={styles.eyebrow}>Local calendar</Text>
-        <Text style={styles.title}>Classes and schedule from web.</Text>
+        <Text style={styles.title}>Classes and schedule.</Text>
         <Text style={styles.body}>
-          This mirrors the local calendar data already saved in the web app.
+          Changes here stay synchronized with the web app and daily planner.
         </Text>
       </View>
-      <CalendarImportPanel accessToken={accessToken} />
+      <CalendarImportPanel accessToken={accessToken} reloadKey={reloadKey} />
+      <CalendarEditorPanel accessToken={accessToken} onChanged={() => setReloadKey((value) => value + 1)} />
     </ScrollView>
   );
 }
