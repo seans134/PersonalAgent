@@ -9,7 +9,10 @@
     "userInterfaceStyle": "light",
     "ios": {
       "bundleIdentifier": "com.personalagent.atlas",
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -26,6 +29,11 @@
     "plugins": [
       "expo-localization",
       "@sentry/react-native"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "f7925550-7152-4fa9-b41f-157f565bd834"
+      }
+    }
   }
 }

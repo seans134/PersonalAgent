@@ -1,4 +1,4 @@
-import { parseAuthDeepLink } from "@personal-agent/core/auth-deep-link";
+import { parseAuthDeepLink } from "@personal-agent/core";
 import { supabase } from "./supabase";
 
 export type AuthDeepLinkResult = {
