@@ -28,7 +28,14 @@
     },
     "plugins": [
       "expo-localization",
-      "@sentry/react-native"
+      [
+        "@sentry/react-native/expo",
+        {
+          "organization": "atlas-hu",
+          "project": "atlas",
+          "url": "https://sentry.io/"
+        }
+      ]
     ],
     "extra": {
       "eas": {
