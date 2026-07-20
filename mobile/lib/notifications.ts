@@ -37,9 +37,13 @@ Notifications.setNotificationHandler({
 });
 
 function parseTime(value: string) {
-  const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(value);
-  if (!match) throw new Error("Reminder time must use HH:MM format.");
-  return { hour: Number(match[1]), minute: Number(match[2]) };
+  const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim());
+  const hour = match ? Number(match[1]) : NaN;
+  const minute = match ? Number(match[2]) : NaN;
+  if (!match || hour > 23 || minute > 59) {
+    throw new Error("Reminder time must use HH:MM format.");
+  }
+  return { hour, minute };
 }
 
 async function readIdentifiers(): Promise<StoredIdentifiers> {

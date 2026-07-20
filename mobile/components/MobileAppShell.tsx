@@ -1,4 +1,4 @@
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native";
 
 export type MobileScreen =
   | "dashboard"
@@ -70,40 +70,42 @@ export function MobileAppShell({
         <View style={styles.modalRoot}>
           <Pressable accessibilityLabel="Close menu" onPress={onCloseMenu} style={styles.scrim} />
           <View style={styles.drawer}>
-            <View style={styles.drawerHeader}>
-              <Text style={styles.drawerBrand}>Atlas</Text>
-              <Text style={styles.drawerSubtitle}>Personal agent</Text>
-            </View>
+            <SafeAreaView style={styles.drawerSafeArea}>
+              <View style={styles.drawerHeader}>
+                <Text style={styles.drawerBrand}>Atlas</Text>
+                <Text style={styles.drawerSubtitle}>Personal agent</Text>
+              </View>
 
-            <ScrollView contentContainerStyle={styles.navList} style={styles.navScroller}>
-              {navItems.map((item) => {
-                const isActive = item.screen === activeScreen;
+              <ScrollView contentContainerStyle={styles.navList} style={styles.navScroller}>
+                {navItems.map((item) => {
+                  const isActive = item.screen === activeScreen;
 
-                return (
-                  <Pressable
-                    key={item.screen}
-                    onPress={() => {
-                      onNavigate(item.screen);
-                      onCloseMenu();
-                    }}
-                    style={[styles.navItem, isActive && styles.navItemActive]}
-                  >
-                    <Text style={[styles.navLabel, isActive && styles.navLabelActive]}>{item.label}</Text>
-                    <Text style={[styles.navSubtitle, isActive && styles.navSubtitleActive]}>{item.subtitle}</Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
+                  return (
+                    <Pressable
+                      key={item.screen}
+                      onPress={() => {
+                        onNavigate(item.screen);
+                        onCloseMenu();
+                      }}
+                      style={[styles.navItem, isActive && styles.navItemActive]}
+                    >
+                      <Text style={[styles.navLabel, isActive && styles.navLabelActive]}>{item.label}</Text>
+                      <Text style={[styles.navSubtitle, isActive && styles.navSubtitleActive]}>{item.subtitle}</Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
 
-            <Pressable
-              onPress={() => {
-                onCloseMenu();
-                onSignOut();
-              }}
-              style={styles.signOutButton}
-            >
-              <Text style={styles.signOutText}>Sign Out</Text>
-            </Pressable>
+              <Pressable
+                onPress={() => {
+                  onCloseMenu();
+                  onSignOut();
+                }}
+                style={styles.signOutButton}
+              >
+                <Text style={styles.signOutText}>Sign Out</Text>
+              </Pressable>
+            </SafeAreaView>
           </View>
         </View>
       </Modal>
@@ -169,9 +171,14 @@ const styles = StyleSheet.create({
     borderRightColor: "#e2e8f0",
     borderRightWidth: 1,
     height: "100%",
-    padding: 20,
+    paddingHorizontal: 20,
     position: "absolute",
     width: 300,
+  },
+  drawerSafeArea: {
+    flex: 1,
+    paddingBottom: 12,
+    paddingTop: 12,
   },
   drawerHeader: {
     borderBottomColor: "#e2e8f0",

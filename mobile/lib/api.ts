@@ -2,19 +2,6 @@ import type { TodayPlanResponse } from "@personal-agent/core/planner/client-type
 import { captureEvent, captureException } from "./analytics";
 import { requireMobileEnv } from "./env";
 
-type BackendSessionResponse =
-  | {
-      ok: true;
-      user: {
-        id: string;
-        email: string | null;
-      };
-    }
-  | {
-      ok: false;
-      error: string;
-    };
-
 export type MobileOnboardingInput = {
   workStartTime: string;
   workEndTime: string;
@@ -288,23 +275,6 @@ export type MobileWorkoutScheduleDraft = {
   warnings: string[];
 };
 
-export async function fetchBackendSession(accessToken: string): Promise<BackendSessionResponse> {
-  const { apiBaseUrl } = requireMobileEnv();
-  const response = await fetch(`${apiBaseUrl.replace(/\/$/, "")}/api/mobile/session`, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
-  const body = (await response.json()) as BackendSessionResponse;
-
-  if (!response.ok && "error" in body) {
-    return body;
-  }
-
-  return body;
-}
-
 export async function deleteMobileAccount(accessToken: string) {
   return fetchJson<{ deleted: true }>("/api/mobile/account", accessToken, {
     method: "DELETE",
@@ -313,62 +283,42 @@ export async function deleteMobileAccount(accessToken: string) {
 }
 
 export async function saveMobileOnboarding(accessToken: string, input: MobileOnboardingInput) {
-  const { apiBaseUrl } = requireMobileEnv();
-  const response = await fetch(`${apiBaseUrl.replace(/\/$/, "")}/api/mobile/onboarding`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(input),
-  });
-  const body = (await response.json()) as { error?: string; profileUpdated?: boolean; goalsCreated?: number };
-
-  if (!response.ok) {
-    throw new Error(body.error ?? "Unable to save onboarding.");
-  }
-
+  const body = await fetchJson<{ profileUpdated?: boolean; goalsCreated?: number }>(
+    "/api/mobile/onboarding",
+    accessToken,
+    { method: "POST", body: JSON.stringify(input) },
+    "Unable to save onboarding.",
+  );
   captureEvent("onboarding_completed", { goals_created: body.goalsCreated ?? 0 });
   return body;
 }
 
 export async function generateMobileTodayPlan(accessToken: string): Promise<MobileTodayPlanResponse> {
-  const { apiBaseUrl } = requireMobileEnv();
-  const response = await fetch(`${apiBaseUrl.replace(/\/$/, "")}/api/mobile/plan/today`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-  });
-  const body = (await response.json()) as MobileTodayPlanResponse | { error?: string };
-
-  if (!response.ok) {
-    throw new Error("error" in body && body.error ? body.error : "Unable to generate today plan.");
-  }
-
+  const body = await fetchJson<MobileTodayPlanResponse>(
+    "/api/mobile/plan/today",
+    accessToken,
+    { method: "POST" },
+    "Unable to generate today plan.",
+  );
   captureEvent("plan_generated");
-  return body as MobileTodayPlanResponse;
+  return body;
 }
 
 export async function fetchMobileCalendar(accessToken: string): Promise<MobileCalendarResponse> {
-  const { apiBaseUrl } = requireMobileEnv();
-  const response = await fetch(`${apiBaseUrl.replace(/\/$/, "")}/api/mobile/calendar`, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
-  const body = (await response.json()) as MobileCalendarResponse | { error?: string };
-
-  if (!response.ok) {
-    throw new Error("error" in body && body.error ? body.error : "Unable to load calendar.");
-  }
-
-  return body as MobileCalendarResponse;
+  return fetchJson<MobileCalendarResponse>(
+    "/api/mobile/calendar",
+    accessToken,
+    { method: "GET" },
+    "Unable to load calendar.",
+  );
 }
 
-async function fetchJson<T>(path: string, accessToken: string, init: RequestInit = {}): Promise<T> {
+async function fetchJson<T>(
+  path: string,
+  accessToken: string,
+  init: RequestInit = {},
+  fallbackError = "Request failed.",
+): Promise<T> {
   const { apiBaseUrl } = requireMobileEnv();
   const response = await fetch(`${apiBaseUrl.replace(/\/$/, "")}${path}`, {
     ...init,
@@ -378,13 +328,25 @@ async function fetchJson<T>(path: string, accessToken: string, init: RequestInit
       ...init.headers,
     },
   });
-  const body = (await response.json()) as unknown;
+
+  let body: unknown = null;
+  try {
+    body = await response.json();
+  } catch {
+    // Non-JSON response (proxy error page, empty body); fall through to status handling.
+  }
 
   if (!response.ok) {
-    const errorBody = body as { error?: string };
-    const error = new Error(errorBody.error ?? "Request failed.");
+    const errorBody = body as { error?: string } | null;
+    const error = new Error(errorBody?.error ?? `${fallbackError} (status ${response.status})`);
     captureEvent("api_request_failed", { path, status: response.status });
     if (response.status >= 500) captureException(error, { path, status: response.status });
+    throw error;
+  }
+
+  if (body === null) {
+    const error = new Error(fallbackError);
+    captureException(error, { path, status: response.status, reason: "non_json_success_body" });
     throw error;
   }
 

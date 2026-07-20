@@ -2,13 +2,13 @@ import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 import {
-  fetchBackendSession,
   generateMobileTodayPlan,
   type MobileTodayPlanResponse,
 } from "../lib/api";
@@ -24,21 +24,28 @@ export function DashboardScreen({
   accessToken,
   email,
 }: DashboardScreenProps) {
-  const [backendMessage, setBackendMessage] = useState("Not checked yet.");
   const [plan, setPlan] = useState<MobileTodayPlanResponse | null>(null);
+  const [planIsStale, setPlanIsStale] = useState(false);
   const [planCacheMessage, setPlanCacheMessage] = useState<string | undefined>();
   const [message, setMessage] = useState<string | undefined>();
-  const [checkingBackend, setCheckingBackend] = useState(false);
   const [generatingPlan, setGeneratingPlan] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [schedulingReminder, setSchedulingReminder] = useState(false);
 
   const loadCachedPlan = useCallback(async () => {
     const cachedPlan = await readCachedTodayPlan();
+    if (!cachedPlan) return;
 
-    if (cachedPlan) {
-      setPlan(cachedPlan.value);
-      setPlanCacheMessage(`Showing saved plan from ${new Date(cachedPlan.savedAt).toLocaleString()}.`);
-    }
+    const savedAt = new Date(cachedPlan.savedAt);
+    const isFromToday = savedAt.toDateString() === new Date().toDateString();
+
+    setPlan(cachedPlan.value);
+    setPlanIsStale(!isFromToday);
+    setPlanCacheMessage(
+      isFromToday
+        ? `Showing saved plan from ${savedAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}.`
+        : `This plan is from ${savedAt.toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" })}. Pull down to generate a fresh plan for today.`,
+    );
   }, []);
 
   useEffect(() => {
@@ -49,34 +56,38 @@ export function DashboardScreen({
     return () => clearTimeout(timeout);
   }, [loadCachedPlan]);
 
-  async function checkBackendSession() {
-    setCheckingBackend(true);
-    const result = await fetchBackendSession(accessToken);
-    setBackendMessage(
-      result.ok
-        ? `Backend accepted session for ${result.user.email ?? result.user.id}.`
-        : `Backend rejected session: ${result.error}`,
-    );
-    setCheckingBackend(false);
-  }
-
-  async function generatePlan() {
+  const generatePlan = useCallback(async () => {
     setMessage(undefined);
-    setGeneratingPlan(true);
 
     try {
       const nextPlan = await generateMobileTodayPlan(accessToken);
       setPlan(nextPlan);
+      setPlanIsStale(false);
       setPlanCacheMessage("Saved for offline viewing.");
       await writeCachedTodayPlan(nextPlan);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Unable to generate today plan.");
     }
+  }, [accessToken]);
 
+  async function handleGeneratePress() {
+    setGeneratingPlan(true);
+    await generatePlan();
     setGeneratingPlan(false);
   }
 
+  async function handleRefresh() {
+    setRefreshing(true);
+    await generatePlan();
+    setRefreshing(false);
+  }
+
   async function scheduleReminders() {
+    if (planIsStale) {
+      setMessage("This plan is from a previous day. Pull down to generate a fresh plan first.");
+      return;
+    }
+
     setMessage(undefined);
     setSchedulingReminder(true);
 
@@ -96,7 +107,17 @@ export function DashboardScreen({
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.content}>
+    <ScrollView
+      contentContainerStyle={styles.content}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          tintColor="#0f766e"
+          colors={["#0f766e"]}
+        />
+      }
+    >
       <View style={styles.header}>
         <Text style={styles.eyebrow}>Atlas</Text>
         <Text style={styles.title}>Today</Text>
@@ -110,7 +131,7 @@ export function DashboardScreen({
         </Text>
         <Pressable
           disabled={generatingPlan}
-          onPress={generatePlan}
+          onPress={handleGeneratePress}
           style={({ pressed }) => [styles.primaryButton, (pressed || generatingPlan) && styles.buttonPressed]}
         >
           {generatingPlan ? (
@@ -123,9 +144,23 @@ export function DashboardScreen({
 
       {message ? <Text style={styles.error}>{message}</Text> : null}
 
+      {!plan && !generatingPlan ? (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyTitle}>No plan yet</Text>
+          <Text style={styles.emptyBody}>
+            Tap Generate Today Plan and Atlas builds a schedule from your goals,
+            calendar, and preferences. Pull down to refresh anytime.
+          </Text>
+        </View>
+      ) : null}
+
       {plan ? (
         <View style={styles.planSection}>
-          {planCacheMessage ? <Text style={styles.cacheMessage}>{planCacheMessage}</Text> : null}
+          {planCacheMessage ? (
+            <Text style={[styles.cacheMessage, planIsStale && styles.cacheMessageStale]}>
+              {planCacheMessage}
+            </Text>
+          ) : null}
           {plan.summary ? <Text style={styles.summary}>{plan.summary}</Text> : null}
           {plan.plan.explanation ? <Text style={styles.summary}>{plan.plan.explanation}</Text> : null}
 
@@ -161,22 +196,6 @@ export function DashboardScreen({
           </Pressable>
         </View>
       ) : null}
-
-      <View style={styles.panel}>
-        <Text style={styles.panelLabel}>Backend auth probe</Text>
-        <Text style={styles.panelBody}>{backendMessage}</Text>
-        <Pressable
-          disabled={checkingBackend}
-          onPress={checkBackendSession}
-          style={({ pressed }) => [styles.secondaryAction, (pressed || checkingBackend) && styles.buttonPressed]}
-        >
-          {checkingBackend ? (
-            <ActivityIndicator color="#0f766e" />
-          ) : (
-            <Text style={styles.secondaryActionText}>Check Backend Session</Text>
-          )}
-        </Pressable>
-      </View>
 
     </ScrollView>
   );
@@ -261,6 +280,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
+  emptyState: {
+    backgroundColor: "#f8fafc",
+    borderColor: "#e2e8f0",
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 16,
+  },
+  emptyTitle: {
+    color: "#111827",
+    fontSize: 16,
+    fontWeight: "800",
+    marginBottom: 6,
+  },
+  emptyBody: {
+    color: "#475569",
+    fontSize: 14,
+    lineHeight: 20,
+  },
   planSection: {
     gap: 12,
   },
@@ -284,6 +321,11 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     lineHeight: 19,
     padding: 10,
+  },
+  cacheMessageStale: {
+    backgroundColor: "#fffbeb",
+    borderColor: "#fcd34d",
+    color: "#92400e",
   },
   planCard: {
     backgroundColor: "#ffffff",
