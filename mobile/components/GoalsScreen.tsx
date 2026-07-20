@@ -2,12 +2,14 @@ import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
+import { successHaptic } from "../lib/haptics";
 import {
   createMobileGoal,
   deleteMobileGoal,
@@ -86,6 +88,7 @@ export function GoalsScreen({ accessToken }: GoalsScreenProps) {
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | undefined>();
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [pendingId, setPendingId] = useState<string | null>(null);
 
@@ -111,6 +114,12 @@ export function GoalsScreen({ accessToken }: GoalsScreenProps) {
 
     return () => clearTimeout(timeout);
   }, [loadGoals]);
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    await loadGoals();
+    setRefreshing(false);
+  }
 
   function updateForm(key: keyof GoalFormState, value: string) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -159,6 +168,7 @@ export function GoalsScreen({ accessToken }: GoalsScreenProps) {
     try {
       const result = await setMobileGoalCompleted(accessToken, goal.id, completed);
       upsertGoal(result.goal);
+      if (completed) successHaptic();
       setMessage(completed ? "Goal completed." : "Goal restored.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Unable to update goal.");
@@ -184,7 +194,13 @@ export function GoalsScreen({ accessToken }: GoalsScreenProps) {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <ScrollView
+      contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#0f766e" colors={["#0f766e"]} />
+      }
+    >
       <View style={styles.header}>
         <Text style={styles.eyebrow}>Goals</Text>
         <Text style={styles.title}>Outcomes for Atlas to plan around.</Text>

@@ -13,6 +13,7 @@ import {
   type MobileTodayPlanResponse,
 } from "../lib/api";
 import { readCachedTodayPlan, writeCachedTodayPlan } from "../lib/cache";
+import { errorHaptic, successHaptic } from "../lib/haptics";
 import { readNotificationPreferences, scheduleTodayPlanReminders } from "../lib/notifications";
 
 type DashboardScreenProps = {
@@ -64,8 +65,10 @@ export function DashboardScreen({
       setPlan(nextPlan);
       setPlanIsStale(false);
       setPlanCacheMessage("Saved for offline viewing.");
+      successHaptic();
       await writeCachedTodayPlan(nextPlan);
     } catch (error) {
+      errorHaptic();
       setMessage(error instanceof Error ? error.message : "Unable to generate today plan.");
     }
   }, [accessToken]);

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -22,6 +23,7 @@ import {
   type MobileMealLog,
   type MobileSavedMeal,
 } from "../lib/api";
+import { successHaptic } from "../lib/haptics";
 
 type MealsScreenProps = {
   accessToken: string;
@@ -109,6 +111,7 @@ export function MealsScreen({ accessToken }: MealsScreenProps) {
   const [editingSavedMealId, setEditingSavedMealId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | undefined>();
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [pendingId, setPendingId] = useState<string | null>(null);
 
@@ -150,6 +153,12 @@ export function MealsScreen({ accessToken }: MealsScreenProps) {
     return () => clearTimeout(timeout);
   }, [loadMeals]);
 
+  async function handleRefresh() {
+    setRefreshing(true);
+    await loadMeals();
+    setRefreshing(false);
+  }
+
   function updateForm(key: keyof MealFormState, value: string) {
     setForm((current) => ({ ...current, [key]: value }));
   }
@@ -168,6 +177,7 @@ export function MealsScreen({ accessToken }: MealsScreenProps) {
       } else {
         const result = await createMobileMeal(accessToken, input);
         setMeals((current) => [result.meal, ...current]);
+        successHaptic();
         setMessage("Meal logged.");
       }
 
@@ -225,6 +235,7 @@ export function MealsScreen({ accessToken }: MealsScreenProps) {
     try {
       const result = await trackMobileSavedMeal(accessToken, id);
       setMeals((current) => [result.meal, ...current]);
+      successHaptic();
       setMessage("Saved meal tracked for today.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Unable to track saved meal.");
@@ -250,7 +261,13 @@ export function MealsScreen({ accessToken }: MealsScreenProps) {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <ScrollView
+      contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#0f766e" colors={["#0f766e"]} />
+      }
+    >
       <View style={styles.header}>
         <Text style={styles.eyebrow}>Tracking</Text>
         <Text style={styles.title}>Meals</Text>

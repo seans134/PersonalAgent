@@ -2,12 +2,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
+import { successHaptic } from "../lib/haptics";
 import {
   createMobileWorkout,
   deleteMobileWorkout,
@@ -130,6 +132,7 @@ export function WorkoutsScreen({ accessToken }: WorkoutsScreenProps) {
   const [plannedWorkouts, setPlannedWorkouts] = useState<MobilePlannedWorkout[]>([]);
   const [form, setForm] = useState<WorkoutForm>(initialForm);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [trackingId, setTrackingId] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
@@ -156,6 +159,12 @@ export function WorkoutsScreen({ accessToken }: WorkoutsScreenProps) {
   useEffect(() => {
     loadWorkouts();
   }, [loadWorkouts]);
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    await loadWorkouts();
+    setRefreshing(false);
+  }
 
   function updateType(workoutType: MobileWorkoutType) {
     setForm((current) => ({
@@ -189,6 +198,7 @@ export function WorkoutsScreen({ accessToken }: WorkoutsScreenProps) {
       });
 
       setWorkouts((current) => [response.workout, ...current]);
+      successHaptic();
       setForm({
         ...initialForm,
         workoutType: form.workoutType,
@@ -212,6 +222,7 @@ export function WorkoutsScreen({ accessToken }: WorkoutsScreenProps) {
         const withoutDuplicate = current.filter((workout) => workout.id !== response.workout.id);
         return [response.workout, ...withoutDuplicate];
       });
+      successHaptic();
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to track planned workout.");
     } finally {
@@ -236,7 +247,12 @@ export function WorkoutsScreen({ accessToken }: WorkoutsScreenProps) {
   const metricInputLabels = metricLabels(form.trackingMethod);
 
   return (
-    <ScrollView contentContainerStyle={styles.content}>
+    <ScrollView
+      contentContainerStyle={styles.content}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#0f766e" colors={["#0f766e"]} />
+      }
+    >
       <View style={styles.header}>
         <View style={styles.headerCopy}>
           <Text style={styles.eyebrow}>Fitness</Text>
