@@ -135,7 +135,6 @@ describe("generateTodayPlanForUser", () => {
         },
       }) as never,
       userId: "user-1",
-      fetchEvents: async () => [],
       enhancePlan: async ({ plan }) => ({ plan }),
     });
 
@@ -173,7 +172,6 @@ describe("generateTodayPlanForUser", () => {
         ],
       }) as never,
       userId: "user-1",
-      fetchEvents: async () => [],
       enhancePlan: async ({ plan }) => ({ plan }),
     });
 
@@ -203,7 +201,6 @@ describe("generateTodayPlanForUser", () => {
         profile: null,
       }) as never,
       userId: "user-1",
-      fetchEvents: async () => [],
       enhancePlan: async ({ plan }) => ({ plan }),
     });
 
@@ -211,10 +208,11 @@ describe("generateTodayPlanForUser", () => {
     expect(result.body).toEqual({ error: "User profile is missing. Complete onboarding first." });
   });
 
-  it("returns plan with warning when calendar read fails", async () => {
+  it("returns plan with warning when the local schedule read fails", async () => {
     const result = await generateTodayPlanForUser({
       supabase: createSupabaseMock({
         goals: [{ title: "Ship roadmap", priority: 1 }],
+        localEventsError: "Calendar unavailable",
         profile: {
           work_start_time: "09:00",
           work_end_time: "17:00",
@@ -225,9 +223,6 @@ describe("generateTodayPlanForUser", () => {
         },
       }) as never,
       userId: "user-1",
-      fetchEvents: async () => {
-        throw new Error("Calendar unavailable");
-      },
       enhancePlan: async ({ plan }) => ({ plan }),
     });
 
@@ -238,7 +233,7 @@ describe("generateTodayPlanForUser", () => {
     }
 
     expect(result.body.meta.warnings.length).toBe(1);
-    expect(result.body.meta.warnings[0]).toMatch(/calendar read failed/i);
+    expect(result.body.meta.warnings[0]).toMatch(/local schedule read failed/i);
     expect(result.body.meta.eventsCount).toBe(0);
   });
 });

@@ -2,27 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthenticatedRequestClient } from "@/lib/supabase/request";
 
-async function revokeGoogleAccess(admin: ReturnType<typeof createAdminClient>, userId: string) {
-  try {
-    const { data } = await admin
-      .from("google_calendar_tokens")
-      .select("access_token, refresh_token")
-      .eq("user_id", userId)
-      .maybeSingle();
-    const token = data?.refresh_token ?? data?.access_token;
-    if (!token) return;
-
-    await fetch("https://oauth2.googleapis.com/revoke", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ token }),
-      signal: AbortSignal.timeout(5_000),
-    });
-  } catch {
-    // Account deletion must still proceed if Google is unavailable.
-  }
-}
-
 export async function DELETE(request: NextRequest) {
   const auth = await getAuthenticatedRequestClient(request);
   if (!auth) {
@@ -36,7 +15,6 @@ export async function DELETE(request: NextRequest) {
 
   try {
     const admin = createAdminClient();
-    await revokeGoogleAccess(admin, auth.user.id);
     const { error } = await admin.auth.admin.deleteUser(auth.user.id, false);
 
     if (error) {

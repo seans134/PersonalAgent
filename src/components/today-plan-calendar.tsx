@@ -34,11 +34,6 @@ const TYPE_STYLE: Record<PlannedItem["type"], { backgroundColor: string; borderC
 };
 
 const CONTEXT_STYLE: Record<TodayPlanContextEvent["source"], { backgroundColor: string; borderColor: string; color: string }> = {
-  google: {
-    backgroundColor: "#334155",
-    borderColor: "#0f172a",
-    color: "#ffffff",
-  },
   local: {
     backgroundColor: "#57534e",
     borderColor: "#292524",

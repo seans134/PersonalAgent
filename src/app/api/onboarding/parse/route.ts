@@ -3,17 +3,14 @@ import {
   type NaturalLanguageOnboardingMode,
   parseNaturalLanguageOnboarding,
 } from "@/lib/onboarding/natural-language";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthenticatedRequestClient } from "@/lib/supabase/request";
 
 const MODES = new Set(["school_work", "weekly_rhythm", "goals"]);
 
 export async function POST(request: Request) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const auth = await getAuthenticatedRequestClient(request);
 
-  if (!user) {
+  if (!auth) {
     return NextResponse.json({ error: "Authentication required." }, { status: 401 });
   }
 

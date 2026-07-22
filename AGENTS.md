@@ -12,7 +12,7 @@ When implementing features now, keep migration easy later by following these rul
 2. Keep planner logic in shared, pure modules.
 3. Define stable request/response contracts for endpoints.
 4. Avoid web-only assumptions in product copy and flows.
-5. Track core loop metrics: onboarding completed, calendar connected, plan generated, plan accepted.
+5. Track core loop metrics: onboarding completed, schedule added, plan generated, plan accepted.
 
 ## Delivery Prompts / Build Sequence
 Use this as the canonical MVP execution checklist:
@@ -20,7 +20,7 @@ Use this as the canonical MVP execution checklist:
 2. Day 2: Set up Supabase auth and protected routes.
 3. Day 3: Build onboarding form for goals, constraints, preferences.
 4. Day 4: Persist onboarding data and add profile completion checks.
-5. Day 5: Implement Google Calendar OAuth connect/disconnect.
+5. Day 5: Implement the local calendar (one-off events + weekly schedule blocks).
 6. Day 6: Fetch and normalize today’s calendar events.
 7. Day 7: Build recommendation/scoring function (urgency, impact, time-fit, preference-fit).
 8. Day 8: Add daily plan generator API endpoint.

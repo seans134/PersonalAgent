@@ -21,7 +21,6 @@ export default function PrivacyPage() {
           App content may include goals, preferences, calendar events, class and work schedules, daily plans, meals,
           workouts, body-profile measurements, saved meals, notes, and feedback you give to AI-assisted features.
         </p>
-        <p>If you connect Google Calendar, Atlas stores authorization tokens and reads calendar events needed to plan your day.</p>
       </DocumentSection>
 
       <DocumentSection title="How information is used">
@@ -45,14 +44,14 @@ export default function PrivacyPage() {
       </DocumentSection>
 
       <DocumentSection title="Service providers">
-        <p>Atlas may rely on Supabase for authentication and data storage, Google for Calendar and Gemini services, PostHog for product analytics, Sentry for diagnostics, and the selected hosting/build providers. Their processing is governed by their own terms and privacy commitments.</p>
+        <p>Atlas may rely on Supabase for authentication and data storage, Google for Gemini services, PostHog for product analytics, Sentry for diagnostics, and the selected hosting/build providers. Their processing is governed by their own terms and privacy commitments.</p>
       </DocumentSection>
 
       <DocumentSection title="Retention and deletion">
         <p>
           App content is kept while your account is active. You can delete your account from Settings in the mobile app.
           Deletion removes the Supabase account and associated Atlas database content, including goals, schedules, meals,
-          workouts, body-profile data, and stored Google Calendar tokens.
+          workouts, and body-profile data.
         </p>
         <p>Limited security, legal, aggregated, or diagnostic records may remain where required by law or under a service provider&apos;s documented retention schedule.</p>
       </DocumentSection>

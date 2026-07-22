@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { type FormEvent, type MouseEvent, useEffect, useMemo, useState } from "react";
-import { Calendar, type CalendarEvent, type ScheduleBlock, type ScheduleBlockCategory } from "@/lib/calendar";
+import { Calendar, type CalendarEvent, type ScheduleBlock, type ScheduleBlockCategory } from "@personal-agent/core/calendar";
 import { createClient } from "@/lib/supabase/client";
 
 const weekdayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];

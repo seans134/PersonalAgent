@@ -79,7 +79,7 @@ function parseContextEvents(value: unknown): TodayPlanResponse["contextEvents"] 
       title: asString(event.title, "contextEvent.title"),
       startTime: asString(event.startTime, "contextEvent.startTime"),
       endTime: asString(event.endTime, "contextEvent.endTime"),
-      source: asString(event.source, "contextEvent.source") as "google" | "local" | "schedule",
+      source: asString(event.source, "contextEvent.source") as "local" | "schedule",
     };
   });
 }

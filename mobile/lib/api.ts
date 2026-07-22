@@ -14,6 +14,48 @@ export type MobileOnboardingInput = {
   minimumDailyMinutes: number;
 };
 
+export type MobileOnboardingMode = "school_work" | "weekly_rhythm" | "goals";
+
+export type MobileOnboardingGoalDraft = {
+  title: string;
+  description?: string | null;
+  priority: 1 | 2 | 3;
+  taskType: "general" | "focus" | "fitness" | "wellness" | "admin";
+  minimumDailyMinutes: number;
+  endDate?: string | null;
+};
+
+export type MobileOnboardingScheduleBlockDraft = {
+  title: string;
+  category: MobileCalendarCategory;
+  daysOfWeek: number[];
+  startTime: string;
+  endTime: string;
+  timezone: string;
+};
+
+export type MobileOnboardingProfileDraft = {
+  workStartTime?: string | null;
+  workEndTime?: string | null;
+  noMeetingStartTime?: string | null;
+  noMeetingEndTime?: string | null;
+  focusBlockMinutes?: number | null;
+  workoutPreference?: "none" | "light" | "moderate" | "intense" | null;
+};
+
+export type MobileOnboardingDraft = {
+  profile: MobileOnboardingProfileDraft;
+  goals: MobileOnboardingGoalDraft[];
+  scheduleBlocks: MobileOnboardingScheduleBlockDraft[];
+  warnings: string[];
+};
+
+export type MobileOnboardingApplied = {
+  profileUpdated: boolean;
+  goalsCreated: number;
+  scheduleBlocksCreated: number;
+};
+
 export type MobileTodayPlanResponse = TodayPlanResponse;
 
 export type MobileCalendarCategory = "school" | "work" | "study" | "personal" | "unavailable";
@@ -141,6 +183,20 @@ export type MobileMealSuggestionResponse = {
   warnings: string[];
 };
 
+export type MobileMealCoachIntent = "log" | "saved" | "suggest";
+
+export type MobileCoachIntentSource = "model" | "heuristic" | "user";
+
+export type MobileMealCoachResponse = {
+  intent: MobileMealCoachIntent;
+  intent_reason: string;
+  intent_source: MobileCoachIntentSource;
+  agent_reply: string | null;
+  suggestion: MobileMealSuggestionDraft | null;
+  draft: MobileMealDraft | null;
+  warnings: string[];
+};
+
 export type MobileGoalInput = {
   id?: string;
   title: string;
@@ -233,6 +289,18 @@ export type MobileWorkoutSuggestionResponse = {
   warnings: string[];
 };
 
+export type MobileWorkoutCoachIntent = "log" | "suggest";
+
+export type MobileWorkoutCoachResponse = {
+  intent: MobileWorkoutCoachIntent;
+  intent_reason: string;
+  intent_source: MobileCoachIntentSource;
+  agent_reply: string | null;
+  suggestion: MobileWorkoutSuggestionDraft | null;
+  draft: MobileWorkoutDraft | null;
+  warnings: string[];
+};
+
 export type MobilePlannedWorkout = {
   id: string;
   day_of_week?: number;
@@ -290,6 +358,40 @@ export async function saveMobileOnboarding(accessToken: string, input: MobileOnb
     "Unable to save onboarding.",
   );
   captureEvent("onboarding_completed", { goals_created: body.goalsCreated ?? 0 });
+  return body;
+}
+
+export async function parseMobileOnboarding(
+  accessToken: string,
+  mode: MobileOnboardingMode,
+  text: string,
+  timezone: string,
+) {
+  return fetchJson<{ draft: MobileOnboardingDraft }>(
+    "/api/onboarding/parse",
+    accessToken,
+    { method: "POST", body: JSON.stringify({ mode, text, timezone }) },
+    "Unable to parse onboarding note.",
+  );
+}
+
+export async function applyMobileOnboarding(
+  accessToken: string,
+  mode: MobileOnboardingMode,
+  draft: MobileOnboardingDraft,
+  timezone: string,
+) {
+  const body = await fetchJson<{ applied: MobileOnboardingApplied }>(
+    "/api/onboarding/apply",
+    accessToken,
+    { method: "POST", body: JSON.stringify({ draft, mode, timezone }) },
+    "Unable to apply onboarding drafts.",
+  );
+  captureEvent("onboarding_draft_applied", {
+    mode,
+    goals_created: body.applied.goalsCreated,
+    schedule_blocks_created: body.applied.scheduleBlocksCreated,
+  });
   return body;
 }
 
@@ -548,13 +650,6 @@ export async function applyMobileWorkoutPlan(accessToken: string, draft: MobileW
   );
 }
 
-export async function parseMobileWorkout(accessToken: string, text: string, timezone: string) {
-  return fetchJson<{ draft: MobileWorkoutDraft }>("/api/tracking/workouts/parse", accessToken, {
-    method: "POST",
-    body: JSON.stringify({ text, timezone }),
-  });
-}
-
 export async function applyMobileWorkoutDraft(accessToken: string, draft: MobileWorkoutDraft) {
   const response = await fetchJson<{ applied: { workoutsCreated: number } }>("/api/tracking/workouts/apply", accessToken, {
     method: "POST",
@@ -562,49 +657,6 @@ export async function applyMobileWorkoutDraft(accessToken: string, draft: Mobile
   });
   captureEvent("workout_logged", { source: "ai_text", workout_type: draft.workout_type });
   return response;
-}
-
-export async function suggestMobileWorkout(
-  accessToken: string,
-  options: { currentDraft?: MobileWorkoutSuggestionDraft | null; feedback?: string | null } = {},
-) {
-  const now = new Date();
-  const todayStart = new Date(now);
-  todayStart.setHours(0, 0, 0, 0);
-  const todayEnd = new Date(now);
-  todayEnd.setHours(23, 59, 59, 999);
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  const hours = String(now.getHours()).padStart(2, "0");
-  const minutes = String(now.getMinutes()).padStart(2, "0");
-
-  return fetchJson<MobileWorkoutSuggestionResponse>("/api/tracking/workouts/suggest", accessToken, {
-    method: "POST",
-    body: JSON.stringify({
-      currentDraft: options.currentDraft ?? null,
-      feedback: options.feedback ?? null,
-      currentIso: now.toISOString(),
-      currentLocalDate: `${year}-${month}-${day}`,
-      currentLocalTime: `${hours}:${minutes}`,
-      todayEndIso: todayEnd.toISOString(),
-      todayStartIso: todayStart.toISOString(),
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Toronto",
-    }),
-  });
-}
-
-export async function parseMobileMeal(
-  accessToken: string,
-  mode: "log" | "saved",
-  text: string,
-  timezone: string,
-) {
-  const path = mode === "log" ? "/api/tracking/meals/parse" : "/api/tracking/meals/saved/parse";
-  return fetchJson<{ draft: MobileMealDraft }>(path, accessToken, {
-    method: "POST",
-    body: JSON.stringify({ text, timezone }),
-  });
 }
 
 export async function applyMobileMealDraft(accessToken: string, draft: MobileMealDraft) {
@@ -620,10 +672,7 @@ export async function applyMobileMealDraft(accessToken: string, draft: MobileMea
   return response;
 }
 
-export async function suggestMobileMeal(
-  accessToken: string,
-  options: { currentDraft?: MobileMealSuggestionDraft | null; feedback?: string | null } = {},
-) {
+function coachTimeContext() {
   const now = new Date();
   const todayStart = new Date(now);
   todayStart.setHours(0, 0, 0, 0);
@@ -635,17 +684,70 @@ export async function suggestMobileMeal(
   const hours = String(now.getHours()).padStart(2, "0");
   const minutes = String(now.getMinutes()).padStart(2, "0");
 
-  return fetchJson<MobileMealSuggestionResponse>("/api/tracking/meals/suggest", accessToken, {
-    method: "POST",
-    body: JSON.stringify({
-      currentDraft: options.currentDraft ?? null,
-      feedback: options.feedback ?? null,
-      currentIso: now.toISOString(),
-      currentLocalDate: `${year}-${month}-${day}`,
-      currentLocalTime: `${hours}:${minutes}`,
-      todayEndIso: todayEnd.toISOString(),
-      todayStartIso: todayStart.toISOString(),
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Toronto",
-    }),
+  return {
+    currentIso: now.toISOString(),
+    currentLocalDate: `${year}-${month}-${day}`,
+    currentLocalTime: `${hours}:${minutes}`,
+    todayEndIso: todayEnd.toISOString(),
+    todayStartIso: todayStart.toISOString(),
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Toronto",
+  };
+}
+
+export async function sendMealCoachMessage(
+  accessToken: string,
+  text: string,
+  options: {
+    currentDraft?: MobileMealSuggestionDraft | null;
+    forceIntent?: MobileMealCoachIntent | null;
+  } = {},
+) {
+  const response = await fetchJson<MobileMealCoachResponse>(
+    "/api/tracking/meals/assistant",
+    accessToken,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        ...coachTimeContext(),
+        text,
+        currentDraft: options.currentDraft ?? null,
+        forceIntent: options.forceIntent ?? null,
+      }),
+    },
+    "Unable to handle that message.",
+  );
+  captureEvent("meal_coach_message", {
+    intent: response.intent,
+    intent_source: response.intent_source,
   });
+  return response;
+}
+
+export async function sendWorkoutCoachMessage(
+  accessToken: string,
+  text: string,
+  options: {
+    currentDraft?: MobileWorkoutSuggestionDraft | null;
+    forceIntent?: MobileWorkoutCoachIntent | null;
+  } = {},
+) {
+  const response = await fetchJson<MobileWorkoutCoachResponse>(
+    "/api/tracking/workouts/assistant",
+    accessToken,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        ...coachTimeContext(),
+        text,
+        currentDraft: options.currentDraft ?? null,
+        forceIntent: options.forceIntent ?? null,
+      }),
+    },
+    "Unable to handle that message.",
+  );
+  captureEvent("workout_coach_message", {
+    intent: response.intent,
+    intent_source: response.intent_source,
+  });
+  return response;
 }

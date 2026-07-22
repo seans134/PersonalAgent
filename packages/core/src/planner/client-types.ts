@@ -5,7 +5,7 @@ export type TodayPlanContextEvent = {
   title: string;
   startTime: string;
   endTime: string;
-  source: "google" | "local" | "schedule";
+  source: "local" | "schedule";
 };
 
 export type TodayPlanResponse = {

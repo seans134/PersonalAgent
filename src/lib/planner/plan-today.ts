@@ -1,8 +1,6 @@
-import { fetchTodayCalendarEvents } from "@/lib/google/calendar";
 import type { createClient } from "@/lib/supabase/server";
 import { enhancePlanCopy, type EnhancePlanResult } from "./enhance-plan";
 import {
-  toPlannerCalendarEvents,
   toPlannerGoals,
   toPlannerPreferences,
   type GoalRow,
@@ -126,7 +124,6 @@ export type PlanResult = {
 export async function generateTodayPlanForUser(input: {
   supabase: SupabaseClient;
   userId: string;
-  fetchEvents?: typeof fetchTodayCalendarEvents;
   enhancePlan?: (input: {
     plan: ReturnType<typeof generateDailyPlan>;
     goals: ReturnType<typeof toPlannerGoals>;
@@ -134,12 +131,7 @@ export async function generateTodayPlanForUser(input: {
     eventsCount: number;
   }) => Promise<EnhancePlanResult>;
 }): Promise<PlanResult> {
-  const {
-    supabase,
-    userId,
-    fetchEvents = fetchTodayCalendarEvents,
-    enhancePlan = enhancePlanCopy,
-  } = input;
+  const { supabase, userId, enhancePlan = enhancePlanCopy } = input;
 
   const { data: goalsRows, error: goalsError } = await supabase
     .from("goals")
@@ -177,22 +169,6 @@ export async function generateTodayPlanForUser(input: {
   let contextEvents: TodayPlanContextEvent[] = [];
 
   try {
-    const events = await fetchEvents(supabase, userId);
-    const googleEvents = toPlannerCalendarEvents(events);
-    calendarEvents = googleEvents;
-    contextEvents = googleEvents.map((event) => ({
-      id: `google-${event.id}`,
-      title: event.title ?? "Calendar event",
-      startTime: event.startTime,
-      endTime: event.endTime,
-      source: "google",
-    }));
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unable to fetch calendar events.";
-    warnings.push(`Calendar read failed: ${message}`);
-  }
-
-  try {
     const localContextEvents = await fetchLocalTodayContextEvents(supabase, userId);
     const publicLocalContextEvents = localContextEvents.map((event) => ({
       id: event.id,
@@ -201,8 +177,8 @@ export async function generateTodayPlanForUser(input: {
       endTime: event.endTime,
       source: event.source,
     }));
-    contextEvents = [...contextEvents, ...publicLocalContextEvents].sort((a, b) => (a.startTime < b.startTime ? -1 : 1));
-    calendarEvents = [...calendarEvents, ...localContextEvents.map(toPlannerEvent)];
+    contextEvents = publicLocalContextEvents.sort((a, b) => (a.startTime < b.startTime ? -1 : 1));
+    calendarEvents = localContextEvents.map(toPlannerEvent);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to load local schedule.";
     warnings.push(`Local schedule read failed: ${message}`);

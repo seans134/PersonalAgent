@@ -1,4 +1,4 @@
-import type { CalendarEvent, Goal, PlannerPreferences } from "./types";
+import type { Goal, PlannerPreferences } from "./types";
 
 export type GoalRow = {
   title: string;
@@ -15,14 +15,6 @@ export type UserProfileRow = {
   no_meeting_end: string | null;
   focus_block_minutes: number;
   workout_preference: "none" | "light" | "moderate" | "intense";
-};
-
-export type GoogleCalendarEventRow = {
-  id: string;
-  summary: string;
-  startsAt: string;
-  endsAt: string;
-  htmlLink: string;
 };
 
 function normalizePriority(priority: number): 1 | 2 | 3 {
@@ -66,27 +58,6 @@ function normalizeClockTime(value: string): string {
   throw new Error(`Invalid clock time: ${value}`);
 }
 
-function toLocalTimeString(value: string, fallback: "start" | "end"): string {
-  if (/^\d{2}:\d{2}(:\d{2})?$/.test(value)) {
-    return normalizeClockTime(value);
-  }
-
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return fallback === "start" ? "00:00" : "23:59";
-  }
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    throw new Error(`Invalid date time: ${value}`);
-  }
-
-  return date.toLocaleTimeString("en-GB", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-}
-
 export function toPlannerGoals(rows: GoalRow[]): Goal[] {
   return rows
     .map((row) => ({
@@ -111,14 +82,3 @@ export function toPlannerPreferences(profile: UserProfileRow): PlannerPreference
   };
 }
 
-export function toPlannerCalendarEvents(events: GoogleCalendarEventRow[]): CalendarEvent[] {
-  return events
-    .map((event) => ({
-      id: event.id,
-      title: event.summary,
-      startTime: toLocalTimeString(event.startsAt, "start"),
-      endTime: toLocalTimeString(event.endsAt, "end"),
-    }))
-    .filter((event) => event.endTime > event.startTime)
-    .sort((a, b) => (a.startTime < b.startTime ? -1 : 1));
-}

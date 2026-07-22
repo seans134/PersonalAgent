@@ -78,7 +78,7 @@ export function AccountSettingsScreen({ accessToken, onAccountDeleted }: Account
       <View style={styles.dangerSection}>
         <Text style={styles.dangerTitle}>Delete account</Text>
         <Text style={styles.dangerBody}>
-          Permanently deletes your account, goals, calendars, plans, meals, workouts, body-profile data, and stored Google Calendar authorization.
+          Permanently deletes your account, goals, calendars, plans, meals, workouts, and body-profile data.
         </Text>
         <Pressable onPress={() => setConfirmingDeletion(true)} style={styles.deleteButton}>
           <Text style={styles.deleteText}>Delete Account</Text>

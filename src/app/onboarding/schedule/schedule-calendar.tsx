@@ -1,7 +1,7 @@
 "use client";
 
 import { type FormEvent, useEffect, useMemo, useState } from "react";
-import { Calendar, type ScheduleBlock, type ScheduleBlockCategory } from "@/lib/calendar";
+import { Calendar, type ScheduleBlock, type ScheduleBlockCategory } from "@personal-agent/core/calendar";
 import { createClient } from "@/lib/supabase/client";
 
 type ScheduleBlockRow = {

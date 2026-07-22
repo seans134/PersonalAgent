@@ -1,17 +1,40 @@
 import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import {
   applyMobileWorkoutDraft,
-  parseMobileWorkout,
-  suggestMobileWorkout,
+  sendWorkoutCoachMessage,
+  type MobileWorkoutCoachIntent,
+  type MobileWorkoutCoachResponse,
   type MobileWorkoutDraft,
   type MobileWorkoutSuggestionDraft,
 } from "../lib/api";
 import { captureEvent } from "../lib/analytics";
+import { errorHaptic, successHaptic, tapHaptic } from "../lib/haptics";
 
 type WorkoutCoachScreenProps = {
   accessToken: string;
 };
+
+const intentLabels: Record<MobileWorkoutCoachIntent, string> = {
+  log: "Logging a workout",
+  suggest: "Suggesting a workout",
+};
+
+const examples = [
+  "Ran 5k this morning in 27 minutes",
+  "Did 4 sets of squats at 185 pounds",
+  "What should I train today?",
+];
 
 function titleCase(value: string) {
   return value
@@ -64,220 +87,415 @@ function WarningBox({ warnings }: { warnings: string[] }) {
 }
 
 export function WorkoutCoachScreen({ accessToken }: WorkoutCoachScreenProps) {
-  const [logText, setLogText] = useState("");
-  const [logDraft, setLogDraft] = useState<MobileWorkoutDraft | null>(null);
-  const [parsing, setParsing] = useState(false);
-  const [applyingLog, setApplyingLog] = useState(false);
-  const [suggestion, setSuggestion] = useState<MobileWorkoutSuggestionDraft | null>(null);
-  const [suggestionReply, setSuggestionReply] = useState<string | null>(null);
-  const [suggestionWarnings, setSuggestionWarnings] = useState<string[]>([]);
-  const [feedback, setFeedback] = useState("");
-  const [suggesting, setSuggesting] = useState(false);
-  const [applyingSuggestion, setApplyingSuggestion] = useState(false);
+  const [message, setMessage] = useState("");
+  const [lastMessage, setLastMessage] = useState("");
+  const [response, setResponse] = useState<MobileWorkoutCoachResponse | null>(null);
+  const [sending, setSending] = useState(false);
+  const [applying, setApplying] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
 
-  async function parseWorkoutText() {
-    if (logText.trim().length < 8) {
-      setError("Add a little more workout detail before parsing.");
-      return;
-    }
+  const suggestion = response?.intent === "suggest" ? response.suggestion : null;
+  const draft = response?.draft ?? null;
+  const canSend = message.trim().length >= 4 && !sending && !applying;
 
-    setParsing(true);
-    setLogDraft(null);
+  async function send(text: string, forceIntent?: MobileWorkoutCoachIntent) {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+
+    tapHaptic();
+    setSending(true);
     setError(null);
-    setMessage(null);
+    setStatus(null);
 
     try {
-      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Toronto";
-      const response = await parseMobileWorkout(accessToken, logText.trim(), timezone);
-      setLogDraft(response.draft);
+      const next = await sendWorkoutCoachMessage(accessToken, trimmed, {
+        // Passing the live suggestion lets follow-ups refine it instead of starting over.
+        currentDraft: suggestion,
+        forceIntent: forceIntent ?? null,
+      });
+      setResponse(next);
+      setLastMessage(trimmed);
+      setMessage("");
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Unable to parse workout.");
+      errorHaptic();
+      setError(nextError instanceof Error ? nextError.message : "Unable to handle that message.");
     } finally {
-      setParsing(false);
+      setSending(false);
     }
   }
 
-  async function logDraftWorkout() {
-    if (!logDraft) return;
-
-    setApplyingLog(true);
+  async function applyDraft(
+    target: MobileWorkoutDraft | MobileWorkoutSuggestionDraft,
+    isSuggestion: boolean,
+  ) {
+    setApplying(true);
     setError(null);
-    setMessage(null);
+    setStatus(null);
 
     try {
-      await applyMobileWorkoutDraft(accessToken, logDraft);
-      setMessage("Workout logged.");
-      setLogText("");
-      setLogDraft(null);
+      await applyMobileWorkoutDraft(accessToken, target);
+      if (isSuggestion) captureEvent("workout_suggestion_accepted");
+      successHaptic();
+      setStatus(`Logged ${target.title}.`);
+      setResponse(null);
+      setLastMessage("");
     } catch (nextError) {
+      errorHaptic();
       setError(nextError instanceof Error ? nextError.message : "Unable to log workout.");
     } finally {
-      setApplyingLog(false);
+      setApplying(false);
     }
   }
 
-  async function requestSuggestion() {
-    setSuggesting(true);
-    setError(null);
-    setMessage(null);
-
-    try {
-      const response = await suggestMobileWorkout(accessToken, {
-        currentDraft: suggestion,
-        feedback: feedback.trim() || null,
-      });
-      setSuggestion(response.draft);
-      setSuggestionReply(response.draft?.agent_reply || response.agent_reply);
-      setSuggestionWarnings([...response.warnings, ...(response.draft?.warnings ?? [])]);
-      setFeedback("");
-    } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Unable to suggest a workout.");
-    } finally {
-      setSuggesting(false);
-    }
-  }
-
-  async function logSuggestion() {
-    if (!suggestion) return;
-
-    setApplyingSuggestion(true);
-    setError(null);
-    setMessage(null);
-
-    try {
-      await applyMobileWorkoutDraft(accessToken, suggestion);
-      captureEvent("workout_suggestion_accepted");
-      setMessage(`Logged ${suggestion.title}.`);
-      setSuggestion(null);
-      setSuggestionReply(null);
-      setSuggestionWarnings([]);
-    } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Unable to log suggested workout.");
-    } finally {
-      setApplyingSuggestion(false);
-    }
-  }
+  const rerouteIntent: MobileWorkoutCoachIntent | null = response
+    ? response.intent === "log"
+      ? "suggest"
+      : "log"
+    : null;
 
   return (
-    <ScrollView contentContainerStyle={styles.content}>
-      <View>
-        <Text style={styles.eyebrow}>Atlas assistant</Text>
-        <Text style={styles.title}>Workout Coach</Text>
-        <Text style={styles.subtitle}>Log workouts from text or get a suggestion based on your current day.</Text>
-      </View>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      style={styles.flex}
+    >
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <View>
+          <Text style={styles.eyebrow}>Atlas assistant</Text>
+          <Text style={styles.title}>Workout Coach</Text>
+          <Text style={styles.subtitle}>
+            Tell Atlas what you trained or ask what to do today. It works out which one you meant.
+          </Text>
+        </View>
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-      {message ? <Text style={styles.success}>{message}</Text> : null}
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {status ? <Text style={styles.success}>{status}</Text> : null}
 
-      <View style={styles.panel}>
-        <Text style={styles.panelTitle}>Log from text</Text>
-        <Text style={styles.helperText}>Describe what you did, then review the workout before saving.</Text>
+        {!response && !status ? (
+          <View style={styles.panel}>
+            <Text style={styles.panelTitle}>Try saying</Text>
+            {examples.map((example) => (
+              <Pressable key={example} onPress={() => setMessage(example)} style={styles.example}>
+                <Text style={styles.exampleText}>{example}</Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+
+        {response ? (
+          <View style={styles.panel}>
+            <View style={styles.intentRow}>
+              <Text style={styles.intentChip}>{intentLabels[response.intent]}</Text>
+              {response.intent_source === "heuristic" ? (
+                <Text style={styles.intentNote}>matched locally</Text>
+              ) : null}
+            </View>
+
+            {lastMessage ? <Text style={styles.userEcho}>{lastMessage}</Text> : null}
+            {response.agent_reply ? (
+              <Text style={styles.agentReply}>{response.agent_reply}</Text>
+            ) : null}
+
+            {suggestion ? (
+              <View style={styles.reviewSection}>
+                <DraftCard draft={suggestion} />
+                {suggestion.suggested_timing ? (
+                  <Text style={styles.draftDetail}>{suggestion.suggested_timing}</Text>
+                ) : null}
+                <Text style={styles.reasonText}>{suggestion.suggestion_reason}</Text>
+                {suggestion.target_alignment ? (
+                  <Text style={styles.draftDetail}>{suggestion.target_alignment}</Text>
+                ) : null}
+              </View>
+            ) : null}
+
+            {draft ? (
+              <View style={styles.reviewSection}>
+                <DraftCard draft={draft} />
+              </View>
+            ) : null}
+
+            <WarningBox warnings={response.warnings} />
+
+            {suggestion || draft ? (
+              <Pressable
+                disabled={applying}
+                onPress={() => applyDraft((suggestion ?? draft)!, Boolean(suggestion))}
+                style={[styles.primaryButton, applying && styles.disabled]}
+              >
+                {applying ? (
+                  <ActivityIndicator color="#ffffff" />
+                ) : (
+                  <Text style={styles.primaryButtonText}>Log Workout</Text>
+                )}
+              </Pressable>
+            ) : null}
+
+            {lastMessage && rerouteIntent ? (
+              <View style={styles.rerouteSection}>
+                <Text style={styles.rerouteLabel}>Not what you meant?</Text>
+                <View style={styles.rerouteRow}>
+                  <Pressable
+                    disabled={sending || applying}
+                    onPress={() => send(lastMessage, rerouteIntent)}
+                    style={[styles.rerouteButton, (sending || applying) && styles.disabled]}
+                  >
+                    <Text style={styles.rerouteText}>{intentLabels[rerouteIntent]}</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+      </ScrollView>
+
+      <View style={styles.composer}>
         <TextInput
           multiline
-          onChangeText={setLogText}
-          placeholder="I ran 3 miles in 28 minutes this morning at moderate effort."
+          onChangeText={setMessage}
+          placeholder={suggestion ? "Ask for a different option..." : "Message the workout coach..."}
           placeholderTextColor="#94a3b8"
-          style={[styles.input, styles.largeInput]}
-          value={logText}
+          style={styles.composerInput}
+          value={message}
         />
         <Pressable
-          disabled={parsing || logText.trim().length < 8}
-          onPress={parseWorkoutText}
-          style={[styles.primaryButton, (parsing || logText.trim().length < 8) && styles.disabled]}
+          disabled={!canSend}
+          onPress={() => send(message)}
+          style={[styles.sendButton, !canSend && styles.disabled]}
         >
-          <Text style={styles.primaryButtonText}>{parsing ? "Parsing..." : "Review Workout"}</Text>
+          {sending ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.sendText}>Send</Text>}
         </Pressable>
-
-        {logDraft ? (
-          <View style={styles.reviewSection}>
-            <DraftCard draft={logDraft} />
-            <WarningBox warnings={logDraft.warnings} />
-            <Pressable
-              disabled={applyingLog}
-              onPress={logDraftWorkout}
-              style={[styles.outlineButton, applyingLog && styles.disabled]}
-            >
-              <Text style={styles.outlineButtonText}>{applyingLog ? "Logging..." : "Log Workout"}</Text>
-            </Pressable>
-          </View>
-        ) : null}
       </View>
-
-      <View style={styles.panel}>
-        <Text style={styles.panelTitle}>Workout suggestion</Text>
-        <Text style={styles.helperText}>{"Atlas considers your goals, recent training, meals, and today's schedule."}</Text>
-
-        {suggestionReply ? <Text style={styles.agentReply}>{suggestionReply}</Text> : null}
-        {suggestion ? (
-          <View style={styles.reviewSection}>
-            <DraftCard draft={suggestion} />
-            {suggestion.suggested_timing ? <Text style={styles.draftDetail}>{suggestion.suggested_timing}</Text> : null}
-            <Text style={styles.reasonText}>{suggestion.suggestion_reason}</Text>
-            {suggestion.target_alignment ? <Text style={styles.draftDetail}>{suggestion.target_alignment}</Text> : null}
-            <WarningBox warnings={suggestionWarnings} />
-          </View>
-        ) : null}
-
-        <TextInput
-          onChangeText={setFeedback}
-          placeholder={suggestion ? "Ask for a change..." : "Tell Atlas how you feel today..."}
-          placeholderTextColor="#94a3b8"
-          style={styles.input}
-          value={feedback}
-        />
-
-        <View style={styles.actionRow}>
-          <Pressable
-            disabled={suggesting}
-            onPress={requestSuggestion}
-            style={[styles.primaryButton, styles.flexButton, suggesting && styles.disabled]}
-          >
-            <Text style={styles.primaryButtonText}>{suggesting ? "Thinking..." : suggestion ? "Update Suggestion" : "Get Suggestion"}</Text>
-          </Pressable>
-          {suggestion ? (
-            <Pressable
-              disabled={applyingSuggestion}
-              onPress={logSuggestion}
-              style={[styles.outlineButton, styles.flexButton, applyingSuggestion && styles.disabled]}
-            >
-              <Text style={styles.outlineButtonText}>{applyingSuggestion ? "Logging..." : "Log It"}</Text>
-            </Pressable>
-          ) : null}
-        </View>
-      </View>
-    </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { gap: 16, padding: 18, paddingBottom: 32 },
-  eyebrow: { color: "#0f766e", fontSize: 12, fontWeight: "800", letterSpacing: 0, textTransform: "uppercase" },
-  title: { color: "#111827", fontSize: 30, fontWeight: "800", lineHeight: 36 },
-  subtitle: { color: "#475569", fontSize: 15, lineHeight: 21, marginTop: 4 },
-  panel: { backgroundColor: "#ffffff", borderColor: "#e2e8f0", borderRadius: 8, borderWidth: 1, gap: 12, padding: 16 },
-  panelTitle: { color: "#111827", fontSize: 18, fontWeight: "800" },
-  helperText: { color: "#64748b", fontSize: 14, lineHeight: 20 },
-  input: { backgroundColor: "#f8fafc", borderColor: "#cbd5e1", borderRadius: 8, borderWidth: 1, color: "#111827", fontSize: 15, minHeight: 46, paddingHorizontal: 12 },
-  largeInput: { minHeight: 104, paddingTop: 12, textAlignVertical: "top" },
-  primaryButton: { alignItems: "center", backgroundColor: "#0f766e", borderRadius: 8, minHeight: 48, justifyContent: "center", paddingHorizontal: 14 },
-  primaryButtonText: { color: "#ffffff", fontSize: 14, fontWeight: "800", textAlign: "center" },
-  outlineButton: { alignItems: "center", borderColor: "#0f766e", borderRadius: 8, borderWidth: 1, minHeight: 48, justifyContent: "center", paddingHorizontal: 14 },
-  outlineButtonText: { color: "#0f766e", fontSize: 14, fontWeight: "800", textAlign: "center" },
-  actionRow: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  flexButton: { flex: 1, minWidth: 145 },
-  reviewSection: { borderTopColor: "#e2e8f0", borderTopWidth: 1, gap: 10, paddingTop: 12 },
-  draftCard: { backgroundColor: "#f8fafc", borderRadius: 8, gap: 5, padding: 12 },
-  draftTitle: { color: "#111827", fontSize: 16, fontWeight: "800" },
-  draftMeta: { color: "#475569", fontSize: 13, fontWeight: "700", lineHeight: 19 },
-  draftDetail: { color: "#475569", fontSize: 13, lineHeight: 19 },
-  reasonText: { color: "#334155", fontSize: 14, lineHeight: 20 },
-  agentReply: { backgroundColor: "#f1f5f9", borderRadius: 8, color: "#334155", fontSize: 14, lineHeight: 20, padding: 12 },
-  warningBox: { backgroundColor: "#fffbeb", borderColor: "#fde68a", borderRadius: 8, borderWidth: 1, gap: 5, padding: 12 },
-  warningTitle: { color: "#92400e", fontSize: 14, fontWeight: "800" },
-  warningText: { color: "#92400e", fontSize: 13, lineHeight: 19 },
-  disabled: { opacity: 0.58 },
-  error: { backgroundColor: "#fef2f2", borderColor: "#fecaca", borderRadius: 8, borderWidth: 1, color: "#b91c1c", fontSize: 14, fontWeight: "700", lineHeight: 20, padding: 12 },
-  success: { backgroundColor: "#ecfdf5", borderColor: "#a7f3d0", borderRadius: 8, borderWidth: 1, color: "#047857", fontSize: 14, fontWeight: "700", lineHeight: 20, padding: 12 },
+  flex: {
+    flex: 1,
+  },
+  content: {
+    gap: 16,
+    padding: 18,
+    paddingBottom: 28,
+  },
+  eyebrow: {
+    color: "#0f766e",
+    fontSize: 13,
+    fontWeight: "800",
+    textTransform: "uppercase",
+  },
+  title: {
+    color: "#111827",
+    fontSize: 28,
+    fontWeight: "800",
+    lineHeight: 34,
+    marginTop: 6,
+  },
+  subtitle: {
+    color: "#475569",
+    fontSize: 15,
+    lineHeight: 22,
+    marginTop: 8,
+  },
+  panel: {
+    backgroundColor: "#ffffff",
+    borderColor: "#d8e1ea",
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 10,
+    padding: 16,
+  },
+  panelTitle: {
+    color: "#111827",
+    fontSize: 16,
+    fontWeight: "800",
+  },
+  example: {
+    backgroundColor: "#f8fafc",
+    borderColor: "#e2e8f0",
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 12,
+  },
+  exampleText: {
+    color: "#334155",
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  intentRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  intentChip: {
+    backgroundColor: "#ecfdf5",
+    borderColor: "#a7f3d0",
+    borderRadius: 999,
+    borderWidth: 1,
+    color: "#065f46",
+    fontSize: 12,
+    fontWeight: "800",
+    overflow: "hidden",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  intentNote: {
+    color: "#94a3b8",
+    fontSize: 12,
+  },
+  userEcho: {
+    color: "#64748b",
+    fontSize: 14,
+    fontStyle: "italic",
+    lineHeight: 20,
+  },
+  agentReply: {
+    color: "#111827",
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  reviewSection: {
+    gap: 8,
+  },
+  draftCard: {
+    backgroundColor: "#f8fafc",
+    borderColor: "#e2e8f0",
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 4,
+    padding: 12,
+  },
+  draftTitle: {
+    color: "#111827",
+    fontSize: 16,
+    fontWeight: "800",
+  },
+  draftMeta: {
+    color: "#475569",
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  draftDetail: {
+    color: "#475569",
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  reasonText: {
+    color: "#334155",
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  warningBox: {
+    backgroundColor: "#fffbeb",
+    borderColor: "#fde68a",
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 4,
+    padding: 12,
+  },
+  warningTitle: {
+    color: "#92400e",
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  warningText: {
+    color: "#92400e",
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  primaryButton: {
+    alignItems: "center",
+    backgroundColor: "#0f766e",
+    borderRadius: 8,
+    justifyContent: "center",
+    minHeight: 48,
+  },
+  primaryButtonText: {
+    color: "#ffffff",
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  rerouteSection: {
+    borderTopColor: "#e2e8f0",
+    borderTopWidth: 1,
+    gap: 8,
+    paddingTop: 12,
+  },
+  rerouteLabel: {
+    color: "#64748b",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  rerouteRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  rerouteButton: {
+    borderColor: "#cbd5e1",
+    borderRadius: 8,
+    borderWidth: 1,
+    minHeight: 38,
+    justifyContent: "center",
+    paddingHorizontal: 12,
+  },
+  rerouteText: {
+    color: "#334155",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  composer: {
+    alignItems: "flex-end",
+    backgroundColor: "#ffffff",
+    borderTopColor: "#e2e8f0",
+    borderTopWidth: 1,
+    flexDirection: "row",
+    gap: 10,
+    paddingBottom: 24,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+  },
+  composerInput: {
+    backgroundColor: "#f8fafc",
+    borderColor: "#cbd5e1",
+    borderRadius: 20,
+    borderWidth: 1,
+    color: "#111827",
+    flex: 1,
+    fontSize: 15,
+    lineHeight: 21,
+    maxHeight: 120,
+    minHeight: 46,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  sendButton: {
+    alignItems: "center",
+    backgroundColor: "#0f766e",
+    borderRadius: 20,
+    justifyContent: "center",
+    minHeight: 46,
+    paddingHorizontal: 20,
+  },
+  sendText: {
+    color: "#ffffff",
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  disabled: {
+    opacity: 0.58,
+  },
+  error: {
+    color: "#b91c1c",
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  success: {
+    color: "#047857",
+    fontSize: 14,
+    fontWeight: "700",
+    lineHeight: 20,
+  },
 });

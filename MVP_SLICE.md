@@ -3,17 +3,17 @@
 ## Goal
 Ship one narrow but real workflow:
 - User sets goals/preferences
-- App connects Google Calendar (read)
+- User adds classes, shifts, and recurring commitments
 - User clicks "Generate Today Plan"
 - App returns a practical day plan based on free calendar time
 
 ## Included (v0)
-1. Authentication (email or Google sign-in)
+1. Authentication (email sign-in)
 2. Onboarding form
 - Goals (free text + priority)
 - Daily constraints (work hours, no-meeting windows)
 - Preferences (focus block length, workout preference)
-3. Google Calendar OAuth (read-only)
+3. Local calendar (one-off events + weekly schedule blocks)
 4. Calendar ingestion for today's events
 5. Planner endpoint:
 - Inputs: profile + today's calendar events
@@ -35,7 +35,7 @@ As a busy user, I want Atlas to turn my goals into a realistic plan for today us
 
 ## Acceptance Criteria
 1. New user can complete onboarding in under 3 minutes.
-2. User can connect Google Calendar and import today's events.
+2. User can add events and weekly blocks and see today's schedule.
 3. Clicking "Generate Today Plan" returns at least 3 actionable items when free time exists.
 4. Generated plan avoids overlapping existing calendar events.
 5. Plan includes at least:
@@ -50,12 +50,12 @@ As a busy user, I want Atlas to turn my goals into a realistic plan for today us
 2. `.env.example` with required env vars
 3. DB schema for user profile + goals + preferences
 4. Planner logic covered by basic unit tests
-5. Basic error handling for calendar auth failure and empty schedule data
+5. Basic error handling for empty schedule data
 
 ## Build Order
 1. Bootstrap app + auth
 2. Add onboarding data model + form
-3. Add Google Calendar OAuth + read events
+3. Add local calendar events + weekly schedule blocks
 4. Implement planner logic and tests
 5. Build dashboard and connect endpoint
 6. Add guardrails and fallback messaging

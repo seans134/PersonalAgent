@@ -47,6 +47,12 @@ export type MealParsePromptInput = {
   timezone: string;
 };
 
+export type CoachIntentPromptInput = {
+  domain: "meal" | "workout";
+  text: string;
+  hasActiveSuggestion: boolean;
+};
+
 export type MealSuggestionPromptInput = {
   timezone: string;
   today: string;
@@ -756,6 +762,98 @@ export async function requestMealSuggestion(input: MealSuggestionPromptInput): P
       ],
       generationConfig: {
         temperature: 0.3,
+        responseMimeType: "application/json",
+      },
+    }),
+    cache: "no-store",
+  });
+
+  const payload = (await response.json()) as {
+    error?: { message?: string };
+    candidates?: Array<{
+      content?: {
+        parts?: Array<{
+          text?: string;
+        }>;
+      };
+    }>;
+  };
+
+  if (!response.ok) {
+    throw new Error(payload.error?.message ?? `Gemini request failed with status ${response.status}`);
+  }
+
+  const content = payload.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!content) {
+    throw new Error("Gemini returned empty content.");
+  }
+
+  try {
+    return JSON.parse(content);
+  } catch {
+    throw new Error("Gemini returned invalid JSON.");
+  }
+}
+
+function buildCoachIntentInstruction(domain: "meal" | "workout"): string {
+  const past = domain === "meal" ? "ate" : "trained";
+  const savedLine =
+    domain === "meal"
+      ? '"saved" means the user is describing a reusable meal template to store for later, not something they just ate.'
+      : "";
+
+  return [
+    `Classify what the user wants from the ${domain} coach. Return strict JSON with shape: {intent: string, reason: string}.`,
+    `Valid intent values are ${domain === "meal" ? '"log", "saved", "suggest"' : '"log", "suggest"'}.`,
+    `"log" means the user is reporting something they already ${past} and want recorded.`,
+    savedLine,
+    `"suggest" means the user is asking the coach to recommend a ${domain}, or is reacting to an existing suggestion.`,
+    "When hasActiveSuggestion is true and the note reads as feedback on that suggestion, choose \"suggest\".",
+    "Prefer \"suggest\" for questions, and \"log\" for past-tense statements of fact.",
+    "Keep reason under 120 characters.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function buildCoachIntentPrompt(input: CoachIntentPromptInput): string {
+  return JSON.stringify({
+    domain: input.domain,
+    note: input.text,
+    hasActiveSuggestion: input.hasActiveSuggestion,
+    expectedShape: {
+      intent: input.domain === "meal" ? "log | saved | suggest" : "log | suggest",
+      reason: "string",
+    },
+  });
+}
+
+export async function requestCoachIntent(input: CoachIntentPromptInput): Promise<unknown> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY is not configured.");
+  }
+
+  const model = process.env.GEMINI_MODEL ?? "gemini-2.0-flash";
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      systemInstruction: {
+        parts: [{ text: buildCoachIntentInstruction(input.domain) }],
+      },
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: buildCoachIntentPrompt(input) }],
+        },
+      ],
+      generationConfig: {
+        temperature: 0,
         responseMimeType: "application/json",
       },
     }),

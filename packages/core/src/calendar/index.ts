@@ -12,7 +12,7 @@ export type ScheduleBlock = {
   timezone?: string;
 };
 
-export type CalendarEventSource = "manual" | "recurring_schedule" | "google";
+export type CalendarEventSource = "manual" | "recurring_schedule";
 
 export type CalendarEvent = {
   id: string;
