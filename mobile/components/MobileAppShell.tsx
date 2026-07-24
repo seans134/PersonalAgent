@@ -1,114 +1,188 @@
-import { Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 export type MobileScreen =
   | "dashboard"
-  | "onboarding"
   | "calendar"
-  | "notifications"
-  | "settings"
-  | "goals"
   | "meals"
   | "mealCoach"
   | "workouts"
   | "workoutPlan"
-  | "workoutCoach";
+  | "workoutCoach"
+  | "more"
+  | "goals"
+  | "onboarding"
+  | "notifications"
+  | "settings";
 
-type MobileAppShellProps = {
-  activeScreen: MobileScreen;
-  children: React.ReactNode;
-  isMenuOpen: boolean;
-  onCloseMenu: () => void;
-  onOpenMenu: () => void;
-  onNavigate: (screen: MobileScreen) => void;
-  onSignOut: () => void;
+export type MobileTab = "today" | "calendar" | "meals" | "workouts" | "more";
+
+const ACTIVE_COLOR = "#0f766e";
+const INACTIVE_COLOR = "#94a3b8";
+
+// Which bottom tab owns each screen.
+export const screenToTab: Record<MobileScreen, MobileTab> = {
+  dashboard: "today",
+  calendar: "calendar",
+  meals: "meals",
+  mealCoach: "meals",
+  workouts: "workouts",
+  workoutPlan: "workouts",
+  workoutCoach: "workouts",
+  more: "more",
+  goals: "more",
+  onboarding: "more",
+  notifications: "more",
+  settings: "more",
 };
 
-const navItems: Array<{ screen: MobileScreen; label: string; subtitle: string }> = [
-  { screen: "dashboard", label: "Dashboard", subtitle: "Today plan" },
-  { screen: "onboarding", label: "Onboarding", subtitle: "Profile and goals" },
-  { screen: "calendar", label: "Local Calendar", subtitle: "Classes and blocks" },
-  { screen: "notifications", label: "Notifications", subtitle: "Reminder schedule" },
-  { screen: "goals", label: "Goals", subtitle: "Active outcomes" },
-  { screen: "meals", label: "Meals", subtitle: "Nutrition logs" },
-  { screen: "mealCoach", label: "Meal Coach", subtitle: "Suggestions and text logs" },
-  { screen: "workouts", label: "Workouts", subtitle: "Training logs" },
-  { screen: "workoutPlan", label: "Workout Plan", subtitle: "Weekly schedule" },
-  { screen: "workoutCoach", label: "Workout Coach", subtitle: "Suggestions and text logs" },
-  { screen: "settings", label: "Settings & Legal", subtitle: "Support and account" },
+// The screen a tab lands on when tapped.
+export const tabDefaultScreen: Record<MobileTab, MobileScreen> = {
+  today: "dashboard",
+  calendar: "calendar",
+  meals: "meals",
+  workouts: "workouts",
+  more: "more",
+};
+
+const tabs: Array<{ key: MobileTab; label: string }> = [
+  { key: "today", label: "Today" },
+  { key: "calendar", label: "Calendar" },
+  { key: "meals", label: "Meals" },
+  { key: "workouts", label: "Workouts" },
+  { key: "more", label: "More" },
 ];
 
-function titleForScreen(screen: MobileScreen) {
-  return navItems.find((item) => item.screen === screen)?.label ?? "Atlas";
-}
+// Simple line-style glyphs drawn with Views so no icon-font dependency is needed.
+function TabGlyph({ tab, color }: { tab: MobileTab; color: string }) {
+  if (tab === "today") {
+    return (
+      <View style={glyph.box}>
+        <View style={[glyph.roof, { borderBottomColor: color }]} />
+        <View style={[glyph.houseBody, { borderColor: color }]} />
+      </View>
+    );
+  }
 
-export function MobileAppShell({
-  activeScreen,
-  children,
-  isMenuOpen,
-  onCloseMenu,
-  onOpenMenu,
-  onNavigate,
-  onSignOut,
-}: MobileAppShellProps) {
-  return (
-    <View style={styles.container}>
-      <View style={styles.topBar}>
-        <Pressable accessibilityLabel="Open menu" onPress={onOpenMenu} style={styles.menuButton}>
-          <View style={styles.menuLine} />
-          <View style={styles.menuLine} />
-          <View style={styles.menuLine} />
-        </Pressable>
-        <View>
-          <Text style={styles.brand}>Atlas</Text>
-          <Text style={styles.screenTitle}>{titleForScreen(activeScreen)}</Text>
+  if (tab === "calendar") {
+    return (
+      <View style={glyph.box}>
+        <View style={glyph.calRings}>
+          <View style={[glyph.calRing, { backgroundColor: color }]} />
+          <View style={[glyph.calRing, { backgroundColor: color }]} />
+        </View>
+        <View style={[glyph.calBody, { borderColor: color }]}>
+          <View style={[glyph.calBar, { backgroundColor: color }]} />
         </View>
       </View>
+    );
+  }
 
+  if (tab === "meals") {
+    return (
+      <View style={glyph.box}>
+        <View style={[glyph.plateOuter, { borderColor: color }]}>
+          <View style={[glyph.plateInner, { borderColor: color }]} />
+        </View>
+      </View>
+    );
+  }
+
+  if (tab === "workouts") {
+    return (
+      <View style={glyph.box}>
+        <View style={glyph.barbell}>
+          <View style={[glyph.weight, { backgroundColor: color }]} />
+          <View style={[glyph.bar, { backgroundColor: color }]} />
+          <View style={[glyph.weight, { backgroundColor: color }]} />
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={glyph.box}>
+      <View style={glyph.dots}>
+        <View style={[glyph.dot, { backgroundColor: color }]} />
+        <View style={[glyph.dot, { backgroundColor: color }]} />
+        <View style={[glyph.dot, { backgroundColor: color }]} />
+      </View>
+    </View>
+  );
+}
+
+type MobileAppShellProps = {
+  activeTab: MobileTab;
+  children: React.ReactNode;
+  onSelectTab: (tab: MobileTab) => void;
+};
+
+export function MobileAppShell({ activeTab, children, onSelectTab }: MobileAppShellProps) {
+  return (
+    <View style={styles.container}>
       <View style={styles.content}>{children}</View>
 
-      <Modal animationType="fade" onRequestClose={onCloseMenu} transparent visible={isMenuOpen}>
-        <View style={styles.modalRoot}>
-          <Pressable accessibilityLabel="Close menu" onPress={onCloseMenu} style={styles.scrim} />
-          <View style={styles.drawer}>
-            <SafeAreaView style={styles.drawerSafeArea}>
-              <View style={styles.drawerHeader}>
-                <Text style={styles.drawerBrand}>Atlas</Text>
-                <Text style={styles.drawerSubtitle}>Personal agent</Text>
-              </View>
+      <View style={styles.tabBar}>
+        {tabs.map((tab) => {
+          const isActive = tab.key === activeTab;
+          const color = isActive ? ACTIVE_COLOR : INACTIVE_COLOR;
 
-              <ScrollView contentContainerStyle={styles.navList} style={styles.navScroller}>
-                {navItems.map((item) => {
-                  const isActive = item.screen === activeScreen;
+          return (
+            <Pressable
+              accessibilityLabel={tab.label}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: isActive }}
+              key={tab.key}
+              onPress={() => onSelectTab(tab.key)}
+              style={styles.tabButton}
+            >
+              <TabGlyph color={color} tab={tab.key} />
+              <Text style={[styles.tabLabel, { color }]}>{tab.label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
 
-                  return (
-                    <Pressable
-                      key={item.screen}
-                      onPress={() => {
-                        onNavigate(item.screen);
-                        onCloseMenu();
-                      }}
-                      style={[styles.navItem, isActive && styles.navItemActive]}
-                    >
-                      <Text style={[styles.navLabel, isActive && styles.navLabelActive]}>{item.label}</Text>
-                      <Text style={[styles.navSubtitle, isActive && styles.navSubtitleActive]}>{item.subtitle}</Text>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
+export function SegmentedTabs<T extends string>({
+  onChange,
+  options,
+  value,
+}: {
+  onChange: (value: T) => void;
+  options: Array<{ value: T; label: string }>;
+  value: T;
+}) {
+  return (
+    <View style={styles.segmentRow}>
+      {options.map((option) => {
+        const isActive = option.value === value;
 
-              <Pressable
-                onPress={() => {
-                  onCloseMenu();
-                  onSignOut();
-                }}
-                style={styles.signOutButton}
-              >
-                <Text style={styles.signOutText}>Sign Out</Text>
-              </Pressable>
-            </SafeAreaView>
-          </View>
-        </View>
-      </Modal>
+        return (
+          <Pressable
+            key={option.value}
+            onPress={() => onChange(option.value)}
+            style={[styles.segmentButton, isActive && styles.segmentActive]}
+          >
+            <Text style={[styles.segmentText, isActive && styles.segmentTextActive]}>
+              {option.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+export function DetailHeader({ onBack, title }: { onBack: () => void; title: string }) {
+  return (
+    <View style={styles.detailHeader}>
+      <Pressable accessibilityLabel="Back" onPress={onBack} style={styles.backButton}>
+        <View style={styles.backChevron} />
+        <Text style={styles.backText}>More</Text>
+      </Pressable>
+      <Text style={styles.detailTitle}>{title}</Text>
     </View>
   );
 }
@@ -117,133 +191,174 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  topBar: {
-    alignItems: "center",
-    backgroundColor: "#ffffff",
-    borderBottomColor: "#e2e8f0",
-    borderBottomWidth: 1,
-    flexDirection: "row",
-    gap: 14,
-    minHeight: 64,
-    paddingHorizontal: 16,
-  },
-  menuButton: {
-    alignItems: "center",
-    borderColor: "#cbd5e1",
-    borderRadius: 8,
-    borderWidth: 1,
-    gap: 4,
-    height: 44,
-    justifyContent: "center",
-    width: 44,
-  },
-  menuLine: {
-    backgroundColor: "#111827",
-    borderRadius: 2,
-    height: 2,
-    width: 19,
-  },
-  brand: {
-    color: "#0f766e",
-    fontSize: 12,
-    fontWeight: "800",
-    letterSpacing: 0,
-    textTransform: "uppercase",
-  },
-  screenTitle: {
-    color: "#111827",
-    fontSize: 18,
-    fontWeight: "800",
-  },
   content: {
     flex: 1,
   },
-  modalRoot: {
-    flex: 1,
-    flexDirection: "row",
-  },
-  scrim: {
-    backgroundColor: "rgba(15, 23, 42, 0.38)",
-    flex: 1,
-  },
-  drawer: {
+  tabBar: {
     backgroundColor: "#ffffff",
-    borderRightColor: "#e2e8f0",
-    borderRightWidth: 1,
-    height: "100%",
-    paddingHorizontal: 20,
-    position: "absolute",
-    width: 300,
-  },
-  drawerSafeArea: {
-    flex: 1,
-    paddingBottom: 12,
-    paddingTop: 12,
-  },
-  drawerHeader: {
-    borderBottomColor: "#e2e8f0",
-    borderBottomWidth: 1,
-    paddingBottom: 18,
+    borderTopColor: "#e2e8f0",
+    borderTopWidth: 1,
+    flexDirection: "row",
+    paddingBottom: 6,
     paddingTop: 8,
   },
-  drawerBrand: {
-    color: "#111827",
-    fontSize: 22,
-    fontWeight: "800",
-  },
-  drawerSubtitle: {
-    color: "#64748b",
-    fontSize: 12,
-    fontWeight: "800",
-    letterSpacing: 0,
-    marginTop: 2,
-    textTransform: "uppercase",
-  },
-  navList: {
-    gap: 8,
-    paddingBottom: 14,
-    paddingTop: 22,
-  },
-  navScroller: {
+  tabButton: {
+    alignItems: "center",
     flex: 1,
+    gap: 4,
+    justifyContent: "center",
+    paddingVertical: 2,
   },
-  navItem: {
+  tabLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  segmentRow: {
+    backgroundColor: "#eef2f6",
+    borderRadius: 10,
+    flexDirection: "row",
+    margin: 16,
+    marginBottom: 0,
+    padding: 3,
+  },
+  segmentButton: {
+    alignItems: "center",
     borderRadius: 8,
+    flex: 1,
+    justifyContent: "center",
+    minHeight: 38,
+    paddingHorizontal: 8,
+  },
+  segmentActive: {
+    backgroundColor: "#ffffff",
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  segmentText: {
+    color: "#64748b",
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  segmentTextActive: {
+    color: "#0f172a",
+  },
+  detailHeader: {
+    alignItems: "center",
+    backgroundColor: "#ffffff",
+    borderBottomColor: "#e2e8f0",
+    borderBottomWidth: 1,
+    flexDirection: "row",
+    gap: 8,
+    minHeight: 52,
     paddingHorizontal: 12,
-    paddingVertical: 11,
   },
-  navItemActive: {
-    backgroundColor: "#111827",
+  backButton: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 4,
+    paddingRight: 8,
+    paddingVertical: 8,
   },
-  navLabel: {
-    color: "#334155",
+  backChevron: {
+    borderColor: "#0f766e",
+    borderLeftWidth: 2,
+    borderTopWidth: 2,
+    height: 10,
+    transform: [{ rotate: "-45deg" }],
+    width: 10,
+  },
+  backText: {
+    color: "#0f766e",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  detailTitle: {
+    color: "#0f172a",
     fontSize: 16,
     fontWeight: "800",
   },
-  navLabelActive: {
-    color: "#ffffff",
-  },
-  navSubtitle: {
-    color: "#64748b",
-    fontSize: 12,
-    fontWeight: "700",
-    marginTop: 2,
-  },
-  navSubtitleActive: {
-    color: "#cbd5e1",
-  },
-  signOutButton: {
-    borderColor: "#cbd5e1",
-    borderRadius: 8,
-    borderWidth: 1,
-    marginTop: "auto",
-    minHeight: 48,
+});
+
+const glyph = StyleSheet.create({
+  box: {
+    alignItems: "center",
+    height: 24,
     justifyContent: "center",
+    width: 24,
   },
-  signOutText: {
-    color: "#334155",
-    fontSize: 15,
-    fontWeight: "800",
-    textAlign: "center",
+  roof: {
+    borderBottomWidth: 8,
+    borderLeftColor: "transparent",
+    borderLeftWidth: 9,
+    borderRightColor: "transparent",
+    borderRightWidth: 9,
+  },
+  houseBody: {
+    borderWidth: 2,
+    borderTopWidth: 0,
+    height: 9,
+    width: 14,
+  },
+  calRings: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 1,
+  },
+  calRing: {
+    borderRadius: 1,
+    height: 4,
+    width: 2,
+  },
+  calBody: {
+    alignItems: "center",
+    borderRadius: 3,
+    borderWidth: 2,
+    height: 16,
+    justifyContent: "flex-start",
+    paddingTop: 3,
+    width: 20,
+  },
+  calBar: {
+    height: 2,
+    width: 12,
+  },
+  plateOuter: {
+    alignItems: "center",
+    borderRadius: 11,
+    borderWidth: 2,
+    height: 22,
+    justifyContent: "center",
+    width: 22,
+  },
+  plateInner: {
+    borderRadius: 5,
+    borderWidth: 2,
+    height: 9,
+    width: 9,
+  },
+  barbell: {
+    alignItems: "center",
+    flexDirection: "row",
+  },
+  weight: {
+    borderRadius: 2,
+    height: 14,
+    width: 4,
+  },
+  bar: {
+    height: 3,
+    width: 12,
+  },
+  dots: {
+    flexDirection: "row",
+    gap: 4,
+  },
+  dot: {
+    borderRadius: 2.5,
+    height: 5,
+    width: 5,
   },
 });

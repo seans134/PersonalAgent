@@ -16,7 +16,16 @@ import { CalendarScreen } from "./components/CalendarScreen";
 import { DashboardScreen } from "./components/DashboardScreen";
 import { GoalsScreen } from "./components/GoalsScreen";
 import { MealCoachScreen } from "./components/MealCoachScreen";
-import { MobileAppShell, type MobileScreen } from "./components/MobileAppShell";
+import {
+  DetailHeader,
+  MobileAppShell,
+  SegmentedTabs,
+  screenToTab,
+  tabDefaultScreen,
+  type MobileScreen,
+  type MobileTab,
+} from "./components/MobileAppShell";
+import { MoreMenuScreen } from "./components/MoreMenuScreen";
 import { MealsScreen } from "./components/MealsScreen";
 import { OnboardingScreen } from "./components/OnboardingScreen";
 import { NotificationSettingsScreen } from "./components/NotificationSettingsScreen";
@@ -33,7 +42,6 @@ function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [loadingSession, setLoadingSession] = useState(true);
   const [activeScreen, setActiveScreen] = useState<MobileScreen>("dashboard");
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isRecoveringPassword, setIsRecoveringPassword] = useState(false);
   const [authLinkMessage, setAuthLinkMessage] = useState<string | undefined>();
   const env = getMobileEnv();
@@ -100,63 +108,109 @@ function App() {
     resetAnalyticsUser();
   }
 
+  function handleSelectTab(tab: MobileTab) {
+    // Re-tapping the current tab keeps its sub-screen; switching tabs lands on the default.
+    if (screenToTab[activeScreen] === tab) return;
+    setActiveScreen(tabDefaultScreen[tab]);
+  }
+
   function renderSignedInScreen() {
-    if (activeScreen === "onboarding") {
+    const token = session!.access_token;
+
+    if (activeScreen === "calendar") {
+      return <CalendarScreen accessToken={token} />;
+    }
+
+    if (activeScreen === "meals" || activeScreen === "mealCoach") {
       return (
-        <OnboardingScreen
-          accessToken={session!.access_token}
-          onComplete={() => setActiveScreen("dashboard")}
-        />
+        <View style={styles.tabBody}>
+          <SegmentedTabs
+            onChange={setActiveScreen}
+            options={[
+              { value: "meals", label: "Log" },
+              { value: "mealCoach", label: "Coach" },
+            ]}
+            value={activeScreen}
+          />
+          {activeScreen === "meals" ? (
+            <MealsScreen accessToken={token} />
+          ) : (
+            <MealCoachScreen accessToken={token} />
+          )}
+        </View>
       );
     }
 
-    if (activeScreen === "calendar") {
-      return <CalendarScreen accessToken={session!.access_token} />;
-    }
-
-    if (activeScreen === "notifications") {
-      return <NotificationSettingsScreen accessToken={session!.access_token} />;
-    }
-
-    if (activeScreen === "settings") {
+    if (
+      activeScreen === "workouts" ||
+      activeScreen === "workoutPlan" ||
+      activeScreen === "workoutCoach"
+    ) {
       return (
-        <AccountSettingsScreen
-          accessToken={session!.access_token}
-          onAccountDeleted={() => setSession(null)}
-        />
+        <View style={styles.tabBody}>
+          <SegmentedTabs
+            onChange={setActiveScreen}
+            options={[
+              { value: "workouts", label: "Log" },
+              { value: "workoutPlan", label: "Plan" },
+              { value: "workoutCoach", label: "Coach" },
+            ]}
+            value={activeScreen}
+          />
+          {activeScreen === "workouts" ? (
+            <WorkoutsScreen accessToken={token} />
+          ) : activeScreen === "workoutPlan" ? (
+            <WorkoutPlanScreen accessToken={token} />
+          ) : (
+            <WorkoutCoachScreen accessToken={token} />
+          )}
+        </View>
+      );
+    }
+
+    if (activeScreen === "more") {
+      return (
+        <MoreMenuScreen onNavigate={setActiveScreen} onSignOut={signOut} />
       );
     }
 
     if (activeScreen === "goals") {
-      return <GoalsScreen accessToken={session!.access_token} />;
+      return (
+        <View style={styles.tabBody}>
+          <DetailHeader onBack={() => setActiveScreen("more")} title="Goals" />
+          <GoalsScreen accessToken={token} />
+        </View>
+      );
     }
 
-    if (activeScreen === "meals") {
-      return <MealsScreen accessToken={session!.access_token} />;
+    if (activeScreen === "onboarding") {
+      return (
+        <View style={styles.tabBody}>
+          <DetailHeader onBack={() => setActiveScreen("more")} title="Onboarding" />
+          <OnboardingScreen accessToken={token} onComplete={() => setActiveScreen("dashboard")} />
+        </View>
+      );
     }
 
-    if (activeScreen === "mealCoach") {
-      return <MealCoachScreen accessToken={session!.access_token} />;
+    if (activeScreen === "notifications") {
+      return (
+        <View style={styles.tabBody}>
+          <DetailHeader onBack={() => setActiveScreen("more")} title="Notifications" />
+          <NotificationSettingsScreen accessToken={token} />
+        </View>
+      );
     }
 
-    if (activeScreen === "workouts") {
-      return <WorkoutsScreen accessToken={session!.access_token} />;
+    if (activeScreen === "settings") {
+      return (
+        <View style={styles.tabBody}>
+          <DetailHeader onBack={() => setActiveScreen("more")} title="Settings & Legal" />
+          <AccountSettingsScreen accessToken={token} onAccountDeleted={() => setSession(null)} />
+        </View>
+      );
     }
 
-    if (activeScreen === "workoutPlan") {
-      return <WorkoutPlanScreen accessToken={session!.access_token} />;
-    }
-
-    if (activeScreen === "workoutCoach") {
-      return <WorkoutCoachScreen accessToken={session!.access_token} />;
-    }
-
-    return (
-      <DashboardScreen
-        accessToken={session!.access_token}
-        email={session!.user.email}
-      />
-    );
+    return <DashboardScreen accessToken={token} />;
   }
 
   if (!env.isConfigured) {
@@ -211,14 +265,7 @@ function App() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <MobileAppShell
-        activeScreen={activeScreen}
-        isMenuOpen={isMenuOpen}
-        onCloseMenu={() => setIsMenuOpen(false)}
-        onNavigate={setActiveScreen}
-        onOpenMenu={() => setIsMenuOpen(true)}
-        onSignOut={signOut}
-      >
+      <MobileAppShell activeTab={screenToTab[activeScreen]} onSelectTab={handleSelectTab}>
         {renderSignedInScreen()}
       </MobileAppShell>
       <StatusBar style="dark" />
@@ -230,6 +277,9 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: "#f8fafc",
+  },
+  tabBody: {
+    flex: 1,
   },
   centered: {
     alignItems: "center",
