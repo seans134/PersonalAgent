@@ -46,4 +46,44 @@ describe("projection", () => {
     expect(study.dueLocalDate).toBe("2026-08-07");
     expect(study.focusMode).toBe("finish_first");
   });
+
+  it("projects a quiz with default 60-min duration", () => {
+    const [event] = projectCourseItemsToEvents([row({ kind: "quiz", due_at: "2026-08-07T18:00:00Z" })], tz);
+    expect(event.isDeadline).toBe(false);
+    // 18:00Z = 14:00 EDT, +60min = 15:00
+    expect(event.startTime).toBe("14:00");
+    expect(event.endTime).toBe("15:00");
+  });
+
+  it("clamps end time to 23:59 when default duration crosses midnight", () => {
+    const [event] = projectCourseItemsToEvents([row({ kind: "quiz", due_at: "2026-08-07T03:00:00Z" })], tz);
+    // 03:00Z = 23:00 EDT (previous day), but localDate is 2026-08-06
+    // +60min would be 00:00, clamped to 23:59
+    expect(event.startTime).toBe("23:00");
+    expect(event.endTime).toBe("23:59");
+  });
+
+  it("uses explicit end_at time when on the same local day", () => {
+    const [event] = projectCourseItemsToEvents(
+      [row({ kind: "exam", due_at: "2026-08-07T18:00:00Z", end_at: "2026-08-07T20:00:00Z" })],
+      tz
+    );
+    expect(event.startTime).toBe("14:00");
+    expect(event.endTime).toBe("16:00");
+  });
+
+  it("clamps to 23:59 when explicit end_at crosses to next local day", () => {
+    const [event] = projectCourseItemsToEvents(
+      [row({ kind: "exam", due_at: "2026-08-07T20:00:00Z", end_at: "2026-08-08T04:00:00Z" })],
+      tz
+    );
+    // 20:00Z = 16:00 EDT on 2026-08-07; 04:00Z = 00:00 EDT on 2026-08-08 (next day)
+    expect(event.startTime).toBe("16:00");
+    expect(event.endTime).toBe("23:59");
+  });
+
+  it("excludes events not on the specified today date", () => {
+    const events = courseItemsToTodayBusyEvents([row({ due_at: "2026-08-08T18:00:00Z" })], tz, "2026-08-07");
+    expect(events).toHaveLength(0);
+  });
 });

@@ -34,9 +34,13 @@ export function projectCourseItemsToEvents(items: CourseItemRow[], timeZone: str
         localDate: start.date, startTime: start.time, endTime: start.time, isDeadline: true,
       };
     }
-    const endTime = item.end_at
-      ? localParts(item.end_at, timeZone).time
-      : addMinutesToClock(start.time, defaultDurationMinutes(item.kind));
+    let endTime: string;
+    if (item.end_at) {
+      const end = localParts(item.end_at, timeZone);
+      endTime = end.date === start.date ? end.time : "23:59";
+    } else {
+      endTime = addMinutesToClock(start.time, defaultDurationMinutes(item.kind));
+    }
     return {
       id: `course-${item.id}`, title: item.title, category: "school", kind: item.kind,
       localDate: start.date, startTime: start.time, endTime, isDeadline: false,
