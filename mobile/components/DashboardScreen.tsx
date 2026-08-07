@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -15,17 +15,21 @@ import {
 import { readCachedTodayPlan, writeCachedTodayPlan } from "../lib/cache";
 import { errorHaptic, successHaptic } from "../lib/haptics";
 import { readNotificationPreferences, scheduleTodayPlanReminders } from "../lib/notifications";
+import { useTheme } from "../lib/theme";
+import type { Theme } from "../lib/theme";
 import { TodayPlanTimeline } from "./TodayPlanTimeline";
 
 type DashboardScreenProps = {
   accessToken: string;
 };
 
-const legend = [
-  { color: "#0369a1", label: "Plan" },
-  { color: "#7c2d12", label: "Recurring" },
-  { color: "#57534e", label: "Event" },
-];
+const legendKeys = [
+  { key: "goal", label: "Goal" },
+  { key: "focus", label: "Focus" },
+  { key: "fitness", label: "Fitness" },
+  { key: "wellness", label: "Wellness" },
+  { key: "commit", label: "Fixed" },
+] as const;
 
 function greetingFor(date: Date) {
   const hour = date.getHours();
@@ -34,16 +38,11 @@ function greetingFor(date: Date) {
   return "Good evening";
 }
 
-function StatTile({ label, value }: { label: string; value: number }) {
-  return (
-    <View style={styles.statTile}>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </View>
-  );
-}
-
 export function DashboardScreen({ accessToken }: DashboardScreenProps) {
+  const theme = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
+  const { colors } = theme;
+
   const [plan, setPlan] = useState<MobileTodayPlanResponse | null>(null);
   const [planIsStale, setPlanIsStale] = useState(false);
   const [planCacheMessage, setPlanCacheMessage] = useState<string | undefined>();
@@ -141,47 +140,48 @@ export function DashboardScreen({ accessToken }: DashboardScreenProps) {
 
   return (
     <ScrollView
+      style={styles.screen}
       contentContainerStyle={styles.content}
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
           onRefresh={handleRefresh}
-          tintColor="#0f766e"
-          colors={["#0f766e"]}
+          tintColor={colors.teal}
+          colors={[colors.teal]}
         />
       }
     >
       <View style={styles.header}>
-        <Text style={styles.eyebrow}>{dateLabel}</Text>
-        <Text style={styles.title}>{greeting}</Text>
+        <Text style={theme.text("monoLabel", "teal")}>{dateLabel}</Text>
+        <Text style={theme.text("displayXl", "ink")}>{greeting}</Text>
       </View>
 
       {error ? (
         <View style={styles.errorBanner}>
-          <Text style={styles.errorText}>{error}</Text>
+          <Text style={theme.text("body", "danger")}>{error}</Text>
         </View>
       ) : null}
       {notice ? (
         <View style={styles.noticeBanner}>
-          <Text style={styles.noticeText}>{notice}</Text>
+          <Text style={theme.text("label", "teal")}>{notice}</Text>
         </View>
       ) : null}
 
       {!plan ? (
         <View style={[styles.card, styles.heroCard]}>
-          <Text style={styles.heroTitle}>Plan your day</Text>
-          <Text style={styles.heroBody}>
-            Atlas builds a schedule from your goals, preferences, and calendar.
+          <Text style={theme.text("title", "ink")}>Plan your day</Text>
+          <Text style={[theme.text("body", "inkMuted"), styles.heroBody]}>
+            Atlas charts a route through your day from your goals, preferences, and calendar.
           </Text>
           <Pressable
             disabled={generatingPlan}
             onPress={handleGeneratePress}
-            style={({ pressed }) => [styles.primaryButton, (pressed || generatingPlan) && styles.buttonPressed]}
+            style={({ pressed }) => [styles.primaryButton, (pressed || generatingPlan) && styles.pressed]}
           >
             {generatingPlan ? (
-              <ActivityIndicator color="#ffffff" />
+              <ActivityIndicator color={colors.onTeal} />
             ) : (
-              <Text style={styles.primaryText}>Generate Today Plan</Text>
+              <Text style={theme.text("heading", "onTeal")}>Generate today</Text>
             )}
           </Pressable>
         </View>
@@ -190,33 +190,33 @@ export function DashboardScreen({ accessToken }: DashboardScreenProps) {
       {plan ? (
         <View style={styles.planSection}>
           <View style={styles.statRow}>
-            <StatTile label="Plan blocks" value={plan.plan.items.length} />
-            <StatTile label="Goals used" value={plan.meta.goalsCount} />
-            <StatTile label="Events" value={plan.meta.eventsCount} />
+            <StatTile theme={theme} styles={styles} label="Moves" value={plan.plan.items.length} />
+            <StatTile theme={theme} styles={styles} label="Goals used" value={plan.meta.goalsCount} />
+            <StatTile theme={theme} styles={styles} label="Events" value={plan.meta.eventsCount} />
           </View>
 
           {planCacheMessage ? (
-            <Text style={[styles.cacheMessage, planIsStale && styles.cacheMessageStale]}>
+            <Text style={[theme.text("label", "teal"), planIsStale && styles.cacheMessageStale]}>
               {planCacheMessage}
             </Text>
           ) : null}
 
           {plan.summary ? (
             <View style={styles.summaryCard}>
-              <Text style={styles.summaryText}>{plan.summary}</Text>
+              <Text style={theme.text("body", "ink")}>{plan.summary}</Text>
             </View>
           ) : null}
           {plan.plan.explanation ? (
-            <Text style={styles.explanation}>{plan.plan.explanation}</Text>
+            <Text style={theme.text("body", "inkMuted")}>{plan.plan.explanation}</Text>
           ) : null}
 
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Your day</Text>
+            <Text style={theme.text("title", "ink")}>Your day</Text>
             <View style={styles.legendRow}>
-              {legend.map((entry) => (
-                <View key={entry.label} style={styles.legendItem}>
-                  <View style={[styles.legendSwatch, { backgroundColor: entry.color }]} />
-                  <Text style={styles.legendText}>{entry.label}</Text>
+              {legendKeys.map((entry) => (
+                <View key={entry.key} style={styles.legendItem}>
+                  <View style={[styles.legendNode, { backgroundColor: colors[entry.key] }]} />
+                  <Text style={theme.text("monoTime", "inkMuted")}>{entry.label}</Text>
                 </View>
               ))}
             </View>
@@ -226,14 +226,14 @@ export function DashboardScreen({ accessToken }: DashboardScreenProps) {
             <TodayPlanTimeline contextEvents={plan.contextEvents} items={plan.plan.items} />
           ) : (
             <View style={[styles.card, styles.emptyDay]}>
-              <Text style={styles.emptyBody}>No plan items for today.</Text>
+              <Text style={theme.text("body", "inkMuted")}>No plan items for today yet. Generate a plan to chart your route.</Text>
             </View>
           )}
 
           {plan.meta.warnings.length > 0 ? (
             <View style={styles.warningCard}>
               {plan.meta.warnings.map((warning) => (
-                <Text key={warning} style={styles.warningText}>
+                <Text key={warning} style={theme.text("body", "warning")}>
                   {warning}
                 </Text>
               ))}
@@ -244,23 +244,23 @@ export function DashboardScreen({ accessToken }: DashboardScreenProps) {
             <Pressable
               disabled={generatingPlan}
               onPress={handleGeneratePress}
-              style={({ pressed }) => [styles.secondaryAction, (pressed || generatingPlan) && styles.buttonPressed]}
+              style={({ pressed }) => [styles.secondaryAction, (pressed || generatingPlan) && styles.pressed]}
             >
               {generatingPlan ? (
-                <ActivityIndicator color="#0f766e" />
+                <ActivityIndicator color={colors.teal} />
               ) : (
-                <Text style={styles.secondaryActionText}>Regenerate</Text>
+                <Text style={theme.text("heading", "teal")}>Regenerate</Text>
               )}
             </Pressable>
             <Pressable
               disabled={schedulingReminder}
               onPress={scheduleReminders}
-              style={({ pressed }) => [styles.primaryButton, styles.actionFlex, (pressed || schedulingReminder) && styles.buttonPressed]}
+              style={({ pressed }) => [styles.primaryButton, styles.actionFlex, (pressed || schedulingReminder) && styles.pressed]}
             >
               {schedulingReminder ? (
-                <ActivityIndicator color="#ffffff" />
+                <ActivityIndicator color={colors.onTeal} />
               ) : (
-                <Text style={styles.primaryText}>Schedule Reminders</Text>
+                <Text style={theme.text("heading", "onTeal")}>Schedule reminders</Text>
               )}
             </Pressable>
           </View>
@@ -270,236 +270,170 @@ export function DashboardScreen({ accessToken }: DashboardScreenProps) {
   );
 }
 
-const cardShadow = {
-  shadowColor: "#0f172a",
-  shadowOffset: { width: 0, height: 4 },
-  shadowOpacity: 0.06,
-  shadowRadius: 12,
-  elevation: 2,
-} as const;
+function StatTile({
+  label,
+  value,
+  theme,
+  styles,
+}: {
+  label: string;
+  value: number;
+  theme: Theme;
+  styles: ReturnType<typeof makeStyles>;
+}) {
+  return (
+    <View style={styles.statTile}>
+      <Text style={theme.text("displayLg", "teal")}>{value}</Text>
+      <Text style={theme.text("monoLabel", "inkMuted")}>{label}</Text>
+    </View>
+  );
+}
 
-const styles = StyleSheet.create({
-  content: {
-    gap: 16,
-    padding: 20,
-    paddingBottom: 44,
-  },
-  header: {
-    gap: 4,
-    paddingTop: 4,
-  },
-  eyebrow: {
-    color: "#0f766e",
-    fontSize: 13,
-    fontWeight: "800",
-    letterSpacing: 0.3,
-    textTransform: "uppercase",
-  },
-  title: {
-    color: "#0f172a",
-    fontSize: 32,
-    fontWeight: "800",
-    lineHeight: 38,
-  },
-  card: {
-    backgroundColor: "#ffffff",
-    borderColor: "#e6edf3",
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 20,
-    ...cardShadow,
-  },
-  heroCard: {
-    gap: 10,
-  },
-  heroTitle: {
-    color: "#0f172a",
-    fontSize: 20,
-    fontWeight: "800",
-  },
-  heroBody: {
-    color: "#475569",
-    fontSize: 15,
-    lineHeight: 22,
-    marginBottom: 6,
-  },
-  primaryButton: {
-    alignItems: "center",
-    backgroundColor: "#0f766e",
-    borderRadius: 12,
-    justifyContent: "center",
-    minHeight: 52,
-    paddingHorizontal: 16,
-  },
-  primaryText: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "800",
-  },
-  buttonPressed: {
-    opacity: 0.82,
-  },
-  errorBanner: {
-    backgroundColor: "#fef2f2",
-    borderColor: "#fecaca",
-    borderRadius: 12,
-    borderWidth: 1,
-    padding: 12,
-  },
-  errorText: {
-    color: "#b91c1c",
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  noticeBanner: {
-    backgroundColor: "#f0fdfa",
-    borderColor: "#99f6e4",
-    borderRadius: 12,
-    borderWidth: 1,
-    padding: 12,
-  },
-  noticeText: {
-    color: "#0f766e",
-    fontSize: 14,
-    fontWeight: "600",
-    lineHeight: 20,
-  },
-  planSection: {
-    gap: 14,
-  },
-  statRow: {
-    flexDirection: "row",
-    gap: 10,
-  },
-  statTile: {
-    alignItems: "flex-start",
-    backgroundColor: "#ffffff",
-    borderColor: "#e6edf3",
-    borderRadius: 14,
-    borderWidth: 1,
-    flex: 1,
-    gap: 2,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    ...cardShadow,
-  },
-  statValue: {
-    color: "#0f172a",
-    fontSize: 24,
-    fontWeight: "800",
-  },
-  statLabel: {
-    color: "#64748b",
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  cacheMessage: {
-    color: "#0f766e",
-    fontSize: 13,
-    fontWeight: "700",
-    lineHeight: 19,
-  },
-  cacheMessageStale: {
-    backgroundColor: "#fffbeb",
-    borderColor: "#fcd34d",
-    borderRadius: 12,
-    borderWidth: 1,
-    color: "#92400e",
-    overflow: "hidden",
-    padding: 10,
-  },
-  summaryCard: {
-    backgroundColor: "#ecfdf5",
-    borderColor: "#99f6e4",
-    borderRadius: 14,
-    borderWidth: 1,
-    padding: 14,
-  },
-  summaryText: {
-    color: "#134e4a",
-    fontSize: 15,
-    fontWeight: "600",
-    lineHeight: 22,
-  },
-  explanation: {
-    color: "#475569",
-    fontSize: 14,
-    lineHeight: 21,
-  },
-  sectionHeader: {
-    alignItems: "center",
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-    justifyContent: "space-between",
-    marginTop: 2,
-  },
-  sectionTitle: {
-    color: "#0f172a",
-    fontSize: 18,
-    fontWeight: "800",
-  },
-  legendRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
-  },
-  legendItem: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 6,
-  },
-  legendSwatch: {
-    borderRadius: 3,
-    height: 11,
-    width: 11,
-  },
-  legendText: {
-    color: "#475569",
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  emptyDay: {
-    alignItems: "center",
-  },
-  emptyBody: {
-    color: "#475569",
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  warningCard: {
-    backgroundColor: "#fffbeb",
-    borderColor: "#fde68a",
-    borderRadius: 12,
-    borderWidth: 1,
-    gap: 4,
-    padding: 12,
-  },
-  warningText: {
-    color: "#92400e",
-    fontSize: 13,
-    lineHeight: 19,
-  },
-  actionRow: {
-    flexDirection: "row",
-    gap: 10,
-    marginTop: 2,
-  },
-  secondaryAction: {
-    alignItems: "center",
-    borderColor: "#0f766e",
-    borderRadius: 12,
-    borderWidth: 1,
-    justifyContent: "center",
-    minHeight: 52,
-    paddingHorizontal: 20,
-  },
-  secondaryActionText: {
-    color: "#0f766e",
-    fontSize: 15,
-    fontWeight: "800",
-  },
-  actionFlex: {
-    flex: 1,
-  },
-});
+function makeStyles(theme: Theme) {
+  const { colors, space, radius, shadow } = theme;
+  return StyleSheet.create({
+    screen: {
+      backgroundColor: colors.paper,
+    },
+    content: {
+      gap: space.base,
+      padding: space.lg,
+      paddingBottom: space["4xl"],
+    },
+    header: {
+      gap: space.xs,
+      paddingTop: space.xs,
+    },
+    card: {
+      backgroundColor: colors.surface,
+      borderColor: colors.line,
+      borderRadius: radius.card,
+      borderWidth: 1,
+      padding: space.lg,
+      ...shadow.sm,
+    },
+    heroCard: {
+      gap: space.md,
+    },
+    heroBody: {
+      marginBottom: space.xs,
+    },
+    primaryButton: {
+      alignItems: "center",
+      backgroundColor: colors.teal,
+      borderRadius: radius.control,
+      justifyContent: "center",
+      minHeight: 52,
+      paddingHorizontal: space.base,
+    },
+    pressed: {
+      opacity: 0.82,
+    },
+    errorBanner: {
+      backgroundColor: colors.surface,
+      borderColor: colors.danger,
+      borderLeftWidth: 3,
+      borderWidth: 1,
+      borderRadius: radius.control,
+      padding: space.md,
+    },
+    noticeBanner: {
+      backgroundColor: colors.surface,
+      borderColor: colors.teal,
+      borderLeftWidth: 3,
+      borderWidth: 1,
+      borderRadius: radius.control,
+      padding: space.md,
+    },
+    planSection: {
+      gap: space.md,
+    },
+    statRow: {
+      flexDirection: "row",
+      gap: space.sm,
+    },
+    statTile: {
+      alignItems: "flex-start",
+      backgroundColor: colors.surface,
+      borderColor: colors.line,
+      borderRadius: radius.card,
+      borderWidth: 1,
+      flex: 1,
+      gap: space.xs,
+      paddingHorizontal: space.md,
+      paddingVertical: space.md,
+      ...shadow.sm,
+    },
+    cacheMessageStale: {
+      backgroundColor: colors.surface,
+      borderColor: colors.warning,
+      borderRadius: radius.control,
+      borderWidth: 1,
+      color: colors.warning,
+      overflow: "hidden",
+      padding: space.sm,
+    },
+    summaryCard: {
+      backgroundColor: colors.surface2,
+      borderColor: colors.line,
+      borderLeftColor: colors.teal,
+      borderLeftWidth: 3,
+      borderWidth: 1,
+      borderRadius: radius.card,
+      padding: space.md,
+    },
+    sectionHeader: {
+      alignItems: "center",
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: space.sm,
+      justifyContent: "space-between",
+      marginTop: space.xs2,
+    },
+    legendRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: space.md,
+    },
+    legendItem: {
+      alignItems: "center",
+      flexDirection: "row",
+      gap: 5,
+    },
+    legendNode: {
+      borderRadius: 2,
+      height: 9,
+      width: 9,
+      transform: [{ rotate: "45deg" }],
+    },
+    emptyDay: {
+      alignItems: "center",
+    },
+    warningCard: {
+      backgroundColor: colors.surface,
+      borderColor: colors.warning,
+      borderLeftWidth: 3,
+      borderWidth: 1,
+      borderRadius: radius.control,
+      gap: space.xs,
+      padding: space.md,
+    },
+    actionRow: {
+      flexDirection: "row",
+      gap: space.sm,
+      marginTop: space.xs2,
+    },
+    secondaryAction: {
+      alignItems: "center",
+      borderColor: colors.teal,
+      borderRadius: radius.control,
+      borderWidth: 1,
+      justifyContent: "center",
+      minHeight: 52,
+      paddingHorizontal: space.lg,
+    },
+    actionFlex: {
+      flex: 1,
+    },
+  });
+}

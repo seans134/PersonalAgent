@@ -28,17 +28,17 @@ export default async function PlanWorkoutsPage() {
     <main className="mx-auto min-h-screen w-full max-w-5xl px-6 py-12">
       <div className="mb-8 flex items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-medium uppercase tracking-wide text-zinc-500">Tracking</p>
-          <h1 className="text-3xl font-semibold tracking-tight text-zinc-900">Plan workouts</h1>
-          <p className="mt-2 max-w-2xl text-zinc-700">Create a weekly workout schedule by day.</p>
+          <p className="text-sm font-medium uppercase tracking-wide text-ink-muted">Tracking</p>
+          <h1 className="text-3xl font-semibold tracking-tight text-ink">Plan workouts</h1>
+          <p className="mt-2 max-w-2xl text-ink-muted">Create a weekly workout schedule by day.</p>
         </div>
-        <Link className="text-sm text-zinc-600 underline" href="/tracking/workouts">
+        <Link className="text-sm text-ink-muted underline" href="/tracking/workouts">
           Back to workouts
         </Link>
       </div>
 
       {error ? (
-        <p className="mb-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <p className="mb-4 rounded-lg border border-danger bg-surface px-4 py-3 text-sm text-danger">
           Error: {error.message}
         </p>
       ) : null}

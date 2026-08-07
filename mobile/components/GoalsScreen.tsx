@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
+import { useTheme } from "../lib/theme";
+import type { Theme } from "../lib/theme";
 import {
   ActivityIndicator,
   Pressable,
@@ -82,6 +84,8 @@ function formatDateOnly(value: string | null) {
 }
 
 export function GoalsScreen({ accessToken }: GoalsScreenProps) {
+  const theme = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const [activeGoals, setActiveGoals] = useState<MobileGoal[]>([]);
   const [completedGoals, setCompletedGoals] = useState<MobileGoal[]>([]);
   const [form, setForm] = useState<GoalFormState>(emptyForm);
@@ -198,7 +202,7 @@ export function GoalsScreen({ accessToken }: GoalsScreenProps) {
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#0f766e" colors={["#0f766e"]} />
+        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.colors.teal} colors={[theme.colors.teal]} />
       }
     >
       <View style={styles.header}>
@@ -216,7 +220,7 @@ export function GoalsScreen({ accessToken }: GoalsScreenProps) {
             <Text style={styles.panelBody}>Create a goal with a clear title and daily planning hint.</Text>
           </View>
           <Pressable disabled={loading} onPress={loadGoals} style={styles.smallButton}>
-            {loading ? <ActivityIndicator color="#0f766e" /> : <Text style={styles.smallButtonText}>Refresh</Text>}
+            {loading ? <ActivityIndicator color={theme.colors.teal} /> : <Text style={styles.smallButtonText}>Refresh</Text>}
           </Pressable>
         </View>
 
@@ -228,7 +232,7 @@ export function GoalsScreen({ accessToken }: GoalsScreenProps) {
             style={({ pressed }) => [styles.primaryButton, (pressed || saving) && styles.buttonPressed]}
           >
             {saving ? (
-              <ActivityIndicator color="#ffffff" />
+              <ActivityIndicator color={theme.colors.surface} />
             ) : (
               <Text style={styles.primaryText}>{editingGoalId ? "Save Goal" : "Add Goal"}</Text>
             )}
@@ -285,6 +289,8 @@ function GoalForm({
   form: GoalFormState;
   onChange: (key: keyof GoalFormState, value: string) => void;
 }) {
+  const theme = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   return (
     <View style={styles.form}>
       <Field label="Goal title" onChangeText={(value) => onChange("title", value)} placeholder="Run a half marathon" value={form.title} />
@@ -324,6 +330,8 @@ function Field({
   placeholder?: string;
   value: string;
 }) {
+  const theme = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
@@ -332,7 +340,7 @@ function Field({
         multiline={multiline}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor="#73808c"
+        placeholderTextColor={theme.colors.inkMuted}
         style={[styles.input, multiline && styles.textArea]}
         value={value}
       />
@@ -359,6 +367,8 @@ function GoalSection({
   pendingId: string | null;
   title: string;
 }) {
+  const theme = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   return (
     <View style={styles.panel}>
       <Text style={styles.panelLabel}>{title}</Text>
@@ -401,7 +411,9 @@ function GoalSection({
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(theme: Theme) {
+  const { colors } = theme;
+  return StyleSheet.create({
   content: {
     gap: 18,
     padding: 24,
@@ -411,37 +423,25 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   eyebrow: {
-    color: "#0f766e",
-    fontSize: 13,
-    fontWeight: "800",
-    letterSpacing: 0,
-    textTransform: "uppercase",
+    ...theme.text("monoLabel", "teal"),
   },
   title: {
-    color: "#111827",
-    fontSize: 30,
-    fontWeight: "800",
-    lineHeight: 36,
+    ...theme.text("displayXl", "ink"),
   },
   body: {
-    color: "#475569",
-    fontSize: 16,
-    lineHeight: 23,
+    ...theme.text("bodyLg", "inkMuted"),
   },
   message: {
-    backgroundColor: "#f0fdfa",
-    borderColor: "#99f6e4",
+    ...theme.text("label", "teal"),
+    backgroundColor: colors.surface2,
+    borderColor: colors.line,
     borderRadius: 8,
     borderWidth: 1,
-    color: "#0f766e",
-    fontSize: 14,
-    fontWeight: "700",
-    lineHeight: 20,
     padding: 10,
   },
   panel: {
-    backgroundColor: "#ffffff",
-    borderColor: "#d8e1ea",
+    backgroundColor: colors.surface,
+    borderColor: colors.line,
     borderRadius: 8,
     borderWidth: 1,
     padding: 16,
@@ -459,14 +459,10 @@ const styles = StyleSheet.create({
     minWidth: 180,
   },
   panelLabel: {
-    color: "#111827",
-    fontSize: 18,
-    fontWeight: "800",
+    ...theme.text("title", "ink"),
   },
   panelBody: {
-    color: "#475569",
-    fontSize: 15,
-    lineHeight: 22,
+    ...theme.text("body", "inkMuted"),
     marginBottom: 16,
     marginTop: 8,
   },
@@ -477,17 +473,14 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   label: {
-    color: "#334155",
-    fontSize: 14,
-    fontWeight: "700",
+    ...theme.text("label", "ink"),
   },
   input: {
-    backgroundColor: "#ffffff",
-    borderColor: "#cbd5e1",
+    ...theme.text("bodyLg", "ink"),
+    backgroundColor: colors.surface,
+    borderColor: colors.line,
     borderRadius: 8,
     borderWidth: 1,
-    color: "#111827",
-    fontSize: 16,
     minHeight: 50,
     paddingHorizontal: 14,
     paddingVertical: 10,
@@ -502,24 +495,21 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   taskTypeOption: {
-    borderColor: "#cbd5e1",
+    borderColor: colors.line,
     borderRadius: 8,
     borderWidth: 1,
     paddingHorizontal: 11,
     paddingVertical: 9,
   },
   taskTypeOptionActive: {
-    backgroundColor: "#0f766e",
-    borderColor: "#0f766e",
+    backgroundColor: colors.teal,
+    borderColor: colors.teal,
   },
   taskTypeText: {
-    color: "#334155",
-    fontSize: 13,
-    fontWeight: "800",
-    textTransform: "capitalize",
+    ...theme.text("label", "ink"),
   },
   taskTypeTextActive: {
-    color: "#ffffff",
+    color: colors.surface,
   },
   actionRow: {
     flexDirection: "row",
@@ -529,7 +519,7 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     alignItems: "center",
-    backgroundColor: "#0f766e",
+    backgroundColor: colors.teal,
     borderRadius: 8,
     justifyContent: "center",
     minHeight: 52,
@@ -537,13 +527,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   primaryText: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "800",
+    ...theme.text("heading", "surface"),
   },
   primarySmallButton: {
     alignItems: "center",
-    backgroundColor: "#0f766e",
+    backgroundColor: colors.teal,
     borderRadius: 8,
     justifyContent: "center",
     minHeight: 42,
@@ -551,13 +539,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   primarySmallText: {
-    color: "#ffffff",
-    fontSize: 14,
-    fontWeight: "800",
+    ...theme.text("label", "surface"),
   },
   secondaryButton: {
     alignItems: "center",
-    borderColor: "#0f766e",
+    borderColor: colors.teal,
     borderRadius: 8,
     borderWidth: 1,
     justifyContent: "center",
@@ -565,13 +551,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   secondaryText: {
-    color: "#0f766e",
-    fontSize: 14,
-    fontWeight: "800",
+    ...theme.text("label", "teal"),
   },
   dangerButton: {
     alignItems: "center",
-    borderColor: "#b91c1c",
+    borderColor: colors.danger,
     borderRadius: 8,
     borderWidth: 1,
     justifyContent: "center",
@@ -579,14 +563,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   dangerText: {
-    color: "#b91c1c",
-    fontSize: 14,
-    fontWeight: "800",
+    ...theme.text("label", "danger"),
   },
   smallButton: {
     alignItems: "center",
     alignSelf: "flex-start",
-    borderColor: "#0f766e",
+    borderColor: colors.teal,
     borderRadius: 8,
     borderWidth: 1,
     justifyContent: "center",
@@ -595,17 +577,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   smallButtonText: {
-    color: "#0f766e",
-    fontSize: 14,
-    fontWeight: "800",
+    ...theme.text("label", "teal"),
   },
   buttonPressed: {
     opacity: 0.78,
   },
   empty: {
-    color: "#64748b",
-    fontSize: 14,
-    lineHeight: 20,
+    ...theme.text("body", "inkMuted"),
     marginTop: 12,
   },
   list: {
@@ -613,27 +591,22 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
   goalCard: {
-    backgroundColor: "#f8fafc",
-    borderColor: "#e2e8f0",
+    backgroundColor: colors.paper,
+    borderColor: colors.line,
     borderRadius: 8,
     borderWidth: 1,
     padding: 12,
   },
   goalTitle: {
-    color: "#111827",
-    fontSize: 17,
-    fontWeight: "800",
+    ...theme.text("heading", "ink"),
   },
   goalDescription: {
-    color: "#475569",
-    fontSize: 14,
-    lineHeight: 20,
+    ...theme.text("body", "inkMuted"),
     marginTop: 6,
   },
   goalMeta: {
-    color: "#64748b",
-    fontSize: 13,
-    lineHeight: 19,
+    ...theme.text("body", "inkMuted"),
     marginTop: 5,
   },
 });
+}

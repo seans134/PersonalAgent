@@ -59,23 +59,23 @@ export default async function TrackWorkoutsPage() {
     <main className="mx-auto min-h-screen w-full max-w-4xl px-6 py-12">
       <div className="mb-8 flex items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-medium uppercase tracking-wide text-zinc-500">Tracking</p>
-          <h1 className="text-3xl font-semibold tracking-tight text-zinc-900">Track workouts</h1>
-          <p className="mt-2 max-w-2xl text-zinc-700">Log strength, cardio, recovery, and sport sessions.</p>
+          <p className="text-sm font-medium uppercase tracking-wide text-ink-muted">Tracking</p>
+          <h1 className="text-3xl font-semibold tracking-tight text-ink">Track workouts</h1>
+          <p className="mt-2 max-w-2xl text-ink-muted">Log strength, cardio, recovery, and sport sessions.</p>
         </div>
-        <Link className="text-sm text-zinc-600 underline" href="/">
+        <Link className="text-sm text-ink-muted underline" href="/">
           Back home
         </Link>
       </div>
 
-      <section className="mb-6 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <section className="mb-6 rounded-2xl border border-line bg-surface p-6 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-zinc-900">Workout plan</h2>
-            <p className="mt-1 text-sm text-zinc-600">Build the weekly workout schedule on its own page.</p>
+            <h2 className="text-lg font-semibold text-ink">Workout plan</h2>
+            <p className="mt-1 text-sm text-ink-muted">Build the weekly workout schedule on its own page.</p>
           </div>
           <Link
-            className="rounded-lg bg-zinc-900 px-5 py-2 text-sm font-medium text-white"
+            className="rounded-lg bg-teal px-5 py-2 text-sm font-medium text-on-teal"
             href="/tracking/workouts/plan"
           >
             Plan workouts
@@ -87,26 +87,26 @@ export default async function TrackWorkoutsPage() {
       <WorkoutSuggestionPanel />
 
       {error ? (
-        <p className="mb-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <p className="mb-4 rounded-lg border border-danger bg-surface px-4 py-3 text-sm text-danger">
           Error: {error.message}
         </p>
       ) : null}
       {plannedError ? (
-        <p className="mb-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <p className="mb-4 rounded-lg border border-danger bg-surface px-4 py-3 text-sm text-danger">
           Error: {plannedError.message}
         </p>
       ) : null}
 
-      <section className="mb-6 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-zinc-900">Today&apos;s planned workouts</h2>
+      <section className="mb-6 rounded-2xl border border-line bg-surface p-6 shadow-sm">
+        <h2 className="text-lg font-semibold text-ink">Today&apos;s planned workouts</h2>
         <PlannedWorkoutList completedScheduleItemIds={completedScheduleItemIds} items={planned} />
       </section>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_0.9fr]">
         <WorkoutLogForm />
 
-        <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-zinc-900">Today&apos;s workouts</h2>
+        <section className="rounded-2xl border border-line bg-surface p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-ink">Today&apos;s workouts</h2>
           <WorkoutLogList workouts={workouts} />
         </section>
       </div>

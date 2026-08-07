@@ -1,4 +1,8 @@
+import { useMemo } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useTheme, useThemePreference } from "../lib/theme";
+import type { Theme, ThemePreference } from "../lib/theme";
+import { Icon } from "./Icon";
 import type { MobileScreen } from "./MobileAppShell";
 
 type MoreMenuScreenProps = {
@@ -13,12 +17,22 @@ const items: Array<{ screen: MobileScreen; label: string; subtitle: string }> = 
   { screen: "settings", label: "Settings & Legal", subtitle: "Support and account" },
 ];
 
+const themeOptions: Array<{ value: ThemePreference; label: string }> = [
+  { value: "system", label: "Auto" },
+  { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" },
+];
+
 export function MoreMenuScreen({ onNavigate, onSignOut }: MoreMenuScreenProps) {
+  const theme = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
+  const { preference, setPreference } = useThemePreference();
+
   return (
-    <ScrollView contentContainerStyle={styles.content}>
+    <ScrollView style={{ backgroundColor: theme.colors.paper }} contentContainerStyle={styles.content}>
       <View style={styles.header}>
-        <Text style={styles.eyebrow}>Atlas</Text>
-        <Text style={styles.title}>More</Text>
+        <Text style={theme.text("monoLabel", "teal")}>Atlas</Text>
+        <Text style={theme.text("displayXl", "ink")}>More</Text>
       </View>
 
       <View style={styles.card}>
@@ -33,102 +47,113 @@ export function MoreMenuScreen({ onNavigate, onSignOut }: MoreMenuScreenProps) {
             ]}
           >
             <View style={styles.rowText}>
-              <Text style={styles.rowLabel}>{item.label}</Text>
-              <Text style={styles.rowSubtitle}>{item.subtitle}</Text>
+              <Text style={theme.text("heading", "ink")}>{item.label}</Text>
+              <Text style={theme.text("body", "inkMuted")}>{item.subtitle}</Text>
             </View>
-            <View style={styles.chevron} />
+            <Icon color={theme.colors.inkMuted} name="back" size={18} strokeWidth={2} />
           </Pressable>
         ))}
       </View>
 
-      <Pressable
-        onPress={onSignOut}
-        style={({ pressed }) => [styles.signOut, pressed && styles.rowPressed]}
-      >
-        <Text style={styles.signOutText}>Sign Out</Text>
+      <View style={styles.appearance}>
+        <Text style={[theme.text("monoLabel", "inkMuted"), styles.appearanceLabel]}>Appearance</Text>
+        <View style={styles.segmentRow}>
+          {themeOptions.map((option) => {
+            const isActive = option.value === preference;
+            return (
+              <Pressable
+                key={option.value}
+                accessibilityRole="button"
+                accessibilityState={{ selected: isActive }}
+                onPress={() => setPreference(option.value)}
+                style={[styles.segmentButton, isActive && styles.segmentActive]}
+              >
+                <Text style={[theme.text("label"), { color: isActive ? theme.colors.onTeal : theme.colors.inkMuted }]}>
+                  {option.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+
+      <Pressable onPress={onSignOut} style={({ pressed }) => [styles.signOut, pressed && styles.rowPressed]}>
+        <Text style={theme.text("heading", "danger")}>Sign out</Text>
       </Pressable>
     </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
-  content: {
-    gap: 16,
-    padding: 20,
-    paddingBottom: 40,
-  },
-  header: {
-    gap: 4,
-    paddingTop: 4,
-  },
-  eyebrow: {
-    color: "#0f766e",
-    fontSize: 13,
-    fontWeight: "800",
-    letterSpacing: 0.3,
-    textTransform: "uppercase",
-  },
-  title: {
-    color: "#0f172a",
-    fontSize: 32,
-    fontWeight: "800",
-    lineHeight: 38,
-  },
-  card: {
-    backgroundColor: "#ffffff",
-    borderColor: "#e6edf3",
-    borderRadius: 16,
-    borderWidth: 1,
-    overflow: "hidden",
-  },
-  row: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-  },
-  rowDivider: {
-    borderBottomColor: "#eef2f6",
-    borderBottomWidth: 1,
-  },
-  rowPressed: {
-    opacity: 0.65,
-  },
-  rowText: {
-    flex: 1,
-    gap: 2,
-  },
-  rowLabel: {
-    color: "#0f172a",
-    fontSize: 16,
-    fontWeight: "800",
-  },
-  rowSubtitle: {
-    color: "#64748b",
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  chevron: {
-    borderColor: "#cbd5e1",
-    borderRightWidth: 2,
-    borderTopWidth: 2,
-    height: 10,
-    transform: [{ rotate: "45deg" }],
-    width: 10,
-  },
-  signOut: {
-    alignItems: "center",
-    backgroundColor: "#ffffff",
-    borderColor: "#e2e8f0",
-    borderRadius: 12,
-    borderWidth: 1,
-    justifyContent: "center",
-    minHeight: 52,
-  },
-  signOutText: {
-    color: "#b91c1c",
-    fontSize: 15,
-    fontWeight: "800",
-  },
-});
+function makeStyles(theme: Theme) {
+  const { colors, space, radius } = theme;
+  return StyleSheet.create({
+    content: {
+      gap: space.base,
+      padding: space.lg,
+      paddingBottom: space["3xl"],
+    },
+    header: {
+      gap: space.xs,
+      paddingTop: space.xs,
+    },
+    card: {
+      backgroundColor: colors.surface,
+      borderColor: colors.line,
+      borderRadius: radius.card,
+      borderWidth: 1,
+      overflow: "hidden",
+    },
+    row: {
+      alignItems: "center",
+      flexDirection: "row",
+      gap: space.md,
+      paddingHorizontal: space.base,
+      paddingVertical: space.base,
+    },
+    rowDivider: {
+      borderBottomColor: colors.line,
+      borderBottomWidth: 1,
+    },
+    rowPressed: {
+      opacity: 0.65,
+    },
+    rowText: {
+      flex: 1,
+      gap: space.xs2,
+    },
+    appearance: {
+      gap: space.sm,
+    },
+    appearanceLabel: {
+      paddingHorizontal: space.xs,
+    },
+    segmentRow: {
+      backgroundColor: colors.surface2,
+      borderColor: colors.line,
+      borderWidth: 1,
+      borderRadius: radius.control,
+      flexDirection: "row",
+      padding: 3,
+    },
+    segmentButton: {
+      alignItems: "center",
+      borderRadius: radius.control - 3,
+      flex: 1,
+      justifyContent: "center",
+      minHeight: 40,
+      paddingHorizontal: space.sm,
+    },
+    segmentActive: {
+      backgroundColor: colors.teal,
+    },
+    signOut: {
+      alignItems: "center",
+      backgroundColor: colors.surface,
+      borderColor: colors.line,
+      borderRadius: radius.control,
+      borderWidth: 1,
+      justifyContent: "center",
+      minHeight: 52,
+    },
+  });
+}

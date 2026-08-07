@@ -56,44 +56,44 @@ export default async function TrackMealsPage() {
     <main className="mx-auto min-h-screen w-full max-w-4xl px-6 py-12">
       <div className="mb-8 flex items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-medium uppercase tracking-wide text-zinc-500">Tracking</p>
-          <h1 className="text-3xl font-semibold tracking-tight text-zinc-900">Track meals</h1>
-          <p className="mt-2 max-w-2xl text-zinc-700">Log meals and review today&apos;s nutrition totals.</p>
+          <p className="text-sm font-medium uppercase tracking-wide text-ink-muted">Tracking</p>
+          <h1 className="text-3xl font-semibold tracking-tight text-ink">Track meals</h1>
+          <p className="mt-2 max-w-2xl text-ink-muted">Log meals and review today&apos;s nutrition totals.</p>
         </div>
-        <Link className="text-sm text-zinc-600 underline" href="/">
+        <Link className="text-sm text-ink-muted underline" href="/">
           Back home
         </Link>
       </div>
 
       {error ? (
-        <p className="mb-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <p className="mb-4 rounded-lg border border-danger bg-surface px-4 py-3 text-sm text-danger">
           Error: {error.message}
         </p>
       ) : null}
       <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
-        <div className="rounded-lg bg-white p-4 shadow-sm">
-          <p className="text-xs uppercase tracking-wide text-zinc-500">Meals</p>
-          <p className="mt-2 text-2xl font-semibold text-zinc-900">{meals.length}</p>
+        <div className="rounded-lg bg-surface p-4 shadow-sm">
+          <p className="text-xs uppercase tracking-wide text-ink-muted">Meals</p>
+          <p className="mt-2 text-2xl font-semibold text-ink">{meals.length}</p>
         </div>
-        <div className="rounded-lg bg-white p-4 shadow-sm">
-          <p className="text-xs uppercase tracking-wide text-zinc-500">Calories</p>
-          <p className="mt-2 text-2xl font-semibold text-zinc-900">{formatNumber(sumNullable(meals, "calories"))}</p>
+        <div className="rounded-lg bg-surface p-4 shadow-sm">
+          <p className="text-xs uppercase tracking-wide text-ink-muted">Calories</p>
+          <p className="mt-2 text-2xl font-semibold text-ink">{formatNumber(sumNullable(meals, "calories"))}</p>
         </div>
-        <div className="rounded-lg bg-white p-4 shadow-sm">
-          <p className="text-xs uppercase tracking-wide text-zinc-500">Protein g</p>
-          <p className="mt-2 text-2xl font-semibold text-zinc-900">{formatNumber(sumNullable(meals, "protein_grams"))}</p>
+        <div className="rounded-lg bg-surface p-4 shadow-sm">
+          <p className="text-xs uppercase tracking-wide text-ink-muted">Protein g</p>
+          <p className="mt-2 text-2xl font-semibold text-ink">{formatNumber(sumNullable(meals, "protein_grams"))}</p>
         </div>
-        <div className="rounded-lg bg-white p-4 shadow-sm">
-          <p className="text-xs uppercase tracking-wide text-zinc-500">Carbs g</p>
-          <p className="mt-2 text-2xl font-semibold text-zinc-900">{formatNumber(sumNullable(meals, "carbs_grams"))}</p>
+        <div className="rounded-lg bg-surface p-4 shadow-sm">
+          <p className="text-xs uppercase tracking-wide text-ink-muted">Carbs g</p>
+          <p className="mt-2 text-2xl font-semibold text-ink">{formatNumber(sumNullable(meals, "carbs_grams"))}</p>
         </div>
-        <div className="rounded-lg bg-white p-4 shadow-sm">
-          <p className="text-xs uppercase tracking-wide text-zinc-500">Fat g</p>
-          <p className="mt-2 text-2xl font-semibold text-zinc-900">{formatNumber(sumNullable(meals, "fat_grams"))}</p>
+        <div className="rounded-lg bg-surface p-4 shadow-sm">
+          <p className="text-xs uppercase tracking-wide text-ink-muted">Fat g</p>
+          <p className="mt-2 text-2xl font-semibold text-ink">{formatNumber(sumNullable(meals, "fat_grams"))}</p>
         </div>
-        <div className="rounded-lg bg-white p-4 shadow-sm">
-          <p className="text-xs uppercase tracking-wide text-zinc-500">Fiber g</p>
-          <p className="mt-2 text-2xl font-semibold text-zinc-900">{formatNumber(sumNullable(meals, "fiber_grams"))}</p>
+        <div className="rounded-lg bg-surface p-4 shadow-sm">
+          <p className="text-xs uppercase tracking-wide text-ink-muted">Fiber g</p>
+          <p className="mt-2 text-2xl font-semibold text-ink">{formatNumber(sumNullable(meals, "fiber_grams"))}</p>
         </div>
       </div>
 
@@ -102,14 +102,14 @@ export default async function TrackMealsPage() {
 
       <div className="grid gap-6 lg:grid-cols-[1fr_0.9fr]">
         <div className="space-y-6">
-          <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <section className="rounded-2xl border border-line bg-surface p-6 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="text-lg font-semibold text-zinc-900">Saved meals</h2>
-                <p className="mt-1 text-sm text-zinc-600">Track meals you have saved before.</p>
+                <h2 className="text-lg font-semibold text-ink">Saved meals</h2>
+                <p className="mt-1 text-sm text-ink-muted">Track meals you have saved before.</p>
               </div>
               <Link
-                className="rounded-lg bg-zinc-900 px-5 py-2 text-sm font-medium text-white"
+                className="rounded-lg bg-teal px-5 py-2 text-sm font-medium text-on-teal"
                 href="/tracking/meals/saved"
               >
                 Saved meals
@@ -119,8 +119,8 @@ export default async function TrackMealsPage() {
           <MealLogForm />
         </div>
 
-        <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-zinc-900">Today&apos;s meals</h2>
+        <section className="rounded-2xl border border-line bg-surface p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-ink">Today&apos;s meals</h2>
           <MealLogList meals={meals} />
         </section>
       </div>

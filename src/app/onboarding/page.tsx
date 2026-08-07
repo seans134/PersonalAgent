@@ -39,18 +39,18 @@ export default async function OnboardingPage({
     <main className="mx-auto min-h-screen w-full max-w-6xl px-6 py-12">
       <div className="mb-8 flex items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-medium uppercase tracking-wide text-zinc-500">Step 2 of 3</p>
-          <h1 className="text-3xl font-semibold tracking-tight text-zinc-900">Build your weekly rhythm</h1>
-          <p className="mt-2 max-w-2xl text-zinc-700">
+          <p className="text-sm font-medium uppercase tracking-wide text-ink-muted">Step 2 of 3</p>
+          <h1 className="text-3xl font-semibold tracking-tight text-ink">Build your weekly rhythm</h1>
+          <p className="mt-2 max-w-2xl text-ink-muted">
             Add recurring habits and protected time that should shape your week outside school and work.
           </p>
         </div>
-        <Link className="text-sm text-zinc-600 underline" href="/onboarding/schedule">
+        <Link className="text-sm text-ink-muted underline" href="/onboarding/schedule">
           Back
         </Link>
       </div>
 
-      {params.error ? <p className="mb-4 text-sm text-red-600">{params.error}</p> : null}
+      {params.error ? <p className="mb-4 text-sm text-danger">{params.error}</p> : null}
       <OnboardingProgress currentStep={2} />
 
       <NaturalLanguageOnboardingPanel mode="weekly_rhythm" />
@@ -66,7 +66,7 @@ export default async function OnboardingPage({
       </section>
 
       <div className="mt-6">
-        <Link className="inline-flex rounded-lg bg-zinc-900 px-5 py-2 text-sm font-medium text-white" href="/goals">
+        <Link className="inline-flex rounded-lg bg-teal px-5 py-2 text-sm font-medium text-on-teal" href="/goals">
           Continue to goals
         </Link>
       </div>

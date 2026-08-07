@@ -95,14 +95,14 @@ export function NaturalLanguageWorkoutPlanPanel() {
   }
 
   return (
-    <section className="mb-6 space-y-4 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+    <section className="mb-6 space-y-4 rounded-2xl border border-line bg-surface p-6 shadow-sm">
       <div>
-        <h2 className="text-lg font-semibold text-zinc-900">Plan from text</h2>
-        <p className="mt-1 text-sm text-zinc-600">Describe your weekly workouts and review the schedule before saving.</p>
+        <h2 className="text-lg font-semibold text-ink">Plan from text</h2>
+        <p className="mt-1 text-sm text-ink-muted">Describe your weekly workouts and review the schedule before saving.</p>
       </div>
 
       <textarea
-        className="min-h-24 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400"
+        className="min-h-24 w-full rounded-lg border border-line px-3 py-2 text-sm text-ink placeholder:text-ink-muted"
         onChange={(event) => setText(event.target.value)}
         placeholder="Example: Monday upper body 3x10, Wednesday 30 minute run, Friday basketball practice, Sunday mobility."
         value={text}
@@ -110,7 +110,7 @@ export function NaturalLanguageWorkoutPlanPanel() {
 
       <div className="flex flex-wrap items-center gap-3">
         <button
-          className="rounded-lg bg-zinc-900 px-5 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-lg bg-teal px-5 py-2 text-sm font-medium text-on-teal disabled:cursor-not-allowed disabled:opacity-60"
           disabled={isParsing || text.trim().length < 8}
           onClick={handleParse}
           type="button"
@@ -119,7 +119,7 @@ export function NaturalLanguageWorkoutPlanPanel() {
         </button>
         {draft ? (
           <button
-            className="rounded-lg border border-zinc-300 px-5 py-2 text-sm font-medium text-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-lg border border-line px-5 py-2 text-sm font-medium text-ink disabled:cursor-not-allowed disabled:opacity-60"
             disabled={isApplying || draft.items.length === 0}
             onClick={handleApply}
             type="button"
@@ -129,12 +129,12 @@ export function NaturalLanguageWorkoutPlanPanel() {
         ) : null}
       </div>
 
-      {error ? <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
-      {message ? <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{message}</p> : null}
+      {error ? <p className="rounded-lg border border-danger bg-surface px-3 py-2 text-sm text-danger">{error}</p> : null}
+      {message ? <p className="rounded-lg border border-success bg-surface2 px-3 py-2 text-sm text-success">{message}</p> : null}
 
       {draft ? (
         <div className="grid gap-3 md:grid-cols-2">
-          {draft.items.length === 0 ? <p className="text-sm text-zinc-600">No planned workouts found.</p> : null}
+          {draft.items.length === 0 ? <p className="text-sm text-ink-muted">No planned workouts found.</p> : null}
           {draft.items.map((item, index) => {
             const metrics = Object.entries(item.metrics ?? {}).flatMap(([key, value]) => {
               const formatted = formatMetricValue(value);
@@ -142,15 +142,15 @@ export function NaturalLanguageWorkoutPlanPanel() {
             });
 
             return (
-              <div className="rounded-lg bg-zinc-50 p-4" key={`${item.day_of_week}-${item.title}-${index}`}>
-                <p className="text-sm font-semibold text-zinc-900">{dayLabels[item.day_of_week] ?? item.day_of_week}</p>
-                <p className="mt-1 text-base font-medium text-zinc-900">{item.title}</p>
-                <p className="mt-1 text-sm text-zinc-600">
+              <div className="rounded-lg bg-surface2 p-4" key={`${item.day_of_week}-${item.title}-${index}`}>
+                <p className="text-sm font-semibold text-ink">{dayLabels[item.day_of_week] ?? item.day_of_week}</p>
+                <p className="mt-1 text-base font-medium text-ink">{item.title}</p>
+                <p className="mt-1 text-sm text-ink-muted">
                   {label(item.workout_type)} - {label(item.tracking_method)}
                   {item.duration_minutes ? ` - ${item.duration_minutes} min` : ""}
                 </p>
-                {metrics.length > 0 ? <p className="mt-2 text-sm text-zinc-600">{metrics.join(" - ")}</p> : null}
-                {item.notes ? <p className="mt-2 text-sm text-zinc-600">{item.notes}</p> : null}
+                {metrics.length > 0 ? <p className="mt-2 text-sm text-ink-muted">{metrics.join(" - ")}</p> : null}
+                {item.notes ? <p className="mt-2 text-sm text-ink-muted">{item.notes}</p> : null}
               </div>
             );
           })}
@@ -158,7 +158,7 @@ export function NaturalLanguageWorkoutPlanPanel() {
       ) : null}
 
       {draft?.warnings.length ? (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+        <div className="rounded-lg border border-warning bg-surface px-3 py-2 text-sm text-warning">
           <p className="font-medium">Review notes</p>
           <ul className="mt-1 list-disc pl-5">
             {draft.warnings.map((warning) => (

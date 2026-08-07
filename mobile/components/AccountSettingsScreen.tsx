@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useTheme } from "../lib/theme";
+import type { Theme } from "../lib/theme";
 import { ActivityIndicator, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { deleteMobileAccount } from "../lib/api";
 import { resetAnalyticsUser } from "../lib/analytics";
@@ -12,6 +14,8 @@ type AccountSettingsScreenProps = {
 };
 
 export function AccountSettingsScreen({ accessToken, onAccountDeleted }: AccountSettingsScreenProps) {
+  const theme = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const [confirmingDeletion, setConfirmingDeletion] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -91,7 +95,7 @@ export function AccountSettingsScreen({ accessToken, onAccountDeleted }: Account
             <Text style={styles.dialogTitle}>Permanently delete account?</Text>
             <Text style={styles.dialogBody}>This cannot be undone. Your Atlas account and associated app data will be deleted immediately.</Text>
             <Pressable disabled={deleting} onPress={deleteAccount} style={[styles.confirmDeleteButton, deleting && styles.disabled]}>
-              {deleting ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.confirmDeleteText}>Yes, Delete My Account</Text>}
+              {deleting ? <ActivityIndicator color={theme.colors.surface} /> : <Text style={styles.confirmDeleteText}>Yes, Delete My Account</Text>}
             </Pressable>
             <Pressable disabled={deleting} onPress={() => setConfirmingDeletion(false)} style={styles.cancelButton}>
               <Text style={styles.cancelText}>Cancel</Text>
@@ -103,29 +107,68 @@ export function AccountSettingsScreen({ accessToken, onAccountDeleted }: Account
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(theme: Theme) {
+  const { colors } = theme;
+  return StyleSheet.create({
   container: { gap: 18, padding: 18, paddingBottom: 32 },
-  eyebrow: { color: "#0f766e", fontSize: 12, fontWeight: "800", letterSpacing: 0, textTransform: "uppercase" },
-  title: { color: "#111827", fontSize: 30, fontWeight: "800", lineHeight: 36 },
-  subtitle: { color: "#475569", fontSize: 15, lineHeight: 21, marginTop: 4 },
-  section: { backgroundColor: "#ffffff", borderColor: "#e2e8f0", borderRadius: 8, borderWidth: 1, overflow: "hidden" },
-  sectionTitle: { color: "#64748b", fontSize: 12, fontWeight: "800", padding: 14, textTransform: "uppercase" },
-  linkButton: { alignItems: "center", borderTopColor: "#e2e8f0", borderTopWidth: 1, flexDirection: "row", justifyContent: "space-between", minHeight: 52, paddingHorizontal: 14 },
-  linkText: { color: "#111827", fontSize: 15, fontWeight: "700" },
-  arrow: { color: "#64748b", fontSize: 24 },
-  dangerSection: { backgroundColor: "#ffffff", borderColor: "#fecaca", borderRadius: 8, borderWidth: 1, gap: 10, padding: 16 },
-  dangerTitle: { color: "#991b1b", fontSize: 17, fontWeight: "800" },
-  dangerBody: { color: "#7f1d1d", fontSize: 14, lineHeight: 20 },
-  deleteButton: { alignItems: "center", borderColor: "#dc2626", borderRadius: 8, borderWidth: 1, minHeight: 46, justifyContent: "center" },
-  deleteText: { color: "#b91c1c", fontSize: 14, fontWeight: "800" },
-  error: { backgroundColor: "#fef2f2", borderColor: "#fecaca", borderRadius: 8, borderWidth: 1, color: "#b91c1c", fontSize: 14, fontWeight: "700", lineHeight: 20, padding: 12 },
+  eyebrow: {
+    ...theme.text("monoLabel", "teal"),
+  },
+  title: {
+    ...theme.text("displayXl", "ink"),
+  },
+  subtitle: {
+    ...theme.text("body", "inkMuted"),
+    marginTop: 4,
+  },
+  section: { backgroundColor: colors.surface, borderColor: colors.line, borderRadius: 8, borderWidth: 1, overflow: "hidden" },
+  sectionTitle: {
+    ...theme.text("monoLabel", "inkMuted"),
+    padding: 14,
+  },
+  linkButton: { alignItems: "center", borderTopColor: colors.line, borderTopWidth: 1, flexDirection: "row", justifyContent: "space-between", minHeight: 52, paddingHorizontal: 14 },
+  linkText: {
+    ...theme.text("body", "ink"),
+  },
+  arrow: {
+    ...theme.text("displayLg", "inkMuted"),
+  },
+  dangerSection: { backgroundColor: colors.surface, borderColor: colors.danger, borderRadius: 8, borderWidth: 1, gap: 10, padding: 16 },
+  dangerTitle: {
+    ...theme.text("heading", "danger"),
+  },
+  dangerBody: {
+    ...theme.text("body", "danger"),
+  },
+  deleteButton: { alignItems: "center", borderColor: colors.danger, borderRadius: 8, borderWidth: 1, minHeight: 46, justifyContent: "center" },
+  deleteText: {
+    ...theme.text("label", "danger"),
+  },
+  error: {
+    ...theme.text("label", "danger"),
+    backgroundColor: colors.surface2,
+    borderColor: colors.danger,
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 12,
+  },
   modalRoot: { alignItems: "center", backgroundColor: "rgba(15, 23, 42, 0.55)", flex: 1, justifyContent: "center", padding: 24 },
-  dialog: { backgroundColor: "#ffffff", borderRadius: 8, gap: 12, maxWidth: 420, padding: 20, width: "100%" },
-  dialogTitle: { color: "#111827", fontSize: 20, fontWeight: "800" },
-  dialogBody: { color: "#475569", fontSize: 14, lineHeight: 21 },
-  confirmDeleteButton: { alignItems: "center", backgroundColor: "#b91c1c", borderRadius: 8, minHeight: 48, justifyContent: "center", paddingHorizontal: 12 },
-  confirmDeleteText: { color: "#ffffff", fontSize: 14, fontWeight: "800", textAlign: "center" },
-  cancelButton: { alignItems: "center", borderColor: "#cbd5e1", borderRadius: 8, borderWidth: 1, minHeight: 46, justifyContent: "center" },
-  cancelText: { color: "#334155", fontSize: 14, fontWeight: "800" },
+  dialog: { backgroundColor: colors.surface, borderRadius: 8, gap: 12, maxWidth: 420, padding: 20, width: "100%" },
+  dialogTitle: {
+    ...theme.text("title", "ink"),
+  },
+  dialogBody: {
+    ...theme.text("body", "inkMuted"),
+  },
+  confirmDeleteButton: { alignItems: "center", backgroundColor: colors.danger, borderRadius: 8, minHeight: 48, justifyContent: "center", paddingHorizontal: 12 },
+  confirmDeleteText: {
+    ...theme.text("label", "surface"),
+    textAlign: "center",
+  },
+  cancelButton: { alignItems: "center", borderColor: colors.line, borderRadius: 8, borderWidth: 1, minHeight: 46, justifyContent: "center" },
+  cancelText: {
+    ...theme.text("label", "ink"),
+  },
   disabled: { opacity: 0.58 },
 });
+}

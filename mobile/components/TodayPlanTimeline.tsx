@@ -1,255 +1,293 @@
+import { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import type { PlannedItem } from "@personal-agent/core/planner/types";
 import type { TodayPlanContextEvent } from "@personal-agent/core/planner/client-types";
+import { useTheme } from "../lib/theme";
+import type { ThemeColors } from "../lib/theme";
 
 type TimelineProps = {
   contextEvents: TodayPlanContextEvent[];
   items: PlannedItem[];
 };
 
-type BlockColor = {
-  background: string;
-  border: string;
-  text: string;
-};
+// How an entry maps onto the category color system. Plan items carry their own
+// type; calendar/context events are fixed commitments (neutral, dashed).
+type EntryCategory = PlannedItem["type"] | "commit";
 
-const HOUR_HEIGHT = 64;
-const GUTTER_WIDTH = 56;
-const MIN_BLOCK_HEIGHT = 30;
-const DEFAULT_START_HOUR = 6;
-const DEFAULT_END_HOUR = 22;
-
-// Mirrors the web today-plan calendar palette.
-const itemColors: Record<PlannedItem["type"], BlockColor> = {
-  goal: { background: "#0369a1", border: "#0c4a6e", text: "#ffffff" },
-  focus: { background: "#4338ca", border: "#312e81", text: "#ffffff" },
-  fitness: { background: "#047857", border: "#064e3b", text: "#ffffff" },
-  wellness: { background: "#0f766e", border: "#134e4a", text: "#ffffff" },
-  fallback: { background: "#b45309", border: "#78350f", text: "#ffffff" },
-};
-
-const contextColors: Record<TodayPlanContextEvent["source"], BlockColor> = {
-  local: { background: "#57534e", border: "#292524", text: "#ffffff" },
-  schedule: { background: "#7c2d12", border: "#431407", text: "#ffffff" },
+type Entry = {
+  key: string;
+  startTime: string;
+  endTime: string;
+  startMinutes: number;
+  title: string;
+  subtitle: string;
+  category: EntryCategory;
+  fixed: boolean;
 };
 
 function toMinutes(value: string) {
-  const [hours, minutes] = value.split(":").map(Number);
-  return hours * 60 + minutes;
+  const [h, m] = value.split(":").map(Number);
+  return h * 60 + m;
 }
 
-function formatHour(hour: number) {
-  if (hour === 0) return "12 AM";
-  if (hour < 12) return `${hour} AM`;
-  if (hour === 12) return "12 PM";
-  return `${hour - 12} PM`;
+function durationLabel(start: string, end: string) {
+  const mins = Math.max(0, toMinutes(end) - toMinutes(start));
+  if (mins < 60) return `${mins}m`;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m === 0 ? `${h}h` : `${h}h ${m}m`;
 }
 
-/**
- * Bounds the visible range to the hours that actually contain something, padded
- * by an hour on each side, so a phone does not scroll through empty pre-dawn
- * space. Falls back to a daytime window when there is nothing to show.
- */
-function visibleHourRange(items: PlannedItem[], contextEvents: TodayPlanContextEvent[]) {
-  const starts: number[] = [];
-  const ends: number[] = [];
-
-  for (const item of items) {
-    starts.push(toMinutes(item.startTime));
-    ends.push(toMinutes(item.endTime));
+function categoryColor(colors: ThemeColors, category: EntryCategory): string {
+  switch (category) {
+    case "goal":
+      return colors.goal;
+    case "focus":
+      return colors.focus;
+    case "fitness":
+      return colors.fitness;
+    case "wellness":
+      return colors.wellness;
+    case "commit":
+      return colors.commit;
+    case "fallback":
+    default:
+      return colors.inkMuted;
   }
-  for (const event of contextEvents) {
-    starts.push(toMinutes(event.startTime));
-    ends.push(toMinutes(event.endTime));
-  }
-
-  if (starts.length === 0) {
-    return { startHour: DEFAULT_START_HOUR, endHour: DEFAULT_END_HOUR };
-  }
-
-  const earliest = Math.min(...starts);
-  const latest = Math.max(...ends);
-  const startHour = Math.max(0, Math.floor(earliest / 60) - 1);
-  const endHour = Math.min(24, Math.ceil(latest / 60) + 1);
-
-  return { startHour, endHour: Math.max(endHour, startHour + 1) };
 }
 
-function TimelineBlock({
-  colors,
-  label,
-  offsetMinutes,
-  durationMinutes,
-  subtitle,
-  tag,
-  zIndex,
+function MeridianRow({
+  entry,
+  isFirst,
+  isLast,
 }: {
-  colors: BlockColor;
-  label: string;
-  offsetMinutes: number;
-  durationMinutes: number;
-  subtitle: string;
-  tag: string;
-  zIndex: number;
+  entry: Entry;
+  isFirst: boolean;
+  isLast: boolean;
 }) {
-  const top = (offsetMinutes / 60) * HOUR_HEIGHT;
-  const height = Math.max(MIN_BLOCK_HEIGHT, (durationMinutes / 60) * HOUR_HEIGHT) - 4;
+  const theme = useTheme();
+  const { colors } = theme;
+  const accent = categoryColor(colors, entry.category);
 
   return (
-    <View
-      style={[
-        styles.block,
-        {
-          backgroundColor: colors.background,
-          borderColor: colors.border,
-          height,
-          top: top + 2,
-          zIndex,
-        },
-      ]}
-    >
-      <View style={styles.blockHeader}>
-        <Text numberOfLines={1} style={[styles.blockTitle, { color: colors.text }]}>
-          {label}
-        </Text>
-        <Text style={styles.blockTag}>{tag}</Text>
+    <View style={styles.row}>
+      <Text style={[theme.text("monoTime", "inkMuted"), styles.time]}>{entry.startTime}</Text>
+
+      <View style={styles.rail}>
+        {/* the meridian line — capped at the node for the first and last entry */}
+        <View
+          style={[
+            styles.line,
+            { backgroundColor: colors.lineStrong },
+            isFirst && styles.lineFromNode,
+            isLast && styles.lineToNode,
+          ]}
+        />
+        <View
+          style={[
+            styles.node,
+            {
+              backgroundColor: entry.fixed ? colors.surface : accent,
+              borderColor: accent,
+            },
+          ]}
+        />
       </View>
-      {height > 44 ? (
-        <Text numberOfLines={1} style={[styles.blockSubtitle, { color: colors.text }]}>
-          {subtitle}
-        </Text>
-      ) : null}
+
+      <View
+        style={[
+          styles.card,
+          {
+            backgroundColor: entry.fixed ? "transparent" : colors.surface2,
+            borderColor: colors.line,
+            borderLeftColor: accent,
+            borderStyle: entry.fixed ? "dashed" : "solid",
+          },
+        ]}
+      >
+        <View style={styles.cardHead}>
+          <Text numberOfLines={1} style={[theme.text("label", "ink"), styles.cardTitle]}>
+            {entry.title}
+          </Text>
+          <Text style={theme.text("monoTime", "inkMuted")}>{durationLabel(entry.startTime, entry.endTime)}</Text>
+        </View>
+        {entry.subtitle ? (
+          <Text numberOfLines={2} style={theme.text("body", "inkMuted")}>
+            {entry.subtitle}
+          </Text>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+function NowMarker({ label }: { label: string }) {
+  const { colors } = useTheme();
+  return (
+    <View style={styles.nowRow}>
+      <Text style={[styles.nowLabel, { color: colors.compass }]}>{label}</Text>
+      <View style={styles.nowRail}>
+        <View style={[styles.needle, { backgroundColor: colors.compass, borderColor: colors.surface }]} />
+      </View>
+      <View style={[styles.nowLine, { backgroundColor: colors.compass }]} />
     </View>
   );
 }
 
 export function TodayPlanTimeline({ contextEvents, items }: TimelineProps) {
-  const { startHour, endHour } = visibleHourRange(items, contextEvents);
-  const hours = Array.from({ length: endHour - startHour }, (_, index) => startHour + index);
-  const rangeStartMinutes = startHour * 60;
-  const bodyHeight = (endHour - startHour) * HOUR_HEIGHT;
+  const theme = useTheme();
+  const { colors } = theme;
+
+  const entries = useMemo<Entry[]>(() => {
+    const planEntries: Entry[] = items.map((item, index) => ({
+      key: `plan-${index}-${item.startTime}`,
+      startTime: item.startTime,
+      endTime: item.endTime,
+      startMinutes: toMinutes(item.startTime),
+      title: item.title,
+      subtitle: item.reason,
+      category: item.type,
+      fixed: false,
+    }));
+    const eventEntries: Entry[] = contextEvents.map((event) => ({
+      key: `event-${event.id}`,
+      startTime: event.startTime,
+      endTime: event.endTime,
+      startMinutes: toMinutes(event.startTime),
+      title: event.title,
+      subtitle: event.source === "schedule" ? "Recurring commitment" : "From your calendar",
+      category: "commit",
+      fixed: true,
+    }));
+    return [...planEntries, ...eventEntries].sort((a, b) => a.startMinutes - b.startMinutes);
+  }, [items, contextEvents]);
+
+  const now = new Date();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const nowLabel = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+
+  const rows: React.ReactNode[] = [];
+  let nowPlaced = false;
+  entries.forEach((entry, index) => {
+    if (!nowPlaced && nowMinutes <= entry.startMinutes) {
+      rows.push(<NowMarker key="now" label={nowLabel} />);
+      nowPlaced = true;
+    }
+    rows.push(
+      <MeridianRow
+        entry={entry}
+        isFirst={index === 0}
+        isLast={index === entries.length - 1}
+        key={entry.key}
+      />,
+    );
+  });
+  if (!nowPlaced && entries.length > 0) {
+    rows.push(<NowMarker key="now" label={nowLabel} />);
+  }
 
   return (
-    <View style={styles.card}>
-      <View style={styles.body}>
-        <View style={styles.gutter}>
-          {hours.map((hour) => (
-            <View key={hour} style={styles.gutterCell}>
-              <Text style={styles.gutterLabel}>{formatHour(hour)}</Text>
-            </View>
-          ))}
-        </View>
-
-        <View style={[styles.track, { height: bodyHeight }]}>
-          {hours.map((hour) => (
-            <View key={hour} style={styles.hourLine} />
-          ))}
-
-          {contextEvents.map((event) => (
-            <TimelineBlock
-              colors={contextColors[event.source]}
-              durationMinutes={Math.max(0, toMinutes(event.endTime) - toMinutes(event.startTime))}
-              key={event.id}
-              label={`${event.startTime} ${event.title}`}
-              offsetMinutes={toMinutes(event.startTime) - rangeStartMinutes}
-              subtitle="Existing schedule"
-              tag={event.source}
-              zIndex={1}
-            />
-          ))}
-
-          {items.map((item, index) => (
-            <TimelineBlock
-              colors={itemColors[item.type]}
-              durationMinutes={Math.max(0, toMinutes(item.endTime) - toMinutes(item.startTime))}
-              key={`${item.type}-${item.startTime}-${index}`}
-              label={`${item.startTime} ${item.title}`}
-              offsetMinutes={toMinutes(item.startTime) - rangeStartMinutes}
-              subtitle={item.reason}
-              tag={item.type}
-              zIndex={2}
-            />
-          ))}
-        </View>
-      </View>
+    <View style={[styles.container, { backgroundColor: colors.surface, borderColor: colors.line }]}>
+      {rows}
     </View>
   );
 }
 
+const RAIL_WIDTH = 26;
+const NODE = 12;
+
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: "#ffffff",
-    borderColor: "#d8e1ea",
-    borderRadius: 8,
+  container: {
+    borderRadius: 16,
     borderWidth: 1,
-    overflow: "hidden",
+    paddingVertical: 8,
+    paddingHorizontal: 10,
   },
-  body: {
+  row: {
     flexDirection: "row",
+    paddingBottom: 14,
   },
-  gutter: {
-    backgroundColor: "#f8fafc",
-    borderRightColor: "#e2e8f0",
-    borderRightWidth: 1,
-    width: GUTTER_WIDTH,
-  },
-  gutterCell: {
-    borderTopColor: "#e2e8f0",
-    borderTopWidth: 1,
-    height: HOUR_HEIGHT,
-    paddingHorizontal: 6,
-    paddingTop: 4,
-  },
-  gutterLabel: {
-    color: "#64748b",
-    fontSize: 11,
-    fontWeight: "600",
+  time: {
+    width: 46,
     textAlign: "right",
+    paddingRight: 8,
+    paddingTop: 10,
   },
-  track: {
-    flex: 1,
+  rail: {
+    width: RAIL_WIDTH,
     position: "relative",
   },
-  hourLine: {
-    borderTopColor: "#e2e8f0",
-    borderTopWidth: 1,
-    height: HOUR_HEIGHT,
-  },
-  block: {
-    borderLeftWidth: 4,
-    borderRadius: 6,
-    left: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+  line: {
     position: "absolute",
-    right: 6,
+    left: RAIL_WIDTH / 2 - 1,
+    width: 2,
+    top: 0,
+    bottom: -14,
   },
-  blockHeader: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 6,
-    justifyContent: "space-between",
+  lineFromNode: {
+    top: 16,
   },
-  blockTitle: {
+  lineToNode: {
+    bottom: undefined,
+    height: 16,
+  },
+  node: {
+    position: "absolute",
+    left: RAIL_WIDTH / 2 - NODE / 2,
+    top: 10,
+    width: NODE,
+    height: NODE,
+    borderRadius: 3,
+    borderWidth: 2,
+    transform: [{ rotate: "45deg" }],
+  },
+  card: {
     flex: 1,
+    borderWidth: 1,
+    borderLeftWidth: 3,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    marginLeft: 2,
+  },
+  cardHead: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  cardTitle: {
+    flex: 1,
+  },
+  nowRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  nowLabel: {
+    width: 46,
+    textAlign: "right",
+    paddingRight: 8,
+    fontFamily: "SpaceMono_700Bold",
     fontSize: 12,
-    fontWeight: "800",
   },
-  blockTag: {
-    backgroundColor: "#ffffff",
-    borderRadius: 999,
-    color: "#0f172a",
-    fontSize: 9,
-    fontWeight: "800",
-    overflow: "hidden",
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    textTransform: "uppercase",
+  nowRail: {
+    width: RAIL_WIDTH,
+    height: 16,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  blockSubtitle: {
-    fontSize: 11,
-    fontWeight: "600",
-    marginTop: 2,
-    opacity: 0.9,
+  needle: {
+    width: 14,
+    height: 14,
+    borderRadius: 3,
+    borderWidth: 2,
+    transform: [{ rotate: "45deg" }],
+  },
+  nowLine: {
+    flex: 1,
+    height: 2,
+    opacity: 0.55,
+    marginLeft: 2,
   },
 });

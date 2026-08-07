@@ -151,14 +151,14 @@ export function NaturalLanguageOnboardingPanel({ mode }: { mode: NaturalLanguage
   const copy = MODE_COPY[mode];
 
   return (
-    <section className="mb-6 space-y-4 rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
+    <section className="mb-6 space-y-4 rounded-lg border border-line bg-surface p-5 shadow-sm">
       <div>
-        <h2 className="text-lg font-semibold text-zinc-900">{copy.title}</h2>
-        <p className="mt-1 text-sm text-zinc-600">{copy.description}</p>
+        <h2 className="text-lg font-semibold text-ink">{copy.title}</h2>
+        <p className="mt-1 text-sm text-ink-muted">{copy.description}</p>
       </div>
 
       <textarea
-        className="min-h-28 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400"
+        className="min-h-28 w-full rounded-lg border border-line px-3 py-2 text-sm text-ink placeholder:text-ink-muted"
         onChange={(event) => setText(event.target.value)}
         placeholder={copy.placeholder}
         value={text}
@@ -166,7 +166,7 @@ export function NaturalLanguageOnboardingPanel({ mode }: { mode: NaturalLanguage
 
       <div className="flex flex-wrap items-center gap-3">
         <button
-          className="rounded-lg bg-zinc-900 px-5 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-lg bg-teal px-5 py-2 text-sm font-medium text-on-teal disabled:cursor-not-allowed disabled:opacity-60"
           disabled={isParsing || text.trim().length < 12}
           onClick={handleParse}
           type="button"
@@ -175,7 +175,7 @@ export function NaturalLanguageOnboardingPanel({ mode }: { mode: NaturalLanguage
         </button>
         {draft ? (
           <button
-            className="rounded-lg border border-zinc-300 px-5 py-2 text-sm font-medium text-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-lg border border-line px-5 py-2 text-sm font-medium text-ink disabled:cursor-not-allowed disabled:opacity-60"
             disabled={isApplying || !hasDraftContent}
             onClick={handleApply}
             type="button"
@@ -185,53 +185,53 @@ export function NaturalLanguageOnboardingPanel({ mode }: { mode: NaturalLanguage
         ) : null}
       </div>
 
-      {error ? <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
-      {message ? <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{message}</p> : null}
+      {error ? <p className="rounded-lg border border-danger bg-surface px-3 py-2 text-sm text-danger">{error}</p> : null}
+      {message ? <p className="rounded-lg border border-success bg-surface2 px-3 py-2 text-sm text-success">{message}</p> : null}
 
       {draft ? (
         <div className={`grid gap-3 ${showProfile && showSchedule ? "md:grid-cols-2" : ""}`}>
           {showProfile ? (
-            <div className="rounded-lg bg-zinc-50 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Profile</p>
+            <div className="rounded-lg bg-surface2 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Profile</p>
               {entries.length > 0 ? (
-                <ul className="mt-2 space-y-1 text-sm text-zinc-700">
+                <ul className="mt-2 space-y-1 text-sm text-ink-muted">
                   {entries.map((entry) => (
                     <li key={entry}>{entry}</li>
                   ))}
                 </ul>
               ) : (
-                <p className="mt-2 text-sm text-zinc-500">No profile fields found.</p>
+                <p className="mt-2 text-sm text-ink-muted">No profile fields found.</p>
               )}
             </div>
           ) : null}
 
           {showSchedule ? (
-            <div className="rounded-lg bg-zinc-50 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Schedule</p>
+            <div className="rounded-lg bg-surface2 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Schedule</p>
               {draft.scheduleBlocks.length > 0 ? (
-                <ul className="mt-2 space-y-2 text-sm text-zinc-700">
+                <ul className="mt-2 space-y-2 text-sm text-ink-muted">
                   {draft.scheduleBlocks.map((block, index) => (
                     <li key={`${block.title}-${index}`}>
-                      <span className="font-medium text-zinc-900">{block.title}</span>
+                      <span className="font-medium text-ink">{block.title}</span>
                       <br />
                       {formatDays(block.daysOfWeek)} {block.startTime} - {block.endTime}
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p className="mt-2 text-sm text-zinc-500">No schedule blocks found.</p>
+                <p className="mt-2 text-sm text-ink-muted">No schedule blocks found.</p>
               )}
             </div>
           ) : null}
 
           {showGoals ? (
-            <div className="rounded-lg bg-zinc-50 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Goals</p>
+            <div className="rounded-lg bg-surface2 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Goals</p>
               {draft.goals.length > 0 ? (
-                <ul className="mt-2 space-y-2 text-sm text-zinc-700">
+                <ul className="mt-2 space-y-2 text-sm text-ink-muted">
                   {draft.goals.map((goal, index) => (
                     <li key={`${goal.title}-${index}`}>
-                      <span className="font-medium text-zinc-900">{goal.title}</span>
+                      <span className="font-medium text-ink">{goal.title}</span>
                       <br />
                       Priority {goal.priority} - {goal.taskType} - {goal.minimumDailyMinutes} min/day minimum
                       {goal.endDate ? `, by ${goal.endDate}` : ""}
@@ -239,7 +239,7 @@ export function NaturalLanguageOnboardingPanel({ mode }: { mode: NaturalLanguage
                   ))}
                 </ul>
               ) : (
-                <p className="mt-2 text-sm text-zinc-500">No goals found.</p>
+                <p className="mt-2 text-sm text-ink-muted">No goals found.</p>
               )}
             </div>
           ) : null}
@@ -247,7 +247,7 @@ export function NaturalLanguageOnboardingPanel({ mode }: { mode: NaturalLanguage
       ) : null}
 
       {draft?.warnings.length ? (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+        <div className="rounded-lg border border-warning bg-surface px-3 py-2 text-sm text-warning">
           <p className="font-medium">Review notes</p>
           <ul className="mt-1 list-disc pl-5">
             {draft.warnings.map((warning) => (

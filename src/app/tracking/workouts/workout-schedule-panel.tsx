@@ -57,8 +57,8 @@ const methodsByType: Record<WorkoutType, { value: WorkoutTrackingMethod; label: 
 };
 
 const initialResult: TrackingActionResult = { ok: false };
-const inputClass = "w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-50 placeholder:text-zinc-300";
-const compactInputClass = "w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-center text-sm text-zinc-50";
+const inputClass = "w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-muted";
+const compactInputClass = "w-full rounded-lg border border-line bg-surface px-3 py-2 text-center text-sm text-ink";
 
 function formatLabel(value: string) {
   return value.replaceAll("_", " ");
@@ -133,16 +133,16 @@ export function WorkoutSchedulePanel({ items }: { items: WorkoutScheduleItem[] }
   }
 
   return (
-    <section className="space-y-6 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+    <section className="space-y-6 rounded-2xl border border-line bg-surface p-6 shadow-sm">
       <div>
-        <h2 className="text-lg font-semibold text-zinc-900">Weekly workout schedule</h2>
-        <p className="mt-1 text-sm text-zinc-600">Build a weekday list of planned workout types.</p>
+        <h2 className="text-lg font-semibold text-ink">Weekly workout schedule</h2>
+        <p className="mt-1 text-sm text-ink-muted">Build a weekday list of planned workout types.</p>
       </div>
 
-      <form ref={formRef} className="space-y-4 rounded-lg bg-zinc-50 p-4" onSubmit={handleAdd}>
+      <form ref={formRef} className="space-y-4 rounded-lg bg-surface2 p-4" onSubmit={handleAdd}>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-2">
-            <label className="block text-sm text-zinc-700" htmlFor="day_of_week">
+            <label className="block text-sm text-ink-muted" htmlFor="day_of_week">
               Day
             </label>
             <select className={inputClass} defaultValue="1" id="day_of_week" name="day_of_week">
@@ -155,7 +155,7 @@ export function WorkoutSchedulePanel({ items }: { items: WorkoutScheduleItem[] }
           </div>
 
           <div className="space-y-2">
-            <label className="block text-sm text-zinc-700" htmlFor="schedule_workout_type">
+            <label className="block text-sm text-ink-muted" htmlFor="schedule_workout_type">
               Type
             </label>
             <select
@@ -174,7 +174,7 @@ export function WorkoutSchedulePanel({ items }: { items: WorkoutScheduleItem[] }
           </div>
 
           <div className="space-y-2">
-            <label className="block text-sm text-zinc-700" htmlFor="schedule_tracking_method">
+            <label className="block text-sm text-ink-muted" htmlFor="schedule_tracking_method">
               Tracking
             </label>
             <select
@@ -195,19 +195,19 @@ export function WorkoutSchedulePanel({ items }: { items: WorkoutScheduleItem[] }
           {showPlannedStrengthMetrics ? (
             <div className="grid grid-cols-3 gap-2">
               <div className="space-y-2">
-                <label className="block text-center text-sm text-zinc-700" htmlFor="schedule_sets">
+                <label className="block text-center text-sm text-ink-muted" htmlFor="schedule_sets">
                   Sets
                 </label>
                 <input className={compactInputClass} id="schedule_sets" min={1} name="sets" type="number" />
               </div>
               <div className="space-y-2">
-                <label className="block text-center text-sm text-zinc-700" htmlFor="schedule_reps">
+                <label className="block text-center text-sm text-ink-muted" htmlFor="schedule_reps">
                   Reps
                 </label>
                 <input className={compactInputClass} id="schedule_reps" min={1} name="reps" type="number" />
               </div>
               <div className="space-y-2">
-                <label className="block text-center text-sm text-zinc-700" htmlFor="schedule_weight">
+                <label className="block text-center text-sm text-ink-muted" htmlFor="schedule_weight">
                   Weight
                 </label>
                 <input className={compactInputClass} id="schedule_weight" min={0} name="weight" step="0.5" type="number" />
@@ -216,7 +216,7 @@ export function WorkoutSchedulePanel({ items }: { items: WorkoutScheduleItem[] }
             </div>
           ) : (
             <div className="space-y-2">
-              <label className="block text-sm text-zinc-700" htmlFor="schedule_duration">
+              <label className="block text-sm text-ink-muted" htmlFor="schedule_duration">
                 Minutes
               </label>
               <input className={inputClass} id="schedule_duration" min={1} name="duration_minutes" type="number" />
@@ -226,25 +226,25 @@ export function WorkoutSchedulePanel({ items }: { items: WorkoutScheduleItem[] }
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
-            <label className="block text-sm text-zinc-700" htmlFor="schedule_title">
+            <label className="block text-sm text-ink-muted" htmlFor="schedule_title">
               Workout
             </label>
             <input className={inputClass} id="schedule_title" name="title" placeholder="Upper body strength" required type="text" />
           </div>
 
           <div className="space-y-2">
-            <label className="block text-sm text-zinc-700" htmlFor="schedule_notes">
+            <label className="block text-sm text-ink-muted" htmlFor="schedule_notes">
               Notes
             </label>
             <input className={inputClass} id="schedule_notes" name="notes" placeholder="Optional" type="text" />
           </div>
         </div>
 
-        {result.error ? <p className="text-sm text-red-600">{result.error}</p> : null}
-        {result.ok ? <p className="text-sm text-emerald-700">Schedule updated.</p> : null}
+        {result.error ? <p className="text-sm text-danger">{result.error}</p> : null}
+        {result.ok ? <p className="text-sm text-success">Schedule updated.</p> : null}
 
         <button
-          className="rounded-lg bg-zinc-900 px-5 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-lg bg-teal px-5 py-2 text-sm font-medium text-on-teal disabled:cursor-not-allowed disabled:opacity-60"
           disabled={isPending && pendingItemId === null}
           type="submit"
         >
@@ -257,10 +257,10 @@ export function WorkoutSchedulePanel({ items }: { items: WorkoutScheduleItem[] }
           const dayItems = items.filter((item) => item.day_of_week === day.value);
 
           return (
-            <div className="rounded-lg border border-zinc-200 p-4" key={day.value}>
-              <h3 className="font-medium text-zinc-900">{day.label}</h3>
+            <div className="rounded-lg border border-line p-4" key={day.value}>
+              <h3 className="font-medium text-ink">{day.label}</h3>
               {dayItems.length === 0 ? (
-                <p className="mt-3 text-sm text-zinc-600">No workouts planned.</p>
+                <p className="mt-3 text-sm text-ink-muted">No workouts planned.</p>
               ) : (
                 <ul className="mt-3 space-y-3">
                   {dayItems.map((item) => {
@@ -268,17 +268,17 @@ export function WorkoutSchedulePanel({ items }: { items: WorkoutScheduleItem[] }
                     const itemMetricText = metricText(item);
 
                     return (
-                      <li className="flex items-start justify-between gap-3 rounded-lg bg-zinc-50 p-3" key={item.id}>
+                      <li className="flex items-start justify-between gap-3 rounded-lg bg-surface2 p-3" key={item.id}>
                         <div>
-                          <p className="text-sm font-medium text-zinc-900">{item.title}</p>
-                          <p className="mt-1 text-xs text-zinc-600">
+                          <p className="text-sm font-medium text-ink">{item.title}</p>
+                          <p className="mt-1 text-xs text-ink-muted">
                             {formatLabel(item.workout_type)} - {formatLabel(item.tracking_method)}
                             {itemMetricText ? ` - ${itemMetricText}` : ""}
                           </p>
-                          {item.notes ? <p className="mt-1 text-xs text-zinc-600">{item.notes}</p> : null}
+                          {item.notes ? <p className="mt-1 text-xs text-ink-muted">{item.notes}</p> : null}
                         </div>
                         <button
-                          className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-900 disabled:cursor-not-allowed disabled:opacity-60"
+                          className="rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-ink disabled:cursor-not-allowed disabled:opacity-60"
                           disabled={isRemoving}
                           onClick={() => handleRemove(item.id)}
                           type="button"

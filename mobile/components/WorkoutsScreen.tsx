@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTheme } from "../lib/theme";
+import type { Theme } from "../lib/theme";
 import {
   ActivityIndicator,
   Pressable,
@@ -128,6 +130,8 @@ function workoutSummary(workout: Pick<MobileWorkoutLog | MobilePlannedWorkout, "
 }
 
 export function WorkoutsScreen({ accessToken }: WorkoutsScreenProps) {
+  const theme = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const [workouts, setWorkouts] = useState<MobileWorkoutLog[]>([]);
   const [plannedWorkouts, setPlannedWorkouts] = useState<MobilePlannedWorkout[]>([]);
   const [form, setForm] = useState<WorkoutForm>(initialForm);
@@ -250,7 +254,7 @@ export function WorkoutsScreen({ accessToken }: WorkoutsScreenProps) {
     <ScrollView
       contentContainerStyle={styles.content}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#0f766e" colors={["#0f766e"]} />
+        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.colors.teal} colors={[theme.colors.teal]} />
       }
     >
       <View style={styles.header}>
@@ -300,7 +304,7 @@ export function WorkoutsScreen({ accessToken }: WorkoutsScreenProps) {
         <TextInput
           onChangeText={(title) => setForm((current) => ({ ...current, title }))}
           placeholder="Workout title"
-          placeholderTextColor="#94a3b8"
+          placeholderTextColor={theme.colors.inkMuted}
           style={styles.input}
           value={form.title}
         />
@@ -310,7 +314,7 @@ export function WorkoutsScreen({ accessToken }: WorkoutsScreenProps) {
             keyboardType="number-pad"
             onChangeText={(durationMinutes) => setForm((current) => ({ ...current, durationMinutes }))}
             placeholder="Minutes"
-            placeholderTextColor="#94a3b8"
+            placeholderTextColor={theme.colors.inkMuted}
             style={[styles.input, styles.fieldHalf]}
             value={form.durationMinutes}
           />
@@ -318,7 +322,7 @@ export function WorkoutsScreen({ accessToken }: WorkoutsScreenProps) {
             keyboardType="number-pad"
             onChangeText={(caloriesBurned) => setForm((current) => ({ ...current, caloriesBurned }))}
             placeholder="Calories"
-            placeholderTextColor="#94a3b8"
+            placeholderTextColor={theme.colors.inkMuted}
             style={[styles.input, styles.fieldHalf]}
             value={form.caloriesBurned}
           />
@@ -342,14 +346,14 @@ export function WorkoutsScreen({ accessToken }: WorkoutsScreenProps) {
           <TextInput
             onChangeText={(primaryMetric) => setForm((current) => ({ ...current, primaryMetric }))}
             placeholder={metricInputLabels[0]}
-            placeholderTextColor="#94a3b8"
+            placeholderTextColor={theme.colors.inkMuted}
             style={[styles.input, styles.fieldHalf]}
             value={form.primaryMetric}
           />
           <TextInput
             onChangeText={(secondaryMetric) => setForm((current) => ({ ...current, secondaryMetric }))}
             placeholder={metricInputLabels[1]}
-            placeholderTextColor="#94a3b8"
+            placeholderTextColor={theme.colors.inkMuted}
             style={[styles.input, styles.fieldHalf]}
             value={form.secondaryMetric}
           />
@@ -359,7 +363,7 @@ export function WorkoutsScreen({ accessToken }: WorkoutsScreenProps) {
           multiline
           onChangeText={(notes) => setForm((current) => ({ ...current, notes }))}
           placeholder="Notes"
-          placeholderTextColor="#94a3b8"
+          placeholderTextColor={theme.colors.inkMuted}
           style={[styles.input, styles.notesInput]}
           value={form.notes}
         />
@@ -371,7 +375,7 @@ export function WorkoutsScreen({ accessToken }: WorkoutsScreenProps) {
 
       <View style={styles.panel}>
         <Text style={styles.panelTitle}>{"Today's planned workouts"}</Text>
-        {loading ? <ActivityIndicator color="#0f766e" /> : null}
+        {loading ? <ActivityIndicator color={theme.colors.teal} /> : null}
         {!loading && plannedWorkouts.length === 0 ? (
           <Text style={styles.emptyText}>No planned workouts for today.</Text>
         ) : null}
@@ -426,7 +430,9 @@ export function WorkoutsScreen({ accessToken }: WorkoutsScreenProps) {
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(theme: Theme) {
+  const { colors } = theme;
+  return StyleSheet.create({
   content: {
     gap: 16,
     padding: 18,
@@ -444,44 +450,32 @@ const styles = StyleSheet.create({
     minWidth: 210,
   },
   eyebrow: {
-    color: "#0f766e",
-    fontSize: 12,
-    fontWeight: "800",
-    letterSpacing: 0,
-    textTransform: "uppercase",
+    ...theme.text("monoLabel", "teal"),
   },
   title: {
-    color: "#111827",
-    fontSize: 30,
-    fontWeight: "800",
-    lineHeight: 36,
+    ...theme.text("displayXl", "ink"),
   },
   subtitle: {
-    color: "#475569",
-    fontSize: 15,
-    lineHeight: 21,
+    ...theme.text("body", "inkMuted"),
     marginTop: 4,
   },
   panel: {
-    backgroundColor: "#ffffff",
-    borderColor: "#e2e8f0",
+    backgroundColor: colors.surface,
+    borderColor: colors.line,
     borderRadius: 8,
     borderWidth: 1,
     gap: 12,
     padding: 16,
   },
   panelTitle: {
-    color: "#111827",
-    fontSize: 18,
-    fontWeight: "800",
+    ...theme.text("title", "ink"),
   },
   input: {
-    backgroundColor: "#f8fafc",
-    borderColor: "#cbd5e1",
+    ...theme.text("body", "ink"),
+    backgroundColor: colors.paper,
+    borderColor: colors.line,
     borderRadius: 8,
     borderWidth: 1,
-    color: "#111827",
-    fontSize: 15,
     minHeight: 46,
     paddingHorizontal: 12,
   },
@@ -505,7 +499,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   segmentButton: {
-    borderColor: "#cbd5e1",
+    borderColor: colors.line,
     borderRadius: 8,
     borderWidth: 1,
     minHeight: 38,
@@ -513,7 +507,7 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
   },
   methodButton: {
-    borderColor: "#cbd5e1",
+    borderColor: colors.line,
     borderRadius: 8,
     borderWidth: 1,
     minHeight: 38,
@@ -521,33 +515,29 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
   },
   segmentButtonActive: {
-    backgroundColor: "#111827",
-    borderColor: "#111827",
+    backgroundColor: colors.ink,
+    borderColor: colors.ink,
   },
   segmentText: {
-    color: "#334155",
-    fontSize: 13,
-    fontWeight: "800",
+    ...theme.text("label", "ink"),
   },
   segmentTextActive: {
-    color: "#ffffff",
+    color: colors.surface,
   },
   primaryButton: {
     alignItems: "center",
-    backgroundColor: "#0f766e",
+    backgroundColor: colors.teal,
     borderRadius: 8,
     minHeight: 48,
     justifyContent: "center",
     paddingHorizontal: 16,
   },
   primaryButtonText: {
-    color: "#ffffff",
-    fontSize: 15,
-    fontWeight: "800",
+    ...theme.text("body", "surface"),
   },
   secondaryButton: {
     alignItems: "center",
-    borderColor: "#cbd5e1",
+    borderColor: colors.line,
     borderRadius: 8,
     borderWidth: 1,
     minHeight: 42,
@@ -555,12 +545,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   secondaryButtonText: {
-    color: "#334155",
-    fontSize: 14,
-    fontWeight: "800",
+    ...theme.text("label", "ink"),
   },
   item: {
-    borderColor: "#e2e8f0",
+    borderColor: colors.line,
     borderRadius: 8,
     borderWidth: 1,
     flexDirection: "row",
@@ -574,27 +562,23 @@ const styles = StyleSheet.create({
     minWidth: 190,
   },
   itemTitle: {
-    color: "#111827",
-    fontSize: 16,
-    fontWeight: "800",
+    ...theme.text("heading", "ink"),
   },
   itemMeta: {
-    color: "#64748b",
+    color: colors.inkMuted,
     fontSize: 12,
     fontWeight: "800",
     lineHeight: 17,
     marginTop: 2,
   },
   itemDetail: {
-    color: "#475569",
-    fontSize: 13,
-    lineHeight: 19,
+    ...theme.text("body", "inkMuted"),
     marginTop: 6,
   },
   smallButton: {
     alignItems: "center",
     alignSelf: "flex-start",
-    borderColor: "#0f766e",
+    borderColor: colors.teal,
     borderRadius: 8,
     borderWidth: 1,
     minHeight: 38,
@@ -602,42 +586,34 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   smallButtonText: {
-    color: "#0f766e",
-    fontSize: 13,
-    fontWeight: "800",
+    ...theme.text("label", "teal"),
   },
   completeButton: {
-    backgroundColor: "#ecfdf5",
-    borderColor: "#a7f3d0",
+    backgroundColor: colors.surface2,
+    borderColor: colors.line,
   },
   completeButtonText: {
-    color: "#047857",
+    color: colors.success,
   },
   removeButton: {
-    borderColor: "#fecaca",
+    borderColor: colors.danger,
   },
   removeButtonText: {
-    color: "#b91c1c",
-    fontSize: 13,
-    fontWeight: "800",
+    ...theme.text("label", "danger"),
   },
   disabled: {
     opacity: 0.58,
   },
   emptyText: {
-    color: "#64748b",
-    fontSize: 14,
-    lineHeight: 20,
+    ...theme.text("body", "inkMuted"),
   },
   error: {
-    backgroundColor: "#fef2f2",
-    borderColor: "#fecaca",
+    ...theme.text("label", "danger"),
+    backgroundColor: colors.surface2,
+    borderColor: colors.danger,
     borderRadius: 8,
     borderWidth: 1,
-    color: "#b91c1c",
-    fontSize: 14,
-    fontWeight: "700",
-    lineHeight: 20,
     padding: 12,
   },
 });
+}

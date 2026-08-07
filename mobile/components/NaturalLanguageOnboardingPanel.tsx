@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useTheme } from "../lib/theme";
+import type { Theme } from "../lib/theme";
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import {
   applyMobileOnboarding,
@@ -70,6 +72,8 @@ export function NaturalLanguageOnboardingPanel({
   mode,
   onApplied,
 }: NaturalLanguageOnboardingPanelProps) {
+  const theme = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const [text, setText] = useState("");
   const [draft, setDraft] = useState<MobileOnboardingDraft | null>(null);
   const [error, setError] = useState("");
@@ -141,7 +145,7 @@ export function NaturalLanguageOnboardingPanel({
         multiline
         onChangeText={setText}
         placeholder={copy.placeholder}
-        placeholderTextColor="#94a3b8"
+        placeholderTextColor={theme.colors.inkMuted}
         style={styles.textArea}
         textAlignVertical="top"
         value={text}
@@ -157,7 +161,7 @@ export function NaturalLanguageOnboardingPanel({
           ]}
         >
           {parsing ? (
-            <ActivityIndicator color="#ffffff" />
+            <ActivityIndicator color={theme.colors.surface} />
           ) : (
             <Text style={styles.primaryText}>{copy.parseLabel}</Text>
           )}
@@ -247,10 +251,12 @@ export function NaturalLanguageOnboardingPanel({
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(theme: Theme) {
+  const { colors } = theme;
+  return StyleSheet.create({
   panel: {
-    backgroundColor: "#ffffff",
-    borderColor: "#d8e1ea",
+    backgroundColor: colors.surface,
+    borderColor: colors.line,
     borderRadius: 8,
     borderWidth: 1,
     gap: 12,
@@ -260,23 +266,17 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   panelTitle: {
-    color: "#111827",
-    fontSize: 17,
-    fontWeight: "800",
+    ...theme.text("heading", "ink"),
   },
   panelBody: {
-    color: "#475569",
-    fontSize: 14,
-    lineHeight: 20,
+    ...theme.text("body", "inkMuted"),
   },
   textArea: {
-    backgroundColor: "#f8fafc",
-    borderColor: "#cbd5e1",
+    ...theme.text("body", "ink"),
+    backgroundColor: colors.paper,
+    borderColor: colors.line,
     borderRadius: 8,
     borderWidth: 1,
-    color: "#111827",
-    fontSize: 15,
-    lineHeight: 21,
     minHeight: 112,
     padding: 12,
   },
@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     alignItems: "center",
-    backgroundColor: "#0f766e",
+    backgroundColor: colors.teal,
     borderRadius: 8,
     flex: 1,
     justifyContent: "center",
@@ -296,13 +296,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   primaryText: {
-    color: "#ffffff",
-    fontSize: 14,
-    fontWeight: "800",
+    ...theme.text("label", "surface"),
   },
   secondaryButton: {
     alignItems: "center",
-    borderColor: "#cbd5e1",
+    borderColor: colors.line,
     borderRadius: 8,
     borderWidth: 1,
     justifyContent: "center",
@@ -310,73 +308,54 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   secondaryText: {
-    color: "#334155",
-    fontSize: 14,
-    fontWeight: "800",
+    ...theme.text("label", "ink"),
   },
   draftGroup: {
     gap: 10,
   },
   draftCard: {
-    backgroundColor: "#f8fafc",
+    backgroundColor: colors.paper,
     borderRadius: 8,
     gap: 6,
     padding: 12,
   },
   draftLabel: {
-    color: "#64748b",
-    fontSize: 11,
-    fontWeight: "800",
-    textTransform: "uppercase",
+    ...theme.text("monoLabel", "inkMuted"),
   },
   draftItem: {
     gap: 2,
   },
   draftItemTitle: {
-    color: "#111827",
-    fontSize: 14,
-    fontWeight: "800",
+    ...theme.text("label", "ink"),
   },
   draftLine: {
-    color: "#334155",
-    fontSize: 13,
-    lineHeight: 19,
+    ...theme.text("body", "ink"),
   },
   draftEmpty: {
-    color: "#94a3b8",
-    fontSize: 13,
-    lineHeight: 19,
+    ...theme.text("body", "inkMuted"),
   },
   warningCard: {
-    backgroundColor: "#fffbeb",
-    borderColor: "#fde68a",
+    backgroundColor: colors.surface2,
+    borderColor: colors.warning,
     borderRadius: 8,
     borderWidth: 1,
     gap: 4,
     padding: 12,
   },
   warningTitle: {
-    color: "#92400e",
-    fontSize: 13,
-    fontWeight: "800",
+    ...theme.text("label", "warning"),
   },
   warningText: {
-    color: "#92400e",
-    fontSize: 13,
-    lineHeight: 19,
+    ...theme.text("body", "warning"),
   },
   disabled: {
     opacity: 0.58,
   },
   error: {
-    color: "#b91c1c",
-    fontSize: 14,
-    lineHeight: 20,
+    ...theme.text("body", "danger"),
   },
   success: {
-    color: "#047857",
-    fontSize: 14,
-    fontWeight: "700",
-    lineHeight: 20,
+    ...theme.text("label", "success"),
   },
 });
+}

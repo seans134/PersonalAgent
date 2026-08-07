@@ -100,7 +100,7 @@ export function MealLogList({ meals }: { meals: MealLogListItem[] }) {
   }
 
   if (meals.length === 0) {
-    return <p className="mt-3 text-sm text-zinc-600">No meals logged today.</p>;
+    return <p className="mt-3 text-sm text-ink-muted">No meals logged today.</p>;
   }
 
   return (
@@ -111,16 +111,16 @@ export function MealLogList({ meals }: { meals: MealLogListItem[] }) {
         const result = resultByMealId[meal.id];
 
         return (
-          <li className="rounded-lg border border-zinc-200 p-4" key={meal.id}>
+          <li className="rounded-lg border border-line p-4" key={meal.id}>
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="font-medium text-zinc-900">{meal.name}</p>
-                <p className="mt-1 text-sm text-zinc-600">{formatTime(meal.logged_at)}</p>
+                <p className="font-medium text-ink">{meal.name}</p>
+                <p className="mt-1 text-sm text-ink-muted">{formatTime(meal.logged_at)}</p>
               </div>
               <div className="flex shrink-0 items-center gap-2">
-                <p className="text-sm font-medium text-zinc-900">{formatNumber(meal.calories)} cal</p>
+                <p className="text-sm font-medium text-ink">{formatNumber(meal.calories)} cal</p>
                 <button
-                  className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-900"
+                  className="rounded-lg border border-line px-3 py-1.5 text-sm font-medium text-ink"
                   onClick={() => setEditingMealId(isEditing ? null : meal.id)}
                   type="button"
                 >
@@ -128,23 +128,23 @@ export function MealLogList({ meals }: { meals: MealLogListItem[] }) {
                 </button>
               </div>
             </div>
-            <p className="mt-2 text-sm text-zinc-700">
+            <p className="mt-2 text-sm text-ink-muted">
               Protein {formatNumber(meal.protein_grams)}g - Carbs {formatNumber(meal.carbs_grams)}g - Fat{" "}
               {formatNumber(meal.fat_grams)}g - Fiber {formatNumber(meal.fiber_grams)}g
             </p>
-            {meal.notes ? <p className="mt-2 text-sm text-zinc-600">{meal.notes}</p> : null}
+            {meal.notes ? <p className="mt-2 text-sm text-ink-muted">{meal.notes}</p> : null}
 
             {isEditing ? (
-              <form className="mt-4 space-y-4 border-t border-zinc-200 pt-4" onSubmit={(event) => handleSave(event, meal.id)}>
+              <form className="mt-4 space-y-4 border-t border-line pt-4" onSubmit={(event) => handleSave(event, meal.id)}>
                 <input name="id" type="hidden" value={meal.id} />
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <label className="block text-sm text-zinc-700" htmlFor={`name-${meal.id}`}>
+                    <label className="block text-sm text-ink-muted" htmlFor={`name-${meal.id}`}>
                       Meal name
                     </label>
                     <input
-                      className="w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-50"
+                      className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink"
                       defaultValue={meal.name}
                       id={`name-${meal.id}`}
                       name="name"
@@ -153,11 +153,11 @@ export function MealLogList({ meals }: { meals: MealLogListItem[] }) {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="block text-sm text-zinc-700" htmlFor={`calories-${meal.id}`}>
+                    <label className="block text-sm text-ink-muted" htmlFor={`calories-${meal.id}`}>
                       Calories
                     </label>
                     <input
-                      className="w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-50"
+                      className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink"
                       defaultValue={inputValue(meal.calories)}
                       id={`calories-${meal.id}`}
                       min={0}
@@ -169,11 +169,11 @@ export function MealLogList({ meals }: { meals: MealLogListItem[] }) {
 
                 <div className="grid gap-4 sm:grid-cols-4">
                   <div className="space-y-2">
-                    <label className="block text-sm text-zinc-700" htmlFor={`protein-${meal.id}`}>
+                    <label className="block text-sm text-ink-muted" htmlFor={`protein-${meal.id}`}>
                       Protein g
                     </label>
                     <input
-                      className="w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-50"
+                      className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink"
                       defaultValue={inputValue(meal.protein_grams)}
                       id={`protein-${meal.id}`}
                       min={0}
@@ -183,11 +183,11 @@ export function MealLogList({ meals }: { meals: MealLogListItem[] }) {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="block text-sm text-zinc-700" htmlFor={`carbs-${meal.id}`}>
+                    <label className="block text-sm text-ink-muted" htmlFor={`carbs-${meal.id}`}>
                       Carbs g
                     </label>
                     <input
-                      className="w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-50"
+                      className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink"
                       defaultValue={inputValue(meal.carbs_grams)}
                       id={`carbs-${meal.id}`}
                       min={0}
@@ -197,11 +197,11 @@ export function MealLogList({ meals }: { meals: MealLogListItem[] }) {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="block text-sm text-zinc-700" htmlFor={`fat-${meal.id}`}>
+                    <label className="block text-sm text-ink-muted" htmlFor={`fat-${meal.id}`}>
                       Fat g
                     </label>
                     <input
-                      className="w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-50"
+                      className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink"
                       defaultValue={inputValue(meal.fat_grams)}
                       id={`fat-${meal.id}`}
                       min={0}
@@ -211,11 +211,11 @@ export function MealLogList({ meals }: { meals: MealLogListItem[] }) {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="block text-sm text-zinc-700" htmlFor={`fiber-${meal.id}`}>
+                    <label className="block text-sm text-ink-muted" htmlFor={`fiber-${meal.id}`}>
                       Fiber g
                     </label>
                     <input
-                      className="w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-50"
+                      className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink"
                       defaultValue={inputValue(meal.fiber_grams)}
                       id={`fiber-${meal.id}`}
                       min={0}
@@ -227,30 +227,30 @@ export function MealLogList({ meals }: { meals: MealLogListItem[] }) {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="block text-sm text-zinc-700" htmlFor={`notes-${meal.id}`}>
+                  <label className="block text-sm text-ink-muted" htmlFor={`notes-${meal.id}`}>
                     Notes
                   </label>
                   <textarea
-                    className="min-h-20 w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-50"
+                    className="min-h-20 w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink"
                     defaultValue={meal.notes ?? ""}
                     id={`notes-${meal.id}`}
                     name="notes"
                   />
                 </div>
 
-                {result?.error ? <p className="text-sm text-red-600">{result.error}</p> : null}
-                {result?.ok ? <p className="text-sm text-emerald-700">Saved.</p> : null}
+                {result?.error ? <p className="text-sm text-danger">{result.error}</p> : null}
+                {result?.ok ? <p className="text-sm text-success">Saved.</p> : null}
 
                 <div className="flex flex-wrap gap-3">
                   <button
-                    className="rounded-lg bg-zinc-900 px-5 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+                    className="rounded-lg bg-teal px-5 py-2 text-sm font-medium text-on-teal disabled:cursor-not-allowed disabled:opacity-60"
                     disabled={isMealPending}
                     type="submit"
                   >
                     {isMealPending ? "Saving..." : "Save"}
                   </button>
                   <button
-                    className="rounded-lg border border-zinc-300 px-5 py-2 text-sm font-medium text-zinc-900 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="rounded-lg border border-line px-5 py-2 text-sm font-medium text-ink disabled:cursor-not-allowed disabled:opacity-60"
                     disabled={isMealPending}
                     onClick={(event) => {
                       const form = event.currentTarget.form;
@@ -263,7 +263,7 @@ export function MealLogList({ meals }: { meals: MealLogListItem[] }) {
                     Save meal
                   </button>
                   <button
-                    className="rounded-lg border border-red-700 bg-red-600 px-5 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+                    className="rounded-lg border border-danger bg-danger px-5 py-2 text-sm font-medium text-on-teal disabled:cursor-not-allowed disabled:opacity-60"
                     disabled={isMealPending}
                     onClick={() => handleRemove(meal.id)}
                     type="button"

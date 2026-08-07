@@ -17,9 +17,9 @@ export default function SupportPage() {
 
       <DocumentSection title="Contact support">
         {supportEmail ? (
-          <p>Email <a className="text-emerald-800 underline" href={`mailto:${supportEmail}`}>{supportEmail}</a>.</p>
+          <p>Email <a className="text-success underline" href={`mailto:${supportEmail}`}>{supportEmail}</a>.</p>
         ) : (
-          <p>Open a request in the <a className="text-emerald-800 underline" href={issueUrl}>Atlas issue tracker</a>.</p>
+          <p>Open a request in the <a className="text-success underline" href={issueUrl}>Atlas issue tracker</a>.</p>
         )}
       </DocumentSection>
 

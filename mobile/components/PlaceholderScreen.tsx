@@ -1,3 +1,6 @@
+import { useMemo } from "react";
+import { useTheme } from "../lib/theme";
+import type { Theme } from "../lib/theme";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 type PlaceholderScreenProps = {
@@ -5,6 +8,8 @@ type PlaceholderScreenProps = {
 };
 
 export function PlaceholderScreen({ label }: PlaceholderScreenProps) {
+  const theme = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   return (
     <ScrollView contentContainerStyle={styles.content}>
       <View style={styles.panel}>
@@ -18,35 +23,29 @@ export function PlaceholderScreen({ label }: PlaceholderScreenProps) {
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(theme: Theme) {
+  const { colors } = theme;
+  return StyleSheet.create({
   content: {
     padding: 24,
   },
   panel: {
-    backgroundColor: "#ffffff",
-    borderColor: "#d8e1ea",
+    backgroundColor: colors.surface,
+    borderColor: colors.line,
     borderRadius: 8,
     borderWidth: 1,
     padding: 16,
   },
   eyebrow: {
-    color: "#0f766e",
-    fontSize: 13,
-    fontWeight: "800",
-    letterSpacing: 0,
-    textTransform: "uppercase",
+    ...theme.text("monoLabel", "teal"),
   },
   title: {
-    color: "#111827",
-    fontSize: 24,
-    fontWeight: "800",
-    lineHeight: 30,
+    ...theme.text("displayLg", "ink"),
     marginTop: 8,
   },
   body: {
-    color: "#475569",
-    fontSize: 16,
-    lineHeight: 23,
+    ...theme.text("bodyLg", "inkMuted"),
     marginTop: 10,
   },
 });
+}

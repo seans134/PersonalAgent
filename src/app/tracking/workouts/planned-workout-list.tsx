@@ -83,17 +83,17 @@ export function PlannedWorkoutList({
   }
 
   if (items.length === 0) {
-    return <p className="mt-3 text-sm text-zinc-600">No workouts planned for today.</p>;
+    return <p className="mt-3 text-sm text-ink-muted">No workouts planned for today.</p>;
   }
 
   return (
     <div className="mt-4 space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-zinc-600">
+        <p className="text-sm text-ink-muted">
           {untrackedCount === 0 ? "All planned workouts are tracked." : `${untrackedCount} planned workout${untrackedCount === 1 ? "" : "s"} left.`}
         </p>
         <button
-          className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-lg bg-teal px-4 py-2 text-sm font-medium text-on-teal disabled:cursor-not-allowed disabled:opacity-60"
           disabled={untrackedCount === 0 || isPending}
           onClick={handleTrackAll}
           type="button"
@@ -101,7 +101,7 @@ export function PlannedWorkoutList({
           {isTrackingAll ? "Tracking..." : "Track all today"}
         </button>
       </div>
-      {bulkResult.error ? <p className="text-sm text-red-600">{bulkResult.error}</p> : null}
+      {bulkResult.error ? <p className="text-sm text-danger">{bulkResult.error}</p> : null}
 
       <ul className="space-y-3">
         {items.map((item) => {
@@ -111,18 +111,18 @@ export function PlannedWorkoutList({
           const result = resultByItemId[item.id];
 
           return (
-            <li className="flex items-start justify-between gap-3 rounded-lg border border-zinc-200 p-4" key={item.id}>
+            <li className="flex items-start justify-between gap-3 rounded-lg border border-line p-4" key={item.id}>
               <div>
-                <p className="font-medium text-zinc-900">{item.title}</p>
-                <p className="mt-1 text-sm text-zinc-600">
+                <p className="font-medium text-ink">{item.title}</p>
+                <p className="mt-1 text-sm text-ink-muted">
                   {label(item.workout_type)} - {label(item.tracking_method)}
                   {detail ? ` - ${detail}` : ""}
                 </p>
-                {item.notes ? <p className="mt-2 text-sm text-zinc-600">{item.notes}</p> : null}
-                {result?.error ? <p className="mt-2 text-sm text-red-600">{result.error}</p> : null}
+                {item.notes ? <p className="mt-2 text-sm text-ink-muted">{item.notes}</p> : null}
+                {result?.error ? <p className="mt-2 text-sm text-danger">{result.error}</p> : null}
               </div>
               <button
-                className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+                className="rounded-lg bg-teal px-4 py-2 text-sm font-medium text-on-teal disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={isTracked || isItemPending || isTrackingAll}
                 onClick={() => handleTrack(item.id)}
                 type="button"

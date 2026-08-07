@@ -42,7 +42,7 @@ export default function TermsPage() {
       </DocumentSection>
 
       <DocumentSection title="Changes and contact">
-        <p>These terms may be updated as Atlas changes. Continued use after an update means you accept the revised terms where permitted by law. Questions can be submitted through <Link className="text-emerald-800 underline" href="/support">Atlas support</Link>.</p>
+        <p>These terms may be updated as Atlas changes. Continued use after an update means you accept the revised terms where permitted by law. Questions can be submitted through <Link className="text-success underline" href="/support">Atlas support</Link>.</p>
       </DocumentSection>
     </PublicDocument>
   );

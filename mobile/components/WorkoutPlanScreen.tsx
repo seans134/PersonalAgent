@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTheme } from "../lib/theme";
+import type { Theme } from "../lib/theme";
 import {
   ActivityIndicator,
   Pressable,
@@ -154,6 +156,8 @@ function draftItemSummary(item: MobileWorkoutScheduleDraftItem) {
 }
 
 export function WorkoutPlanScreen({ accessToken }: WorkoutPlanScreenProps) {
+  const theme = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const [items, setItems] = useState<MobileWorkoutScheduleItem[]>([]);
   const [form, setForm] = useState<PlanForm>(initialForm);
   const [loading, setLoading] = useState(true);
@@ -322,7 +326,7 @@ export function WorkoutPlanScreen({ accessToken }: WorkoutPlanScreenProps) {
           multiline
           onChangeText={setPlanText}
           placeholder="Monday upper body 3x10, Wednesday 30 minute run, Friday basketball practice."
-          placeholderTextColor="#94a3b8"
+          placeholderTextColor={theme.colors.inkMuted}
           style={[styles.input, styles.planTextInput]}
           value={planText}
         />
@@ -414,7 +418,7 @@ export function WorkoutPlanScreen({ accessToken }: WorkoutPlanScreenProps) {
         <TextInput
           onChangeText={(title) => setForm((current) => ({ ...current, title }))}
           placeholder="Workout title"
-          placeholderTextColor="#94a3b8"
+          placeholderTextColor={theme.colors.inkMuted}
           style={styles.input}
           value={form.title}
         />
@@ -425,7 +429,7 @@ export function WorkoutPlanScreen({ accessToken }: WorkoutPlanScreenProps) {
               keyboardType="number-pad"
               onChangeText={(sets) => setForm((current) => ({ ...current, sets }))}
               placeholder="Sets"
-              placeholderTextColor="#94a3b8"
+              placeholderTextColor={theme.colors.inkMuted}
               style={[styles.input, styles.thirdField]}
               value={form.sets}
             />
@@ -433,7 +437,7 @@ export function WorkoutPlanScreen({ accessToken }: WorkoutPlanScreenProps) {
               keyboardType="number-pad"
               onChangeText={(reps) => setForm((current) => ({ ...current, reps }))}
               placeholder="Reps"
-              placeholderTextColor="#94a3b8"
+              placeholderTextColor={theme.colors.inkMuted}
               style={[styles.input, styles.thirdField]}
               value={form.reps}
             />
@@ -442,7 +446,7 @@ export function WorkoutPlanScreen({ accessToken }: WorkoutPlanScreenProps) {
                 keyboardType="decimal-pad"
                 onChangeText={(weight) => setForm((current) => ({ ...current, weight }))}
                 placeholder="Weight"
-                placeholderTextColor="#94a3b8"
+                placeholderTextColor={theme.colors.inkMuted}
                 style={[styles.input, styles.thirdField]}
                 value={form.weight}
               />
@@ -453,7 +457,7 @@ export function WorkoutPlanScreen({ accessToken }: WorkoutPlanScreenProps) {
             keyboardType="number-pad"
             onChangeText={(durationMinutes) => setForm((current) => ({ ...current, durationMinutes }))}
             placeholder="Minutes"
-            placeholderTextColor="#94a3b8"
+            placeholderTextColor={theme.colors.inkMuted}
             style={styles.input}
             value={form.durationMinutes}
           />
@@ -462,7 +466,7 @@ export function WorkoutPlanScreen({ accessToken }: WorkoutPlanScreenProps) {
         <TextInput
           onChangeText={(notes) => setForm((current) => ({ ...current, notes }))}
           placeholder="Notes"
-          placeholderTextColor="#94a3b8"
+          placeholderTextColor={theme.colors.inkMuted}
           style={styles.input}
           value={form.notes}
         />
@@ -474,7 +478,7 @@ export function WorkoutPlanScreen({ accessToken }: WorkoutPlanScreenProps) {
 
       <View style={styles.panel}>
         <Text style={styles.panelTitle}>Weekly schedule</Text>
-        {loading ? <ActivityIndicator color="#0f766e" /> : null}
+        {loading ? <ActivityIndicator color={theme.colors.teal} /> : null}
         {groupedItems.map((day) => (
           <View key={day.value} style={styles.daySection}>
             <Text style={styles.dayTitle}>{day.fullLabel}</Text>
@@ -501,7 +505,9 @@ export function WorkoutPlanScreen({ accessToken }: WorkoutPlanScreenProps) {
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(theme: Theme) {
+  const { colors } = theme;
+  return StyleSheet.create({
   content: {
     gap: 16,
     padding: 18,
@@ -519,44 +525,32 @@ const styles = StyleSheet.create({
     minWidth: 210,
   },
   eyebrow: {
-    color: "#0f766e",
-    fontSize: 12,
-    fontWeight: "800",
-    letterSpacing: 0,
-    textTransform: "uppercase",
+    ...theme.text("monoLabel", "teal"),
   },
   title: {
-    color: "#111827",
-    fontSize: 30,
-    fontWeight: "800",
-    lineHeight: 36,
+    ...theme.text("displayXl", "ink"),
   },
   subtitle: {
-    color: "#475569",
-    fontSize: 15,
-    lineHeight: 21,
+    ...theme.text("body", "inkMuted"),
     marginTop: 4,
   },
   panel: {
-    backgroundColor: "#ffffff",
-    borderColor: "#e2e8f0",
+    backgroundColor: colors.surface,
+    borderColor: colors.line,
     borderRadius: 8,
     borderWidth: 1,
     gap: 12,
     padding: 16,
   },
   panelTitle: {
-    color: "#111827",
-    fontSize: 18,
-    fontWeight: "800",
+    ...theme.text("title", "ink"),
   },
   input: {
-    backgroundColor: "#f8fafc",
-    borderColor: "#cbd5e1",
+    ...theme.text("body", "ink"),
+    backgroundColor: colors.paper,
+    borderColor: colors.line,
     borderRadius: 8,
     borderWidth: 1,
-    color: "#111827",
-    fontSize: 15,
     minHeight: 46,
     paddingHorizontal: 12,
   },
@@ -566,9 +560,7 @@ const styles = StyleSheet.create({
     textAlignVertical: "top",
   },
   helperText: {
-    color: "#64748b",
-    fontSize: 14,
-    lineHeight: 20,
+    ...theme.text("body", "inkMuted"),
   },
   fieldRow: {
     flexDirection: "row",
@@ -586,7 +578,7 @@ const styles = StyleSheet.create({
   },
   dayButton: {
     alignItems: "center",
-    borderColor: "#cbd5e1",
+    borderColor: colors.line,
     borderRadius: 8,
     borderWidth: 1,
     minHeight: 38,
@@ -594,7 +586,7 @@ const styles = StyleSheet.create({
     width: 47,
   },
   segmentButton: {
-    borderColor: "#cbd5e1",
+    borderColor: colors.line,
     borderRadius: 8,
     borderWidth: 1,
     minHeight: 38,
@@ -602,7 +594,7 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
   },
   methodButton: {
-    borderColor: "#cbd5e1",
+    borderColor: colors.line,
     borderRadius: 8,
     borderWidth: 1,
     minHeight: 38,
@@ -610,33 +602,29 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
   },
   segmentButtonActive: {
-    backgroundColor: "#111827",
-    borderColor: "#111827",
+    backgroundColor: colors.ink,
+    borderColor: colors.ink,
   },
   segmentText: {
-    color: "#334155",
-    fontSize: 13,
-    fontWeight: "800",
+    ...theme.text("label", "ink"),
   },
   segmentTextActive: {
-    color: "#ffffff",
+    color: colors.surface,
   },
   primaryButton: {
     alignItems: "center",
-    backgroundColor: "#0f766e",
+    backgroundColor: colors.teal,
     borderRadius: 8,
     minHeight: 48,
     justifyContent: "center",
     paddingHorizontal: 16,
   },
   primaryButtonText: {
-    color: "#ffffff",
-    fontSize: 15,
-    fontWeight: "800",
+    ...theme.text("body", "surface"),
   },
   secondaryActionButton: {
     alignItems: "center",
-    borderColor: "#0f766e",
+    borderColor: colors.teal,
     borderRadius: 8,
     borderWidth: 1,
     minHeight: 46,
@@ -644,13 +632,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   secondaryActionText: {
-    color: "#0f766e",
-    fontSize: 14,
-    fontWeight: "800",
+    ...theme.text("label", "teal"),
   },
   secondaryButton: {
     alignItems: "center",
-    borderColor: "#cbd5e1",
+    borderColor: colors.line,
     borderRadius: 8,
     borderWidth: 1,
     minHeight: 42,
@@ -658,64 +644,51 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   secondaryButtonText: {
-    color: "#334155",
-    fontSize: 14,
-    fontWeight: "800",
+    ...theme.text("label", "ink"),
   },
   daySection: {
-    borderTopColor: "#e2e8f0",
+    borderTopColor: colors.line,
     borderTopWidth: 1,
     gap: 10,
     paddingTop: 14,
   },
   draftSection: {
-    borderTopColor: "#e2e8f0",
+    borderTopColor: colors.line,
     borderTopWidth: 1,
     gap: 10,
     paddingTop: 14,
   },
   draftTitle: {
-    color: "#111827",
-    fontSize: 16,
-    fontWeight: "800",
+    ...theme.text("heading", "ink"),
   },
   draftItem: {
-    backgroundColor: "#f8fafc",
+    backgroundColor: colors.paper,
     borderRadius: 8,
     gap: 3,
     padding: 12,
   },
   draftDay: {
-    color: "#0f766e",
-    fontSize: 12,
-    fontWeight: "800",
-    textTransform: "uppercase",
+    ...theme.text("monoLabel", "teal"),
   },
   warningBox: {
-    backgroundColor: "#fffbeb",
-    borderColor: "#fde68a",
+    backgroundColor: colors.surface2,
+    borderColor: colors.warning,
     borderRadius: 8,
     borderWidth: 1,
     gap: 5,
     padding: 12,
   },
   warningTitle: {
-    color: "#92400e",
-    fontSize: 14,
-    fontWeight: "800",
+    ...theme.text("label", "warning"),
   },
   warningText: {
-    color: "#92400e",
-    fontSize: 13,
-    lineHeight: 19,
+    ...theme.text("body", "warning"),
   },
   dayTitle: {
-    color: "#111827",
-    fontSize: 16,
-    fontWeight: "800",
+    ...theme.text("heading", "ink"),
   },
   item: {
-    borderColor: "#e2e8f0",
+    borderColor: colors.line,
     borderRadius: 8,
     borderWidth: 1,
     flexDirection: "row",
@@ -729,20 +702,16 @@ const styles = StyleSheet.create({
     minWidth: 190,
   },
   itemTitle: {
-    color: "#111827",
-    fontSize: 16,
-    fontWeight: "800",
+    ...theme.text("heading", "ink"),
   },
   itemDetail: {
-    color: "#475569",
-    fontSize: 13,
-    lineHeight: 19,
+    ...theme.text("body", "inkMuted"),
     marginTop: 5,
   },
   smallButton: {
     alignItems: "center",
     alignSelf: "flex-start",
-    borderColor: "#fecaca",
+    borderColor: colors.danger,
     borderRadius: 8,
     borderWidth: 1,
     minHeight: 38,
@@ -750,38 +719,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   smallButtonText: {
-    color: "#b91c1c",
-    fontSize: 13,
-    fontWeight: "800",
+    ...theme.text("label", "danger"),
   },
   disabled: {
     opacity: 0.58,
   },
   emptyText: {
-    color: "#64748b",
-    fontSize: 14,
-    lineHeight: 20,
+    ...theme.text("body", "inkMuted"),
   },
   error: {
-    backgroundColor: "#fef2f2",
-    borderColor: "#fecaca",
+    ...theme.text("label", "danger"),
+    backgroundColor: colors.surface2,
+    borderColor: colors.danger,
     borderRadius: 8,
     borderWidth: 1,
-    color: "#b91c1c",
-    fontSize: 14,
-    fontWeight: "700",
-    lineHeight: 20,
     padding: 12,
   },
   success: {
-    backgroundColor: "#ecfdf5",
-    borderColor: "#a7f3d0",
+    ...theme.text("label", "success"),
+    backgroundColor: colors.surface2,
+    borderColor: colors.line,
     borderRadius: 8,
     borderWidth: 1,
-    color: "#047857",
-    fontSize: 14,
-    fontWeight: "700",
-    lineHeight: 20,
     padding: 12,
   },
 });
+}

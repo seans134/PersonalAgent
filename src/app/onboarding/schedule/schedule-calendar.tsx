@@ -92,11 +92,11 @@ function toScheduleBlock(row: ScheduleBlockRow): ScheduleBlock {
 }
 
 function blockColor(category: ScheduleBlockCategory) {
-  if (category === "work") return "border-blue-200 bg-blue-50 text-blue-900";
-  if (category === "study") return "border-amber-200 bg-amber-50 text-amber-950";
-  if (category === "personal") return "border-emerald-200 bg-emerald-50 text-emerald-950";
-  if (category === "unavailable") return "border-zinc-300 bg-zinc-100 text-zinc-800";
-  return "border-violet-200 bg-violet-50 text-violet-950";
+  if (category === "work") return "border-focus/30 bg-focus/10 text-focus";
+  if (category === "study") return "border-warning/40 bg-warning/10 text-warning";
+  if (category === "personal") return "border-success/40 bg-success/10 text-success";
+  if (category === "unavailable") return "border-line bg-surface2 text-ink-muted";
+  return "border-goal/30 bg-goal/10 text-goal";
 }
 
 function formatCategory(category: ScheduleCategory) {
@@ -258,13 +258,13 @@ export function OnboardingScheduleCalendar({
     <div className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div
-          className="rounded-lg border border-zinc-300 bg-white p-1 shadow-sm"
+          className="rounded-lg border border-line bg-surface p-1 shadow-sm"
           style={{ alignItems: "stretch", display: "inline-flex", height: "2.75rem", width: "fit-content" }}
         >
           {categories.map((category) => (
             <button
               className={`rounded-md px-4 text-sm font-medium capitalize transition ${
-                activeCategory === category ? "bg-zinc-900 text-white" : "text-zinc-700 hover:bg-zinc-100"
+                activeCategory === category ? "bg-teal text-on-teal" : "text-ink-muted hover:bg-surface2"
               }`}
               key={category}
               onClick={() => setActiveCategory(category)}
@@ -275,7 +275,7 @@ export function OnboardingScheduleCalendar({
           ))}
         </div>
 
-        <div className="flex gap-3 text-sm text-zinc-600">
+        <div className="flex gap-3 text-sm text-ink-muted">
           {categories.map((category) => (
             <span key={category}>
               {blocks.filter((block) => block.category === category).length} {category}
@@ -284,30 +284,30 @@ export function OnboardingScheduleCalendar({
         </div>
       </div>
 
-      <section className="overflow-x-auto rounded-lg border border-zinc-200 bg-white shadow-sm">
+      <section className="overflow-x-auto rounded-lg border border-line bg-surface shadow-sm">
         <div className="min-w-[56rem]">
           <div
-            className="border-b border-zinc-200 bg-zinc-50"
+            className="border-b border-line bg-surface2"
             style={{ display: "grid", gridTemplateColumns: "4.5rem repeat(7, minmax(0, 1fr))" }}
           >
-            <div className="border-r border-zinc-200 px-3 py-3 text-xs font-semibold uppercase tracking-wide text-zinc-400">
+            <div className="border-r border-line px-3 py-3 text-xs font-semibold uppercase tracking-wide text-ink-muted">
               Time
             </div>
             {weekDays.map((day) => (
-              <div className="border-r border-zinc-200 px-3 py-3 text-center" key={toDateKey(day)}>
-                <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">{weekdayLabels[day.getDay()]}</p>
-                <p className="mt-1 text-lg font-semibold text-zinc-800">{day.getDate()}</p>
+              <div className="border-r border-line px-3 py-3 text-center" key={toDateKey(day)}>
+                <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">{weekdayLabels[day.getDay()]}</p>
+                <p className="mt-1 text-lg font-semibold text-ink">{day.getDate()}</p>
               </div>
             ))}
           </div>
 
           {hours.map((hour) => (
             <div
-              className="border-t border-zinc-200"
+              className="border-t border-line"
               key={hour}
               style={{ display: "grid", gridTemplateColumns: "4.5rem repeat(7, minmax(0, 1fr))" }}
             >
-              <div className="border-r border-zinc-200 bg-zinc-50 px-3 py-2 text-right text-xs font-medium text-zinc-500">
+              <div className="border-r border-line bg-surface2 px-3 py-2 text-right text-xs font-medium text-ink-muted">
                 {formatHour(hour)}
               </div>
               {weekDays.map((day) => {
@@ -319,7 +319,7 @@ export function OnboardingScheduleCalendar({
                 if (dayBlocks.length === 0) {
                   return (
                     <button
-                      className="min-h-11 border-r border-zinc-100 bg-white p-1 text-left transition hover:bg-zinc-50"
+                      className="min-h-11 border-r border-line bg-surface p-1 text-left transition hover:bg-surface2"
                       key={`${dateKey}-${hour}`}
                       onClick={() => openModal(slotForHour(day.getDay(), hour))}
                       type="button"
@@ -328,7 +328,7 @@ export function OnboardingScheduleCalendar({
                 }
 
                 return (
-                  <div className="min-h-11 border-r border-zinc-100 bg-white p-1" key={`${dateKey}-${hour}`}>
+                  <div className="min-h-11 border-r border-line bg-surface p-1" key={`${dateKey}-${hour}`}>
                     <div className="space-y-1">
                       {dayBlocks.map((event) => (
                         <div
@@ -365,30 +365,30 @@ export function OnboardingScheduleCalendar({
         </div>
       </section>
 
-      {error ? <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
+      {error ? <p className="rounded-lg border border-danger bg-surface px-3 py-2 text-sm text-danger">{error}</p> : null}
 
       {form ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/50 px-4">
-          <div className="w-full max-w-lg rounded-lg border border-zinc-200 bg-white p-6 shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-teal/50 px-4">
+          <div className="w-full max-w-lg rounded-lg border border-line bg-surface p-6 shadow-xl">
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
-                <p className="text-sm font-medium uppercase tracking-wide text-zinc-500">
+                <p className="text-sm font-medium uppercase tracking-wide text-ink-muted">
                   {editingBlockId ? "Edit" : "New"} {formatCategory(form.category)} block
                 </p>
-                <h2 className="mt-1 text-2xl font-semibold text-zinc-900">
+                <h2 className="mt-1 text-2xl font-semibold text-ink">
                   {form.startTime} - {form.endTime}
                 </h2>
               </div>
-              <button className="rounded-md px-2 py-1 text-sm text-zinc-600 hover:bg-zinc-100" onClick={closeModal} type="button">
+              <button className="rounded-md px-2 py-1 text-sm text-ink-muted hover:bg-surface2" onClick={closeModal} type="button">
                 Close
               </button>
             </div>
 
             <form className="space-y-4" onSubmit={handleSubmit}>
               <label className="block">
-                <span className="text-sm font-medium text-zinc-800">Name</span>
+                <span className="text-sm font-medium text-ink">Name</span>
                 <input
-                  className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900"
+                  className="mt-1 w-full rounded-lg border border-line px-3 py-2 text-sm text-ink"
                   onChange={(event) => updateForm({ title: event.target.value })}
                   placeholder={placeholderForCategory(form.category)}
                   value={form.title}
@@ -396,7 +396,7 @@ export function OnboardingScheduleCalendar({
               </label>
 
               <fieldset>
-                <legend className="text-sm font-medium text-zinc-800">Repeats weekly on</legend>
+                <legend className="text-sm font-medium text-ink">Repeats weekly on</legend>
                 <div className="mt-2 grid grid-cols-4 gap-2 sm:grid-cols-7">
                   {weekdayLabels.map((label, day) => {
                     const isChecked = form.daysOfWeek.includes(day);
@@ -404,7 +404,7 @@ export function OnboardingScheduleCalendar({
                     return (
                       <label
                         className={`flex cursor-pointer items-center justify-center rounded-lg border px-2 py-2 text-sm ${
-                          isChecked ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-200 text-zinc-700"
+                          isChecked ? "border-teal bg-teal text-on-teal" : "border-line text-ink-muted"
                         }`}
                         key={label}
                       >
@@ -429,9 +429,9 @@ export function OnboardingScheduleCalendar({
 
               <div className="grid gap-3 sm:grid-cols-3">
                 <label className="block">
-                  <span className="text-sm font-medium text-zinc-800">Type</span>
+                  <span className="text-sm font-medium text-ink">Type</span>
                   <select
-                    className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm capitalize text-zinc-900"
+                    className="mt-1 w-full rounded-lg border border-line px-3 py-2 text-sm capitalize text-ink"
                     onChange={(event) => updateForm({ category: event.target.value as ScheduleCategory })}
                     value={form.category}
                   >
@@ -443,18 +443,18 @@ export function OnboardingScheduleCalendar({
                   </select>
                 </label>
                 <label className="block">
-                  <span className="text-sm font-medium text-zinc-800">Start</span>
+                  <span className="text-sm font-medium text-ink">Start</span>
                   <input
-                    className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900"
+                    className="mt-1 w-full rounded-lg border border-line px-3 py-2 text-sm text-ink"
                     onChange={(event) => updateForm({ startTime: event.target.value })}
                     type="time"
                     value={form.startTime}
                   />
                 </label>
                 <label className="block">
-                  <span className="text-sm font-medium text-zinc-800">End</span>
+                  <span className="text-sm font-medium text-ink">End</span>
                   <input
-                    className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900"
+                    className="mt-1 w-full rounded-lg border border-line px-3 py-2 text-sm text-ink"
                     onChange={(event) => updateForm({ endTime: event.target.value })}
                     type="time"
                     value={form.endTime}
@@ -463,10 +463,10 @@ export function OnboardingScheduleCalendar({
               </div>
 
               <div className="flex justify-end gap-3 pt-2">
-                <button className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700" onClick={closeModal} type="button">
+                <button className="rounded-lg border border-line px-4 py-2 text-sm font-medium text-ink-muted" onClick={closeModal} type="button">
                   Cancel
                 </button>
-                <button className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white" type="submit">
+                <button className="rounded-lg bg-teal px-4 py-2 text-sm font-medium text-on-teal" type="submit">
                   {editingBlockId ? "Save changes" : "Add block"}
                 </button>
               </div>

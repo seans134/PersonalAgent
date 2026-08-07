@@ -1,5 +1,9 @@
 import { StatusBar } from "expo-status-bar";
 import * as Notifications from "expo-notifications";
+import { useFonts } from "expo-font";
+import { SpaceGrotesk_500Medium, SpaceGrotesk_700Bold } from "@expo-google-fonts/space-grotesk";
+import { InstrumentSans_400Regular, InstrumentSans_600SemiBold } from "@expo-google-fonts/instrument-sans";
+import { SpaceMono_400Regular, SpaceMono_700Bold } from "@expo-google-fonts/space-mono";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -34,6 +38,7 @@ import { WorkoutCoachScreen } from "./components/WorkoutCoachScreen";
 import { WorkoutPlanScreen } from "./components/WorkoutPlanScreen";
 import { WorkoutsScreen } from "./components/WorkoutsScreen";
 import { getMobileEnv } from "./lib/env";
+import { ThemeProvider, useTheme } from "./lib/theme";
 import { handleAuthDeepLink } from "./lib/auth-deep-link";
 import { captureEvent, identifyAnalyticsUser, resetAnalyticsUser, Sentry } from "./lib/analytics";
 import { supabase } from "./lib/supabase";
@@ -45,6 +50,15 @@ function App() {
   const [isRecoveringPassword, setIsRecoveringPassword] = useState(false);
   const [authLinkMessage, setAuthLinkMessage] = useState<string | undefined>();
   const env = getMobileEnv();
+  const theme = useTheme();
+  const [fontsLoaded] = useFonts({
+    SpaceGrotesk_500Medium,
+    SpaceGrotesk_700Bold,
+    InstrumentSans_400Regular,
+    InstrumentSans_600SemiBold,
+    SpaceMono_400Regular,
+    SpaceMono_700Bold,
+  });
 
   useEffect(() => {
     async function processLink(url: string | null) {
@@ -215,26 +229,26 @@ function App() {
 
   if (!env.isConfigured) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.paper }]}>
         <View style={styles.centered}>
           <Text style={styles.title}>Mobile environment missing</Text>
           <Text style={styles.body}>
             Add EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY, and
             EXPO_PUBLIC_API_BASE_URL to mobile/.env.
           </Text>
-          <StatusBar style="dark" />
+          <StatusBar style={theme.isDark ? "light" : "dark"} />
         </View>
       </SafeAreaView>
     );
   }
 
-  if (loadingSession) {
+  if (loadingSession || !fontsLoaded) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.paper }]}>
         <View style={styles.centered}>
-          <ActivityIndicator color="#0f766e" />
-          <Text style={styles.body}>Loading session...</Text>
-          <StatusBar style="dark" />
+          <ActivityIndicator color={theme.colors.teal} />
+          {loadingSession ? <Text style={styles.body}>Loading session...</Text> : null}
+          <StatusBar style={theme.isDark ? "light" : "dark"} />
         </View>
       </SafeAreaView>
     );
@@ -242,23 +256,23 @@ function App() {
 
   if (isRecoveringPassword) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.paper }]}>
         <ResetPasswordScreen
           onComplete={() => {
             setIsRecoveringPassword(false);
             setAuthLinkMessage("Password updated successfully.");
           }}
         />
-        <StatusBar style="dark" />
+        <StatusBar style={theme.isDark ? "light" : "dark"} />
       </SafeAreaView>
     );
   }
 
   if (!session) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.paper }]}>
         <AuthScreen initialMessage={authLinkMessage} />
-        <StatusBar style="dark" />
+        <StatusBar style={theme.isDark ? "light" : "dark"} />
       </SafeAreaView>
     );
   }
@@ -302,4 +316,12 @@ const styles = StyleSheet.create({
   },
 });
 
-export default Sentry.wrap(App);
+function Root() {
+  return (
+    <ThemeProvider>
+      <App />
+    </ThemeProvider>
+  );
+}
+
+export default Sentry.wrap(Root);

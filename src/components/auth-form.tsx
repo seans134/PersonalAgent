@@ -33,16 +33,16 @@ export function AuthForm({ title, actionLabel, action, requirePasswordConfirmati
   return (
     <form
       action={formAction}
-      className="space-y-3 rounded-xl border border-zinc-700 bg-zinc-900 p-6 shadow-sm"
+      className="space-y-3 rounded-[16px] border border-line bg-surface p-6 shadow-[var(--shadow-sm)]"
       onSubmit={handleSubmit}
     >
-      <h2 className="text-lg font-semibold text-zinc-50">{title}</h2>
+      <h2 className="text-lg font-semibold text-ink">{title}</h2>
       <div className="space-y-2">
-        <label className="block text-sm text-zinc-200" htmlFor={`${actionLabel}-email`}>
+        <label className="block text-sm font-medium text-ink-muted" htmlFor={`${actionLabel}-email`}>
           Email
         </label>
         <input
-          className="w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-50 placeholder:text-zinc-300"
+          className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-muted"
           id={`${actionLabel}-email`}
           name="email"
           type="email"
@@ -50,11 +50,11 @@ export function AuthForm({ title, actionLabel, action, requirePasswordConfirmati
         />
       </div>
       <div className="space-y-2">
-        <label className="block text-sm text-zinc-200" htmlFor={`${actionLabel}-password`}>
+        <label className="block text-sm font-medium text-ink-muted" htmlFor={`${actionLabel}-password`}>
           Password
         </label>
         <input
-          className="w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-50 placeholder:text-zinc-300"
+          className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-muted"
           id={`${actionLabel}-password`}
           name="password"
           type="password"
@@ -66,11 +66,11 @@ export function AuthForm({ title, actionLabel, action, requirePasswordConfirmati
       </div>
       {requirePasswordConfirmation ? (
         <div className="space-y-2">
-          <label className="block text-sm text-zinc-200" htmlFor={`${actionLabel}-confirm-password`}>
+          <label className="block text-sm font-medium text-ink-muted" htmlFor={`${actionLabel}-confirm-password`}>
             Confirm password
           </label>
           <input
-            className="w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-50 placeholder:text-zinc-300"
+            className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-muted"
             id={`${actionLabel}-confirm-password`}
             name="confirmPassword"
             type="password"
@@ -81,9 +81,9 @@ export function AuthForm({ title, actionLabel, action, requirePasswordConfirmati
           />
         </div>
       ) : null}
-      {clientError || state?.error ? <p className="text-sm text-red-600">{clientError ?? state?.error}</p> : null}
+      {clientError || state?.error ? <p className="text-sm text-danger">{clientError ?? state?.error}</p> : null}
       <button
-        className="w-full rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+        className="w-full rounded-lg bg-teal px-4 py-2 text-sm font-medium text-on-teal disabled:cursor-not-allowed disabled:opacity-60"
         disabled={pending}
         type="submit"
       >

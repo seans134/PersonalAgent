@@ -38,44 +38,44 @@ export default async function GoalPage({
     <main className="mx-auto min-h-screen w-full max-w-3xl px-6 py-12">
       <div className="mb-8 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight text-zinc-900">{goal.title}</h1>
-          <p className="mt-2 text-zinc-700">Goal details</p>
+          <h1 className="text-3xl font-semibold tracking-tight text-ink">{goal.title}</h1>
+          <p className="mt-2 text-ink-muted">Goal details</p>
         </div>
-        <Link className="text-sm text-zinc-600 underline" href="/goals">
+        <Link className="text-sm text-ink-muted underline" href="/goals">
           Back to goals
         </Link>
       </div>
 
-      <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-        {goal.description ? <p className="mb-6 text-zinc-700">{goal.description}</p> : null}
+      <section className="rounded-2xl border border-line bg-surface p-6 shadow-sm">
+        {goal.description ? <p className="mb-6 text-ink-muted">{goal.description}</p> : null}
         <dl className="grid gap-4 sm:grid-cols-2">
-          <div className="rounded-lg bg-zinc-50 p-4">
-            <dt className="text-xs uppercase tracking-wide text-zinc-500">Status</dt>
-            <dd className="mt-2 text-sm font-medium text-zinc-900">
+          <div className="rounded-lg bg-surface2 p-4">
+            <dt className="text-xs uppercase tracking-wide text-ink-muted">Status</dt>
+            <dd className="mt-2 text-sm font-medium text-ink">
               {goal.completed_at ? "Complete" : "Active"}
             </dd>
           </div>
-          <div className="rounded-lg bg-zinc-50 p-4">
-            <dt className="text-xs uppercase tracking-wide text-zinc-500">End date</dt>
-            <dd className="mt-2 text-sm font-medium text-zinc-900">
+          <div className="rounded-lg bg-surface2 p-4">
+            <dt className="text-xs uppercase tracking-wide text-ink-muted">End date</dt>
+            <dd className="mt-2 text-sm font-medium text-ink">
               {goal.end_date ? formatDateOnly(goal.end_date) : "No end date"}
             </dd>
           </div>
-          <div className="rounded-lg bg-zinc-50 p-4">
-            <dt className="text-xs uppercase tracking-wide text-zinc-500">Task type</dt>
-            <dd className="mt-2 text-sm font-medium capitalize text-zinc-900">
+          <div className="rounded-lg bg-surface2 p-4">
+            <dt className="text-xs uppercase tracking-wide text-ink-muted">Task type</dt>
+            <dd className="mt-2 text-sm font-medium capitalize text-ink">
               {goal.task_type ?? "general"}
             </dd>
           </div>
-          <div className="rounded-lg bg-zinc-50 p-4">
-            <dt className="text-xs uppercase tracking-wide text-zinc-500">Minimum daily time</dt>
-            <dd className="mt-2 text-sm font-medium text-zinc-900">
+          <div className="rounded-lg bg-surface2 p-4">
+            <dt className="text-xs uppercase tracking-wide text-ink-muted">Minimum daily time</dt>
+            <dd className="mt-2 text-sm font-medium text-ink">
               {goal.minimum_daily_minutes ?? 0} minutes
             </dd>
           </div>
-          <div className="rounded-lg bg-zinc-50 p-4">
-            <dt className="text-xs uppercase tracking-wide text-zinc-500">Created</dt>
-            <dd className="mt-2 text-sm font-medium text-zinc-900">
+          <div className="rounded-lg bg-surface2 p-4">
+            <dt className="text-xs uppercase tracking-wide text-ink-muted">Created</dt>
+            <dd className="mt-2 text-sm font-medium text-ink">
               {new Date(goal.created_at).toLocaleDateString()}
             </dd>
           </div>

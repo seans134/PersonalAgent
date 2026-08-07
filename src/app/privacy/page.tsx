@@ -66,7 +66,7 @@ export default function PrivacyPage() {
       </DocumentSection>
 
       <DocumentSection title="Contact">
-        <p>Questions or privacy requests can be submitted through the <Link className="text-emerald-800 underline" href="/support">Atlas support page</Link>.</p>
+        <p>Questions or privacy requests can be submitted through the <Link className="text-success underline" href="/support">Atlas support page</Link>.</p>
       </DocumentSection>
     </PublicDocument>
   );

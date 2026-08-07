@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useTheme } from "../lib/theme";
+import type { Theme } from "../lib/theme";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -73,6 +75,8 @@ export function WeeklyScheduleGrid({
   onChanged,
   visibleCategories,
 }: WeeklyScheduleGridProps) {
+  const theme = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const [activeCategory, setActiveCategory] = useState<ScheduleBlockCategory>(defaultCategory);
   const [form, setForm] = useState<BlockFormState | null>(null);
   const [error, setError] = useState("");
@@ -340,7 +344,7 @@ export function WeeklyScheduleGrid({
                   autoFocus={!form.id}
                   onChangeText={(title) => updateForm({ title })}
                   placeholder={placeholderForCategory(form.category)}
-                  placeholderTextColor="#94a3b8"
+                  placeholderTextColor={theme.colors.inkMuted}
                   style={styles.input}
                   value={form.title}
                 />
@@ -396,7 +400,7 @@ export function WeeklyScheduleGrid({
                       autoCapitalize="none"
                       onChangeText={(startTime) => updateForm({ startTime })}
                       placeholder="HH:MM"
-                      placeholderTextColor="#94a3b8"
+                      placeholderTextColor={theme.colors.inkMuted}
                       style={styles.input}
                       value={form.startTime}
                     />
@@ -407,7 +411,7 @@ export function WeeklyScheduleGrid({
                       autoCapitalize="none"
                       onChangeText={(endTime) => updateForm({ endTime })}
                       placeholder="HH:MM"
-                      placeholderTextColor="#94a3b8"
+                      placeholderTextColor={theme.colors.inkMuted}
                       style={styles.input}
                       value={form.endTime}
                     />
@@ -433,7 +437,7 @@ export function WeeklyScheduleGrid({
                   style={[styles.primaryButton, busy && styles.disabled]}
                 >
                   {saving ? (
-                    <ActivityIndicator color="#ffffff" />
+                    <ActivityIndicator color={theme.colors.surface} />
                   ) : (
                     <Text style={styles.primaryText}>{form.id ? "Save changes" : "Add block"}</Text>
                   )}
@@ -447,7 +451,9 @@ export function WeeklyScheduleGrid({
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(theme: Theme) {
+  const { colors } = theme;
+  return StyleSheet.create({
   wrapper: {
     gap: 12,
   },
@@ -458,8 +464,8 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   segmentGroup: {
-    backgroundColor: "#ffffff",
-    borderColor: "#cbd5e1",
+    backgroundColor: colors.surface,
+    borderColor: colors.line,
     borderRadius: 8,
     borderWidth: 1,
     flexDirection: "row",
@@ -472,15 +478,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 13,
   },
   segmentActive: {
-    backgroundColor: "#111827",
+    backgroundColor: colors.ink,
   },
   segmentText: {
-    color: "#334155",
-    fontSize: 13,
-    fontWeight: "800",
+    ...theme.text("label", "ink"),
   },
   segmentTextActive: {
-    color: "#ffffff",
+    color: colors.surface,
   },
   countRow: {
     alignItems: "center",
@@ -488,24 +492,21 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   countText: {
-    color: "#64748b",
-    fontSize: 13,
+    ...theme.text("body", "inkMuted"),
   },
   hint: {
-    color: "#475569",
-    fontSize: 14,
-    lineHeight: 20,
+    ...theme.text("body", "inkMuted"),
   },
   card: {
-    backgroundColor: "#ffffff",
-    borderColor: "#d8e1ea",
+    backgroundColor: colors.surface,
+    borderColor: colors.line,
     borderRadius: 8,
     borderWidth: 1,
     overflow: "hidden",
   },
   headerRow: {
-    backgroundColor: "#f8fafc",
-    borderBottomColor: "#e2e8f0",
+    backgroundColor: colors.paper,
+    borderBottomColor: colors.line,
     borderBottomWidth: 1,
     flexDirection: "row",
   },
@@ -515,18 +516,13 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
   },
   headerLabel: {
-    color: "#94a3b8",
-    fontSize: 11,
-    fontWeight: "800",
-    textTransform: "uppercase",
+    ...theme.text("monoLabel", "inkMuted"),
   },
   headerDay: {
-    color: "#475569",
-    fontSize: 13,
-    fontWeight: "800",
+    ...theme.text("label", "inkMuted"),
   },
   hourRow: {
-    borderTopColor: "#e2e8f0",
+    borderTopColor: colors.line,
     borderTopWidth: 1,
     flexDirection: "row",
   },
@@ -535,21 +531,19 @@ const styles = StyleSheet.create({
     padding: 3,
   },
   hourLabel: {
-    color: "#64748b",
-    fontSize: 11,
-    fontWeight: "600",
+    ...theme.text("monoTime", "inkMuted"),
     textAlign: "right",
   },
   timeGutter: {
-    backgroundColor: "#f8fafc",
-    borderRightColor: "#e2e8f0",
+    backgroundColor: colors.paper,
+    borderRightColor: colors.line,
     borderRightWidth: 1,
     justifyContent: "center",
     paddingHorizontal: 6,
     width: hourColumnWidth,
   },
   dayColumn: {
-    borderRightColor: "#f1f5f9",
+    borderRightColor: colors.surface2,
     borderRightWidth: 1,
     gap: 2,
     width: dayColumnWidth,
@@ -576,7 +570,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   sheet: {
-    backgroundColor: "#ffffff",
+    backgroundColor: colors.surface,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     maxHeight: "88%",
@@ -584,7 +578,7 @@ const styles = StyleSheet.create({
   },
   sheetHeader: {
     alignItems: "flex-start",
-    borderBottomColor: "#e2e8f0",
+    borderBottomColor: colors.line,
     borderBottomWidth: 1,
     flexDirection: "row",
     gap: 12,
@@ -596,15 +590,10 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   eyebrow: {
-    color: "#0f766e",
-    fontSize: 12,
-    fontWeight: "800",
-    textTransform: "uppercase",
+    ...theme.text("monoLabel", "teal"),
   },
   sheetTitle: {
-    color: "#111827",
-    fontSize: 22,
-    fontWeight: "800",
+    ...theme.text("title", "ink"),
   },
   closeButton: {
     alignItems: "center",
@@ -613,27 +602,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   closeText: {
-    color: "#475569",
-    fontSize: 14,
-    fontWeight: "700",
+    ...theme.text("label", "inkMuted"),
   },
   sheetBody: {
     paddingHorizontal: 18,
   },
   label: {
-    color: "#334155",
-    fontSize: 13,
-    fontWeight: "800",
+    ...theme.text("label", "ink"),
     marginBottom: 6,
     marginTop: 14,
   },
   input: {
-    backgroundColor: "#f8fafc",
-    borderColor: "#cbd5e1",
+    ...theme.text("body", "ink"),
+    backgroundColor: colors.paper,
+    borderColor: colors.line,
     borderRadius: 8,
     borderWidth: 1,
-    color: "#111827",
-    fontSize: 15,
     minHeight: 46,
     paddingHorizontal: 12,
   },
@@ -644,7 +628,7 @@ const styles = StyleSheet.create({
   },
   dayButton: {
     alignItems: "center",
-    borderColor: "#cbd5e1",
+    borderColor: colors.line,
     borderRadius: 8,
     borderWidth: 1,
     height: 42,
@@ -652,16 +636,14 @@ const styles = StyleSheet.create({
     width: 46,
   },
   dayButtonActive: {
-    backgroundColor: "#111827",
-    borderColor: "#111827",
+    backgroundColor: colors.ink,
+    borderColor: colors.ink,
   },
   dayButtonText: {
-    color: "#334155",
-    fontSize: 13,
-    fontWeight: "800",
+    ...theme.text("label", "ink"),
   },
   dayButtonTextActive: {
-    color: "#ffffff",
+    color: colors.surface,
   },
   choiceButton: {
     alignItems: "center",
@@ -678,9 +660,7 @@ const styles = StyleSheet.create({
     width: 10,
   },
   choiceText: {
-    color: "#334155",
-    fontSize: 13,
-    fontWeight: "800",
+    ...theme.text("label", "ink"),
   },
   timeRow: {
     flexDirection: "row",
@@ -690,7 +670,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   actionRow: {
-    borderTopColor: "#e2e8f0",
+    borderTopColor: colors.line,
     borderTopWidth: 1,
     flexDirection: "row",
     gap: 10,
@@ -700,20 +680,18 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     alignItems: "center",
-    backgroundColor: "#0f766e",
+    backgroundColor: colors.teal,
     borderRadius: 8,
     flex: 1,
     justifyContent: "center",
     minHeight: 50,
   },
   primaryText: {
-    color: "#ffffff",
-    fontSize: 15,
-    fontWeight: "800",
+    ...theme.text("body", "surface"),
   },
   deleteButton: {
     alignItems: "center",
-    borderColor: "#fecaca",
+    borderColor: colors.danger,
     borderRadius: 8,
     borderWidth: 1,
     justifyContent: "center",
@@ -721,17 +699,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
   },
   deleteText: {
-    color: "#b91c1c",
-    fontSize: 15,
-    fontWeight: "800",
+    ...theme.text("body", "danger"),
   },
   disabled: {
     opacity: 0.58,
   },
   error: {
-    color: "#b91c1c",
-    fontSize: 14,
-    lineHeight: 20,
+    ...theme.text("body", "danger"),
     marginTop: 14,
   },
 });
+}

@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTheme } from "../lib/theme";
+import type { Theme } from "../lib/theme";
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { CalendarEvent, ScheduleBlockCategory } from "@personal-agent/core/calendar";
 import { CalendarEventModal, type EventFormState } from "./CalendarEventModal";
@@ -52,6 +54,8 @@ function localTimezone() {
 }
 
 export function CalendarScreen({ accessToken }: CalendarScreenProps) {
+  const theme = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const [snapshot, setSnapshot] = useState<MobileCalendarResponse | null>(null);
   const [view, setView] = useState<CalendarView>("month");
   const [selectedDate, setSelectedDate] = useState(() => new Date());
@@ -292,10 +296,10 @@ export function CalendarScreen({ accessToken }: CalendarScreenProps) {
         contentContainerStyle={styles.content}
         refreshControl={
           <RefreshControl
-            colors={["#0f766e"]}
+            colors={[theme.colors.teal]}
             onRefresh={handleRefresh}
             refreshing={refreshing}
-            tintColor="#0f766e"
+            tintColor={theme.colors.teal}
           />
         }
       >
@@ -462,7 +466,9 @@ export function CalendarScreen({ accessToken }: CalendarScreenProps) {
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(theme: Theme) {
+  const { colors } = theme;
+  return StyleSheet.create({
   content: {
     gap: 16,
     padding: 18,
@@ -472,21 +478,13 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   eyebrow: {
-    color: "#0f766e",
-    fontSize: 13,
-    fontWeight: "800",
-    textTransform: "uppercase",
+    ...theme.text("monoLabel", "teal"),
   },
   title: {
-    color: "#111827",
-    fontSize: 28,
-    fontWeight: "800",
-    lineHeight: 34,
+    ...theme.text("displayLg", "ink"),
   },
   body: {
-    color: "#475569",
-    fontSize: 15,
-    lineHeight: 22,
+    ...theme.text("body", "inkMuted"),
   },
   controlRow: {
     flexDirection: "row",
@@ -495,8 +493,8 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   segmentGroup: {
-    backgroundColor: "#ffffff",
-    borderColor: "#cbd5e1",
+    backgroundColor: colors.surface,
+    borderColor: colors.line,
     borderRadius: 8,
     borderWidth: 1,
     flexDirection: "row",
@@ -509,28 +507,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   segmentActive: {
-    backgroundColor: "#111827",
+    backgroundColor: colors.ink,
   },
   segmentText: {
-    color: "#334155",
-    fontSize: 13,
-    fontWeight: "800",
+    ...theme.text("label", "ink"),
   },
   segmentTextActive: {
-    color: "#ffffff",
+    color: colors.surface,
   },
   navButton: {
     alignItems: "center",
-    borderLeftColor: "#e2e8f0",
+    borderLeftColor: colors.line,
     borderLeftWidth: StyleSheet.hairlineWidth,
     justifyContent: "center",
     minHeight: 44,
     paddingHorizontal: 12,
   },
   navText: {
-    color: "#334155",
-    fontSize: 13,
-    fontWeight: "800",
+    ...theme.text("label", "ink"),
   },
   legendRow: {
     flexDirection: "row",
@@ -547,8 +541,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   legendChipOff: {
-    backgroundColor: "#f8fafc",
-    borderColor: "#e2e8f0",
+    backgroundColor: colors.paper,
+    borderColor: colors.line,
   },
   swatch: {
     borderRadius: 3,
@@ -556,33 +550,28 @@ const styles = StyleSheet.create({
     width: 9,
   },
   swatchOff: {
-    backgroundColor: "#cbd5e1",
+    backgroundColor: colors.line,
   },
   legendText: {
     fontSize: 12,
     fontWeight: "800",
   },
   legendTextOff: {
-    color: "#94a3b8",
+    color: colors.inkMuted,
   },
   panel: {
-    backgroundColor: "#ffffff",
-    borderColor: "#d8e1ea",
+    backgroundColor: colors.surface,
+    borderColor: colors.line,
     borderRadius: 8,
     borderWidth: 1,
     gap: 10,
     padding: 16,
   },
   panelLabel: {
-    color: "#64748b",
-    fontSize: 12,
-    fontWeight: "800",
-    textTransform: "uppercase",
+    ...theme.text("monoLabel", "inkMuted"),
   },
   panelTitle: {
-    color: "#111827",
-    fontSize: 20,
-    fontWeight: "800",
+    ...theme.text("title", "ink"),
   },
   todayList: {
     gap: 8,
@@ -593,8 +582,7 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   todayItemTitle: {
-    fontSize: 15,
-    fontWeight: "800",
+    ...theme.text("body"),
   },
   todayItemMeta: {
     fontSize: 12,
@@ -602,18 +590,16 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
   freeSection: {
-    borderTopColor: "#e2e8f0",
+    borderTopColor: colors.line,
     borderTopWidth: 1,
     gap: 8,
     paddingTop: 14,
   },
   freeTitle: {
-    color: "#111827",
-    fontSize: 14,
-    fontWeight: "800",
+    ...theme.text("label", "ink"),
   },
   freeWindow: {
-    backgroundColor: "#f8fafc",
+    backgroundColor: colors.paper,
     borderRadius: 8,
     flexDirection: "row",
     justifyContent: "space-between",
@@ -621,34 +607,26 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
   },
   freeWindowText: {
-    color: "#334155",
-    fontSize: 14,
-    fontWeight: "700",
+    ...theme.text("label", "ink"),
   },
   freeWindowMinutes: {
-    color: "#64748b",
-    fontSize: 13,
+    ...theme.text("body", "inkMuted"),
   },
   counts: {
-    borderTopColor: "#e2e8f0",
+    borderTopColor: colors.line,
     borderTopWidth: 1,
-    color: "#64748b",
+    color: colors.inkMuted,
     fontSize: 12,
     paddingTop: 12,
   },
   cacheMessage: {
-    color: "#64748b",
-    fontSize: 13,
-    lineHeight: 19,
+    ...theme.text("body", "inkMuted"),
   },
   empty: {
-    color: "#64748b",
-    fontSize: 14,
-    lineHeight: 20,
+    ...theme.text("body", "inkMuted"),
   },
   error: {
-    color: "#b91c1c",
-    fontSize: 14,
-    lineHeight: 20,
+    ...theme.text("body", "danger"),
   },
 });
+}

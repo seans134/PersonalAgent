@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
+import { useTheme } from "../lib/theme";
+import type { Theme } from "../lib/theme";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { fetchMobileWorkoutPlan } from "../lib/api";
 import {
@@ -15,6 +17,8 @@ type NotificationSettingsScreenProps = {
 };
 
 export function NotificationSettingsScreen({ accessToken }: NotificationSettingsScreenProps) {
+  const theme = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const [preferences, setPreferences] = useState<NotificationPreferences>(defaultNotificationPreferences);
   const [leadMinutes, setLeadMinutes] = useState(String(defaultNotificationPreferences.planLeadMinutes));
   const [scheduledCount, setScheduledCount] = useState(0);
@@ -82,7 +86,7 @@ export function NotificationSettingsScreen({ accessToken }: NotificationSettings
         <Text style={styles.subtitle}>Choose when Atlas should prompt you. Times use your device timezone.</Text>
       </View>
 
-      {loading ? <ActivityIndicator color="#0f766e" /> : null}
+      {loading ? <ActivityIndicator color={theme.colors.teal} /> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
       {message ? <Text style={styles.success}>{message}</Text> : null}
 
@@ -94,8 +98,8 @@ export function NotificationSettingsScreen({ accessToken }: NotificationSettings
           </View>
           <Switch
             onValueChange={(dailyPlanEnabled) => setPreferences((current) => ({ ...current, dailyPlanEnabled }))}
-            trackColor={{ false: "#cbd5e1", true: "#5eead4" }}
-            thumbColor={preferences.dailyPlanEnabled ? "#0f766e" : "#f8fafc"}
+            trackColor={{ false: theme.colors.line, true: theme.colors.signal }}
+            thumbColor={preferences.dailyPlanEnabled ? theme.colors.teal : theme.colors.paper}
             value={preferences.dailyPlanEnabled}
           />
         </View>
@@ -104,7 +108,7 @@ export function NotificationSettingsScreen({ accessToken }: NotificationSettings
           editable={preferences.dailyPlanEnabled}
           onChangeText={(dailyPlanTime) => setPreferences((current) => ({ ...current, dailyPlanTime }))}
           placeholder="08:00"
-          placeholderTextColor="#94a3b8"
+          placeholderTextColor={theme.colors.inkMuted}
           style={[styles.input, !preferences.dailyPlanEnabled && styles.disabledInput]}
           value={preferences.dailyPlanTime}
         />
@@ -118,8 +122,8 @@ export function NotificationSettingsScreen({ accessToken }: NotificationSettings
           </View>
           <Switch
             onValueChange={(workoutEnabled) => setPreferences((current) => ({ ...current, workoutEnabled }))}
-            trackColor={{ false: "#cbd5e1", true: "#5eead4" }}
-            thumbColor={preferences.workoutEnabled ? "#0f766e" : "#f8fafc"}
+            trackColor={{ false: theme.colors.line, true: theme.colors.signal }}
+            thumbColor={preferences.workoutEnabled ? theme.colors.teal : theme.colors.paper}
             value={preferences.workoutEnabled}
           />
         </View>
@@ -128,7 +132,7 @@ export function NotificationSettingsScreen({ accessToken }: NotificationSettings
           editable={preferences.workoutEnabled}
           onChangeText={(workoutTime) => setPreferences((current) => ({ ...current, workoutTime }))}
           placeholder="17:00"
-          placeholderTextColor="#94a3b8"
+          placeholderTextColor={theme.colors.inkMuted}
           style={[styles.input, !preferences.workoutEnabled && styles.disabledInput]}
           value={preferences.workoutTime}
         />
@@ -141,7 +145,7 @@ export function NotificationSettingsScreen({ accessToken }: NotificationSettings
           keyboardType="number-pad"
           onChangeText={setLeadMinutes}
           placeholder="10"
-          placeholderTextColor="#94a3b8"
+          placeholderTextColor={theme.colors.inkMuted}
           style={styles.input}
           value={leadMinutes}
         />
@@ -159,24 +163,68 @@ export function NotificationSettingsScreen({ accessToken }: NotificationSettings
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(theme: Theme) {
+  const { colors } = theme;
+  return StyleSheet.create({
   content: { gap: 16, padding: 18, paddingBottom: 32 },
-  eyebrow: { color: "#0f766e", fontSize: 12, fontWeight: "800", letterSpacing: 0, textTransform: "uppercase" },
-  title: { color: "#111827", fontSize: 30, fontWeight: "800", lineHeight: 36 },
-  subtitle: { color: "#475569", fontSize: 15, lineHeight: 21, marginTop: 4 },
-  panel: { backgroundColor: "#ffffff", borderColor: "#e2e8f0", borderRadius: 8, borderWidth: 1, gap: 10, padding: 16 },
+  eyebrow: {
+    ...theme.text("monoLabel", "teal"),
+  },
+  title: {
+    ...theme.text("displayXl", "ink"),
+  },
+  subtitle: {
+    ...theme.text("body", "inkMuted"),
+    marginTop: 4,
+  },
+  panel: { backgroundColor: colors.surface, borderColor: colors.line, borderRadius: 8, borderWidth: 1, gap: 10, padding: 16 },
   settingHeader: { alignItems: "center", flexDirection: "row", gap: 12, justifyContent: "space-between" },
   settingCopy: { flex: 1 },
-  settingTitle: { color: "#111827", fontSize: 16, fontWeight: "800" },
-  settingBody: { color: "#64748b", fontSize: 13, lineHeight: 19, marginTop: 4 },
-  input: { backgroundColor: "#f8fafc", borderColor: "#cbd5e1", borderRadius: 8, borderWidth: 1, color: "#111827", fontSize: 15, minHeight: 46, paddingHorizontal: 12 },
+  settingTitle: {
+    ...theme.text("heading", "ink"),
+  },
+  settingBody: {
+    ...theme.text("body", "inkMuted"),
+    marginTop: 4,
+  },
+  input: {
+    ...theme.text("body", "ink"),
+    backgroundColor: colors.paper,
+    borderColor: colors.line,
+    borderRadius: 8,
+    borderWidth: 1,
+    minHeight: 46,
+    paddingHorizontal: 12,
+  },
   disabledInput: { opacity: 0.5 },
-  count: { color: "#475569", fontSize: 13, fontWeight: "700" },
-  primaryButton: { alignItems: "center", backgroundColor: "#0f766e", borderRadius: 8, minHeight: 50, justifyContent: "center", paddingHorizontal: 14 },
-  primaryText: { color: "#ffffff", fontSize: 15, fontWeight: "800", textAlign: "center" },
-  removeButton: { alignItems: "center", borderColor: "#fecaca", borderRadius: 8, borderWidth: 1, minHeight: 48, justifyContent: "center", paddingHorizontal: 14 },
-  removeText: { color: "#b91c1c", fontSize: 14, fontWeight: "800" },
+  count: {
+    ...theme.text("label", "inkMuted"),
+  },
+  primaryButton: { alignItems: "center", backgroundColor: colors.teal, borderRadius: 8, minHeight: 50, justifyContent: "center", paddingHorizontal: 14 },
+  primaryText: {
+    ...theme.text("body", "surface"),
+    textAlign: "center",
+  },
+  removeButton: { alignItems: "center", borderColor: colors.danger, borderRadius: 8, borderWidth: 1, minHeight: 48, justifyContent: "center", paddingHorizontal: 14 },
+  removeText: {
+    ...theme.text("label", "danger"),
+  },
   disabled: { opacity: 0.58 },
-  error: { backgroundColor: "#fef2f2", borderColor: "#fecaca", borderRadius: 8, borderWidth: 1, color: "#b91c1c", fontSize: 14, fontWeight: "700", lineHeight: 20, padding: 12 },
-  success: { backgroundColor: "#ecfdf5", borderColor: "#a7f3d0", borderRadius: 8, borderWidth: 1, color: "#047857", fontSize: 14, fontWeight: "700", lineHeight: 20, padding: 12 },
+  error: {
+    ...theme.text("label", "danger"),
+    backgroundColor: colors.surface2,
+    borderColor: colors.danger,
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 12,
+  },
+  success: {
+    ...theme.text("label", "success"),
+    backgroundColor: colors.surface2,
+    borderColor: colors.line,
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 12,
+  },
 });
+}

@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useTheme } from "../lib/theme";
+import type { Theme } from "../lib/theme";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -61,6 +63,8 @@ function draftSummary(draft: MobileWorkoutDraft) {
 }
 
 function DraftCard({ draft }: { draft: MobileWorkoutDraft }) {
+  const theme = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const metrics = metricText(draft.metrics);
 
   return (
@@ -74,6 +78,8 @@ function DraftCard({ draft }: { draft: MobileWorkoutDraft }) {
 }
 
 function WarningBox({ warnings }: { warnings: string[] }) {
+  const theme = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   if (warnings.length === 0) return null;
 
   return (
@@ -87,6 +93,8 @@ function WarningBox({ warnings }: { warnings: string[] }) {
 }
 
 export function WorkoutCoachScreen({ accessToken }: WorkoutCoachScreenProps) {
+  const theme = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const [message, setMessage] = useState("");
   const [lastMessage, setLastMessage] = useState("");
   const [response, setResponse] = useState<MobileWorkoutCoachResponse | null>(null);
@@ -224,7 +232,7 @@ export function WorkoutCoachScreen({ accessToken }: WorkoutCoachScreenProps) {
                 style={[styles.primaryButton, applying && styles.disabled]}
               >
                 {applying ? (
-                  <ActivityIndicator color="#ffffff" />
+                  <ActivityIndicator color={theme.colors.surface} />
                 ) : (
                   <Text style={styles.primaryButtonText}>Log Workout</Text>
                 )}
@@ -254,7 +262,7 @@ export function WorkoutCoachScreen({ accessToken }: WorkoutCoachScreenProps) {
           multiline
           onChangeText={setMessage}
           placeholder={suggestion ? "Ask for a different option..." : "Message the workout coach..."}
-          placeholderTextColor="#94a3b8"
+          placeholderTextColor={theme.colors.inkMuted}
           style={styles.composerInput}
           value={message}
         />
@@ -263,14 +271,16 @@ export function WorkoutCoachScreen({ accessToken }: WorkoutCoachScreenProps) {
           onPress={() => send(message)}
           style={[styles.sendButton, !canSend && styles.disabled]}
         >
-          {sending ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.sendText}>Send</Text>}
+          {sending ? <ActivityIndicator color={theme.colors.surface} /> : <Text style={styles.sendText}>Send</Text>}
         </Pressable>
       </View>
     </KeyboardAvoidingView>
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(theme: Theme) {
+  const { colors } = theme;
+  return StyleSheet.create({
   flex: {
     flex: 1,
   },
@@ -280,48 +290,36 @@ const styles = StyleSheet.create({
     paddingBottom: 28,
   },
   eyebrow: {
-    color: "#0f766e",
-    fontSize: 13,
-    fontWeight: "800",
-    textTransform: "uppercase",
+    ...theme.text("monoLabel", "teal"),
   },
   title: {
-    color: "#111827",
-    fontSize: 28,
-    fontWeight: "800",
-    lineHeight: 34,
+    ...theme.text("displayLg", "ink"),
     marginTop: 6,
   },
   subtitle: {
-    color: "#475569",
-    fontSize: 15,
-    lineHeight: 22,
+    ...theme.text("body", "inkMuted"),
     marginTop: 8,
   },
   panel: {
-    backgroundColor: "#ffffff",
-    borderColor: "#d8e1ea",
+    backgroundColor: colors.surface,
+    borderColor: colors.line,
     borderRadius: 8,
     borderWidth: 1,
     gap: 10,
     padding: 16,
   },
   panelTitle: {
-    color: "#111827",
-    fontSize: 16,
-    fontWeight: "800",
+    ...theme.text("heading", "ink"),
   },
   example: {
-    backgroundColor: "#f8fafc",
-    borderColor: "#e2e8f0",
+    backgroundColor: colors.paper,
+    borderColor: colors.line,
     borderRadius: 8,
     borderWidth: 1,
     padding: 12,
   },
   exampleText: {
-    color: "#334155",
-    fontSize: 14,
-    lineHeight: 20,
+    ...theme.text("body", "ink"),
   },
   intentRow: {
     alignItems: "center",
@@ -330,11 +328,11 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   intentChip: {
-    backgroundColor: "#ecfdf5",
-    borderColor: "#a7f3d0",
+    backgroundColor: colors.surface2,
+    borderColor: colors.line,
     borderRadius: 999,
     borderWidth: 1,
-    color: "#065f46",
+    color: colors.success,
     fontSize: 12,
     fontWeight: "800",
     overflow: "hidden",
@@ -342,91 +340,71 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   intentNote: {
-    color: "#94a3b8",
+    color: colors.inkMuted,
     fontSize: 12,
   },
   userEcho: {
-    color: "#64748b",
-    fontSize: 14,
+    ...theme.text("body", "inkMuted"),
     fontStyle: "italic",
-    lineHeight: 20,
   },
   agentReply: {
-    color: "#111827",
-    fontSize: 15,
-    lineHeight: 22,
+    ...theme.text("body", "ink"),
   },
   reviewSection: {
     gap: 8,
   },
   draftCard: {
-    backgroundColor: "#f8fafc",
-    borderColor: "#e2e8f0",
+    backgroundColor: colors.paper,
+    borderColor: colors.line,
     borderRadius: 8,
     borderWidth: 1,
     gap: 4,
     padding: 12,
   },
   draftTitle: {
-    color: "#111827",
-    fontSize: 16,
-    fontWeight: "800",
+    ...theme.text("heading", "ink"),
   },
   draftMeta: {
-    color: "#475569",
-    fontSize: 13,
-    lineHeight: 19,
+    ...theme.text("body", "inkMuted"),
   },
   draftDetail: {
-    color: "#475569",
-    fontSize: 13,
-    lineHeight: 19,
+    ...theme.text("body", "inkMuted"),
   },
   reasonText: {
-    color: "#334155",
-    fontSize: 14,
-    lineHeight: 20,
+    ...theme.text("body", "ink"),
   },
   warningBox: {
-    backgroundColor: "#fffbeb",
-    borderColor: "#fde68a",
+    backgroundColor: colors.surface2,
+    borderColor: colors.warning,
     borderRadius: 8,
     borderWidth: 1,
     gap: 4,
     padding: 12,
   },
   warningTitle: {
-    color: "#92400e",
-    fontSize: 13,
-    fontWeight: "800",
+    ...theme.text("label", "warning"),
   },
   warningText: {
-    color: "#92400e",
-    fontSize: 13,
-    lineHeight: 19,
+    ...theme.text("body", "warning"),
   },
   primaryButton: {
     alignItems: "center",
-    backgroundColor: "#0f766e",
+    backgroundColor: colors.teal,
     borderRadius: 8,
     justifyContent: "center",
     minHeight: 48,
   },
   primaryButtonText: {
-    color: "#ffffff",
-    fontSize: 15,
-    fontWeight: "800",
+    ...theme.text("body", "surface"),
   },
   rerouteSection: {
-    borderTopColor: "#e2e8f0",
+    borderTopColor: colors.line,
     borderTopWidth: 1,
     gap: 8,
     paddingTop: 12,
   },
   rerouteLabel: {
-    color: "#64748b",
-    fontSize: 13,
-    fontWeight: "700",
+    ...theme.text("label", "inkMuted"),
   },
   rerouteRow: {
     flexDirection: "row",
@@ -434,7 +412,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   rerouteButton: {
-    borderColor: "#cbd5e1",
+    borderColor: colors.line,
     borderRadius: 8,
     borderWidth: 1,
     minHeight: 38,
@@ -442,14 +420,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   rerouteText: {
-    color: "#334155",
-    fontSize: 13,
-    fontWeight: "700",
+    ...theme.text("label", "ink"),
   },
   composer: {
     alignItems: "flex-end",
-    backgroundColor: "#ffffff",
-    borderTopColor: "#e2e8f0",
+    backgroundColor: colors.surface,
+    borderTopColor: colors.line,
     borderTopWidth: 1,
     flexDirection: "row",
     gap: 10,
@@ -458,14 +434,12 @@ const styles = StyleSheet.create({
     paddingTop: 12,
   },
   composerInput: {
-    backgroundColor: "#f8fafc",
-    borderColor: "#cbd5e1",
+    ...theme.text("body", "ink"),
+    backgroundColor: colors.paper,
+    borderColor: colors.line,
     borderRadius: 20,
     borderWidth: 1,
-    color: "#111827",
     flex: 1,
-    fontSize: 15,
-    lineHeight: 21,
     maxHeight: 120,
     minHeight: 46,
     paddingHorizontal: 14,
@@ -473,29 +447,23 @@ const styles = StyleSheet.create({
   },
   sendButton: {
     alignItems: "center",
-    backgroundColor: "#0f766e",
+    backgroundColor: colors.teal,
     borderRadius: 20,
     justifyContent: "center",
     minHeight: 46,
     paddingHorizontal: 20,
   },
   sendText: {
-    color: "#ffffff",
-    fontSize: 15,
-    fontWeight: "800",
+    ...theme.text("body", "surface"),
   },
   disabled: {
     opacity: 0.58,
   },
   error: {
-    color: "#b91c1c",
-    fontSize: 14,
-    lineHeight: 20,
+    ...theme.text("body", "danger"),
   },
   success: {
-    color: "#047857",
-    fontSize: 14,
-    fontWeight: "700",
-    lineHeight: 20,
+    ...theme.text("label", "success"),
   },
 });
+}

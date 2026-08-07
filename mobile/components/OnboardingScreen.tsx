@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
+import { useTheme } from "../lib/theme";
+import type { Theme } from "../lib/theme";
 import {
   ActivityIndicator,
   Pressable,
@@ -48,6 +50,8 @@ const stepCopy: Record<OnboardingStep, { title: string; body: string }> = {
 };
 
 export function OnboardingScreen({ accessToken, onComplete }: OnboardingScreenProps) {
+  const theme = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const [step, setStep] = useState<OnboardingStep>(1);
   const [blocks, setBlocks] = useState<MobileScheduleBlock[]>([]);
   const [loadingBlocks, setLoadingBlocks] = useState(true);
@@ -124,10 +128,10 @@ export function OnboardingScreen({ accessToken, onComplete }: OnboardingScreenPr
       keyboardShouldPersistTaps="handled"
       refreshControl={
         <RefreshControl
-          colors={["#0f766e"]}
+          colors={[theme.colors.teal]}
           onRefresh={handleRefresh}
           refreshing={refreshing}
-          tintColor="#0f766e"
+          tintColor={theme.colors.teal}
         />
       }
     >
@@ -149,7 +153,7 @@ export function OnboardingScreen({ accessToken, onComplete }: OnboardingScreenPr
             onApplied={loadBlocks}
           />
           {loadingBlocks ? (
-            <ActivityIndicator color="#0f766e" />
+            <ActivityIndicator color={theme.colors.teal} />
           ) : (
             <WeeklyScheduleGrid
               accessToken={accessToken}
@@ -174,7 +178,7 @@ export function OnboardingScreen({ accessToken, onComplete }: OnboardingScreenPr
             onApplied={loadBlocks}
           />
           {loadingBlocks ? (
-            <ActivityIndicator color="#0f766e" />
+            <ActivityIndicator color={theme.colors.teal} />
           ) : (
             <WeeklyScheduleGrid
               accessToken={accessToken}
@@ -214,7 +218,7 @@ export function OnboardingScreen({ accessToken, onComplete }: OnboardingScreenPr
             <TextInput
               onChangeText={setWorkStartTime}
               placeholder="09:00"
-              placeholderTextColor="#94a3b8"
+              placeholderTextColor={theme.colors.inkMuted}
               style={styles.input}
               value={workStartTime}
             />
@@ -222,7 +226,7 @@ export function OnboardingScreen({ accessToken, onComplete }: OnboardingScreenPr
             <TextInput
               onChangeText={setWorkEndTime}
               placeholder="17:00"
-              placeholderTextColor="#94a3b8"
+              placeholderTextColor={theme.colors.inkMuted}
               style={styles.input}
               value={workEndTime}
             />
@@ -231,7 +235,7 @@ export function OnboardingScreen({ accessToken, onComplete }: OnboardingScreenPr
               keyboardType="number-pad"
               onChangeText={setFocusBlockMinutes}
               placeholder="60"
-              placeholderTextColor="#94a3b8"
+              placeholderTextColor={theme.colors.inkMuted}
               style={styles.input}
               value={focusBlockMinutes}
             />
@@ -260,7 +264,7 @@ export function OnboardingScreen({ accessToken, onComplete }: OnboardingScreenPr
             <TextInput
               onChangeText={setGoalTitle}
               placeholder="Finish project proposal"
-              placeholderTextColor="#94a3b8"
+              placeholderTextColor={theme.colors.inkMuted}
               style={styles.input}
               value={goalTitle}
             />
@@ -269,7 +273,7 @@ export function OnboardingScreen({ accessToken, onComplete }: OnboardingScreenPr
               multiline
               onChangeText={setGoalDescription}
               placeholder="This unlocks the next milestone."
-              placeholderTextColor="#94a3b8"
+              placeholderTextColor={theme.colors.inkMuted}
               style={[styles.input, styles.textArea]}
               value={goalDescription}
             />
@@ -278,7 +282,7 @@ export function OnboardingScreen({ accessToken, onComplete }: OnboardingScreenPr
               keyboardType="number-pad"
               onChangeText={setMinimumDailyMinutes}
               placeholder="30"
-              placeholderTextColor="#94a3b8"
+              placeholderTextColor={theme.colors.inkMuted}
               style={styles.input}
               value={minimumDailyMinutes}
             />
@@ -299,7 +303,7 @@ export function OnboardingScreen({ accessToken, onComplete }: OnboardingScreenPr
               ]}
             >
               {saving ? (
-                <ActivityIndicator color="#ffffff" />
+                <ActivityIndicator color={theme.colors.surface} />
               ) : (
                 <Text style={styles.primaryText}>Save Onboarding</Text>
               )}
@@ -311,7 +315,9 @@ export function OnboardingScreen({ accessToken, onComplete }: OnboardingScreenPr
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(theme: Theme) {
+  const { colors } = theme;
+  return StyleSheet.create({
   content: {
     gap: 16,
     padding: 18,
@@ -321,54 +327,38 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   eyebrow: {
-    color: "#0f766e",
-    fontSize: 13,
-    fontWeight: "800",
-    letterSpacing: 0,
-    textTransform: "uppercase",
+    ...theme.text("monoLabel", "teal"),
   },
   title: {
-    color: "#111827",
-    fontSize: 28,
-    fontWeight: "800",
-    lineHeight: 34,
+    ...theme.text("displayLg", "ink"),
   },
   body: {
-    color: "#475569",
-    fontSize: 16,
-    lineHeight: 23,
+    ...theme.text("bodyLg", "inkMuted"),
   },
   panel: {
-    backgroundColor: "#ffffff",
-    borderColor: "#d8e1ea",
+    backgroundColor: colors.surface,
+    borderColor: colors.line,
     borderRadius: 8,
     borderWidth: 1,
     gap: 8,
     padding: 16,
   },
   panelTitle: {
-    color: "#111827",
-    fontSize: 17,
-    fontWeight: "800",
+    ...theme.text("heading", "ink"),
   },
   panelBody: {
-    color: "#475569",
-    fontSize: 14,
-    lineHeight: 20,
+    ...theme.text("body", "inkMuted"),
   },
   label: {
-    color: "#334155",
-    fontSize: 14,
-    fontWeight: "700",
+    ...theme.text("label", "ink"),
     marginTop: 8,
   },
   input: {
-    backgroundColor: "#f8fafc",
-    borderColor: "#cbd5e1",
+    ...theme.text("bodyLg", "ink"),
+    backgroundColor: colors.paper,
+    borderColor: colors.line,
     borderRadius: 8,
     borderWidth: 1,
-    color: "#111827",
-    fontSize: 16,
     minHeight: 50,
     paddingHorizontal: 14,
     paddingVertical: 10,
@@ -383,37 +373,32 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   option: {
-    borderColor: "#cbd5e1",
+    borderColor: colors.line,
     borderRadius: 8,
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
   optionSelected: {
-    backgroundColor: "#0f766e",
-    borderColor: "#0f766e",
+    backgroundColor: colors.teal,
+    borderColor: colors.teal,
   },
   optionText: {
-    color: "#334155",
-    fontSize: 14,
-    fontWeight: "700",
-    textTransform: "capitalize",
+    ...theme.text("label", "ink"),
   },
   optionTextSelected: {
-    color: "#ffffff",
+    color: colors.surface,
   },
   navRow: {
     flexDirection: "row",
     gap: 10,
   },
   error: {
-    color: "#b91c1c",
-    fontSize: 14,
-    lineHeight: 20,
+    ...theme.text("body", "danger"),
   },
   primaryButton: {
     alignItems: "center",
-    backgroundColor: "#0f766e",
+    backgroundColor: colors.teal,
     borderRadius: 8,
     flex: 1,
     justifyContent: "center",
@@ -422,7 +407,7 @@ const styles = StyleSheet.create({
   },
   secondaryButton: {
     alignItems: "center",
-    borderColor: "#cbd5e1",
+    borderColor: colors.line,
     borderRadius: 8,
     borderWidth: 1,
     justifyContent: "center",
@@ -430,16 +415,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   secondaryText: {
-    color: "#334155",
-    fontSize: 15,
-    fontWeight: "800",
+    ...theme.text("body", "ink"),
   },
   buttonPressed: {
     opacity: 0.78,
   },
   primaryText: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "800",
+    ...theme.text("heading", "surface"),
   },
 });
+}

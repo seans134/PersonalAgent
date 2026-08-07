@@ -59,7 +59,7 @@ export function WorkoutLogList({ workouts }: { workouts: WorkoutLogListItem[] })
   }
 
   if (workouts.length === 0) {
-    return <p className="mt-3 text-sm text-zinc-600">No workouts logged today.</p>;
+    return <p className="mt-3 text-sm text-ink-muted">No workouts logged today.</p>;
   }
 
   return (
@@ -73,16 +73,16 @@ export function WorkoutLogList({ workouts }: { workouts: WorkoutLogListItem[] })
         });
 
         return (
-          <li className="rounded-lg border border-zinc-200 p-4" key={workout.id}>
+          <li className="rounded-lg border border-line p-4" key={workout.id}>
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="font-medium text-zinc-900">{workout.title}</p>
-                <p className="mt-1 text-sm text-zinc-600">
+                <p className="font-medium text-ink">{workout.title}</p>
+                <p className="mt-1 text-sm text-ink-muted">
                   {formatTime(workout.logged_at)} - {label(workout.workout_type)} - {label(workout.tracking_method)}
                 </p>
               </div>
               <button
-                className="rounded-lg border border-red-700 bg-red-600 px-3 py-1.5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+                className="rounded-lg border border-danger bg-danger px-3 py-1.5 text-sm font-medium text-on-teal disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={isWorkoutPending}
                 onClick={() => handleRemove(workout.id)}
                 type="button"
@@ -91,14 +91,14 @@ export function WorkoutLogList({ workouts }: { workouts: WorkoutLogListItem[] })
               </button>
             </div>
 
-            <p className="mt-2 text-sm text-zinc-700">
+            <p className="mt-2 text-sm text-ink-muted">
               {workout.duration_minutes ? `${workout.duration_minutes} min - ` : ""}
               {workout.intensity}
               {workout.calories_burned !== null ? ` - ${workout.calories_burned} cal` : ""}
             </p>
-            {metrics.length > 0 ? <p className="mt-2 text-sm text-zinc-600">{metrics.join(" - ")}</p> : null}
-            {workout.notes ? <p className="mt-2 text-sm text-zinc-600">{workout.notes}</p> : null}
-            {result?.error ? <p className="mt-2 text-sm text-red-600">{result.error}</p> : null}
+            {metrics.length > 0 ? <p className="mt-2 text-sm text-ink-muted">{metrics.join(" - ")}</p> : null}
+            {workout.notes ? <p className="mt-2 text-sm text-ink-muted">{workout.notes}</p> : null}
+            {result?.error ? <p className="mt-2 text-sm text-danger">{result.error}</p> : null}
           </li>
         );
       })}

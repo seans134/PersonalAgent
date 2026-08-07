@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useTheme } from "../lib/theme";
+import type { Theme } from "../lib/theme";
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { supabase } from "../lib/supabase";
 
@@ -7,6 +9,8 @@ type ResetPasswordScreenProps = {
 };
 
 export function ResetPasswordScreen({ onComplete }: ResetPasswordScreenProps) {
+  const theme = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -45,7 +49,7 @@ export function ResetPasswordScreen({ onComplete }: ResetPasswordScreenProps) {
         autoCapitalize="none"
         onChangeText={setPassword}
         placeholder="New password"
-        placeholderTextColor="#73808c"
+        placeholderTextColor={theme.colors.inkMuted}
         secureTextEntry
         style={styles.input}
         value={password}
@@ -54,27 +58,49 @@ export function ResetPasswordScreen({ onComplete }: ResetPasswordScreenProps) {
         autoCapitalize="none"
         onChangeText={setConfirmPassword}
         placeholder="Confirm new password"
-        placeholderTextColor="#73808c"
+        placeholderTextColor={theme.colors.inkMuted}
         secureTextEntry
         style={styles.input}
         value={confirmPassword}
       />
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <Pressable disabled={loading} onPress={updatePassword} style={[styles.button, loading && styles.disabled]}>
-        {loading ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.buttonText}>Update Password</Text>}
+        {loading ? <ActivityIndicator color={theme.colors.surface} /> : <Text style={styles.buttonText}>Update Password</Text>}
       </Pressable>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(theme: Theme) {
+  const { colors } = theme;
+  return StyleSheet.create({
   container: { flex: 1, justifyContent: "center", gap: 12, padding: 24 },
-  brand: { color: "#0f766e", fontSize: 18, fontWeight: "800" },
-  title: { color: "#111827", fontSize: 30, fontWeight: "800", lineHeight: 36 },
-  body: { color: "#475569", fontSize: 15, lineHeight: 22, marginBottom: 8 },
-  input: { backgroundColor: "#ffffff", borderColor: "#cbd5e1", borderRadius: 8, borderWidth: 1, color: "#111827", fontSize: 16, minHeight: 52, paddingHorizontal: 14 },
-  error: { color: "#b91c1c", fontSize: 14, lineHeight: 20 },
-  button: { alignItems: "center", backgroundColor: "#0f766e", borderRadius: 8, justifyContent: "center", minHeight: 52, marginTop: 6 },
-  buttonText: { color: "#ffffff", fontSize: 16, fontWeight: "800" },
+  brand: {
+    ...theme.text("title", "teal"),
+  },
+  title: {
+    ...theme.text("displayXl", "ink"),
+  },
+  body: {
+    ...theme.text("body", "inkMuted"),
+    marginBottom: 8,
+  },
+  input: {
+    ...theme.text("bodyLg", "ink"),
+    backgroundColor: colors.surface,
+    borderColor: colors.line,
+    borderRadius: 8,
+    borderWidth: 1,
+    minHeight: 52,
+    paddingHorizontal: 14,
+  },
+  error: {
+    ...theme.text("body", "danger"),
+  },
+  button: { alignItems: "center", backgroundColor: colors.teal, borderRadius: 8, justifyContent: "center", minHeight: 52, marginTop: 6 },
+  buttonText: {
+    ...theme.text("heading", "surface"),
+  },
   disabled: { opacity: 0.58 },
 });
+}

@@ -1,3 +1,6 @@
+import { useMemo } from "react";
+import { useTheme } from "../lib/theme";
+import type { Theme } from "../lib/theme";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -51,6 +54,8 @@ export function CalendarEventModal({
   saving,
   weekdayLabel,
 }: CalendarEventModalProps) {
+  const theme = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const busy = saving || deleting;
 
   return (
@@ -76,7 +81,7 @@ export function CalendarEventModal({
               autoFocus={!isEditing}
               onChangeText={(title) => onChange({ title })}
               placeholder="Event title"
-              placeholderTextColor="#94a3b8"
+              placeholderTextColor={theme.colors.inkMuted}
               style={styles.input}
               value={form.title}
             />
@@ -86,7 +91,7 @@ export function CalendarEventModal({
               autoCapitalize="none"
               onChangeText={(date) => onChange({ date })}
               placeholder="YYYY-MM-DD"
-              placeholderTextColor="#94a3b8"
+              placeholderTextColor={theme.colors.inkMuted}
               style={styles.input}
               value={form.date}
             />
@@ -98,7 +103,7 @@ export function CalendarEventModal({
                   autoCapitalize="none"
                   onChangeText={(startTime) => onChange({ startTime })}
                   placeholder="HH:MM"
-                  placeholderTextColor="#94a3b8"
+                  placeholderTextColor={theme.colors.inkMuted}
                   style={styles.input}
                   value={form.startTime}
                 />
@@ -109,7 +114,7 @@ export function CalendarEventModal({
                   autoCapitalize="none"
                   onChangeText={(endTime) => onChange({ endTime })}
                   placeholder="HH:MM"
-                  placeholderTextColor="#94a3b8"
+                  placeholderTextColor={theme.colors.inkMuted}
                   style={styles.input}
                   value={form.endTime}
                 />
@@ -180,7 +185,7 @@ export function CalendarEventModal({
               style={[styles.primaryButton, busy && styles.disabled]}
             >
               {saving ? (
-                <ActivityIndicator color="#ffffff" />
+                <ActivityIndicator color={theme.colors.surface} />
               ) : (
                 <Text style={styles.primaryText}>{isEditing ? "Save changes" : "Add event"}</Text>
               )}
@@ -192,14 +197,16 @@ export function CalendarEventModal({
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(theme: Theme) {
+  const { colors } = theme;
+  return StyleSheet.create({
   backdrop: {
     backgroundColor: "rgba(9, 9, 11, 0.5)",
     flex: 1,
     justifyContent: "flex-end",
   },
   sheet: {
-    backgroundColor: "#ffffff",
+    backgroundColor: colors.surface,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     maxHeight: "88%",
@@ -207,7 +214,7 @@ const styles = StyleSheet.create({
   },
   sheetHeader: {
     alignItems: "flex-start",
-    borderBottomColor: "#e2e8f0",
+    borderBottomColor: colors.line,
     borderBottomWidth: 1,
     flexDirection: "row",
     gap: 12,
@@ -219,15 +226,10 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   eyebrow: {
-    color: "#0f766e",
-    fontSize: 12,
-    fontWeight: "800",
-    textTransform: "uppercase",
+    ...theme.text("monoLabel", "teal"),
   },
   sheetTitle: {
-    color: "#111827",
-    fontSize: 22,
-    fontWeight: "800",
+    ...theme.text("title", "ink"),
   },
   closeButton: {
     alignItems: "center",
@@ -236,27 +238,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   closeText: {
-    color: "#475569",
-    fontSize: 14,
-    fontWeight: "700",
+    ...theme.text("label", "inkMuted"),
   },
   sheetBody: {
     paddingHorizontal: 18,
   },
   label: {
-    color: "#334155",
-    fontSize: 13,
-    fontWeight: "800",
+    ...theme.text("label", "ink"),
     marginBottom: 6,
     marginTop: 14,
   },
   input: {
-    backgroundColor: "#f8fafc",
-    borderColor: "#cbd5e1",
+    ...theme.text("body", "ink"),
+    backgroundColor: colors.paper,
+    borderColor: colors.line,
     borderRadius: 8,
     borderWidth: 1,
-    color: "#111827",
-    fontSize: 15,
     minHeight: 46,
     paddingHorizontal: 12,
   },
@@ -287,9 +284,7 @@ const styles = StyleSheet.create({
     width: 10,
   },
   choiceText: {
-    color: "#334155",
-    fontSize: 13,
-    fontWeight: "800",
+    ...theme.text("label", "ink"),
   },
   segmentRow: {
     flexDirection: "row",
@@ -297,7 +292,7 @@ const styles = StyleSheet.create({
   },
   segmentButton: {
     alignItems: "center",
-    borderColor: "#cbd5e1",
+    borderColor: colors.line,
     borderRadius: 8,
     borderWidth: 1,
     flex: 1,
@@ -306,20 +301,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   segmentActive: {
-    backgroundColor: "#111827",
-    borderColor: "#111827",
+    backgroundColor: colors.ink,
+    borderColor: colors.ink,
   },
   segmentText: {
-    color: "#334155",
-    fontSize: 13,
-    fontWeight: "800",
+    ...theme.text("label", "ink"),
     textAlign: "center",
   },
   segmentTextActive: {
-    color: "#ffffff",
+    color: colors.surface,
   },
   actionRow: {
-    borderTopColor: "#e2e8f0",
+    borderTopColor: colors.line,
     borderTopWidth: 1,
     flexDirection: "row",
     gap: 10,
@@ -329,20 +322,18 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     alignItems: "center",
-    backgroundColor: "#0f766e",
+    backgroundColor: colors.teal,
     borderRadius: 8,
     flex: 1,
     justifyContent: "center",
     minHeight: 50,
   },
   primaryText: {
-    color: "#ffffff",
-    fontSize: 15,
-    fontWeight: "800",
+    ...theme.text("body", "surface"),
   },
   deleteButton: {
     alignItems: "center",
-    borderColor: "#fecaca",
+    borderColor: colors.danger,
     borderRadius: 8,
     borderWidth: 1,
     justifyContent: "center",
@@ -350,17 +341,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
   },
   deleteText: {
-    color: "#b91c1c",
-    fontSize: 15,
-    fontWeight: "800",
+    ...theme.text("body", "danger"),
   },
   disabled: {
     opacity: 0.58,
   },
   error: {
-    color: "#b91c1c",
-    fontSize: 14,
-    lineHeight: 20,
+    ...theme.text("body", "danger"),
     marginTop: 14,
   },
 });
+}

@@ -1,3 +1,6 @@
+import { useMemo } from "react";
+import { useTheme } from "../lib/theme";
+import type { Theme } from "../lib/theme";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 export type OnboardingStep = 1 | 2 | 3;
@@ -15,6 +18,8 @@ export function OnboardingProgress({
   currentStep: OnboardingStep;
   onSelectStep: (step: OnboardingStep) => void;
 }) {
+  const theme = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   return (
     <View style={styles.row}>
       {steps.map(({ step, label }) => {
@@ -65,7 +70,9 @@ export function OnboardingProgress({
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(theme: Theme) {
+  const { colors } = theme;
+  return StyleSheet.create({
   row: {
     flexDirection: "row",
     gap: 8,
@@ -81,16 +88,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 9,
   },
   stepCurrent: {
-    backgroundColor: "#111827",
-    borderColor: "#111827",
+    backgroundColor: colors.ink,
+    borderColor: colors.ink,
   },
   stepComplete: {
-    backgroundColor: "#ffffff",
-    borderColor: "#cbd5e1",
+    backgroundColor: colors.surface,
+    borderColor: colors.line,
   },
   stepPending: {
-    backgroundColor: "#ffffff",
-    borderColor: "#e2e8f0",
+    backgroundColor: colors.surface,
+    borderColor: colors.line,
   },
   badge: {
     alignItems: "center",
@@ -101,26 +108,26 @@ const styles = StyleSheet.create({
     width: 22,
   },
   badgeCurrent: {
-    borderColor: "#ffffff",
+    borderColor: colors.surface,
   },
   badgeComplete: {
-    borderColor: "#111827",
+    borderColor: colors.ink,
   },
   badgePending: {
-    borderColor: "#94a3b8",
+    borderColor: colors.inkMuted,
   },
   badgeText: {
     fontSize: 11,
     fontWeight: "800",
   },
   badgeTextCurrent: {
-    color: "#ffffff",
+    color: colors.surface,
   },
   badgeTextComplete: {
-    color: "#111827",
+    color: colors.ink,
   },
   badgeTextPending: {
-    color: "#94a3b8",
+    color: colors.inkMuted,
   },
   label: {
     flex: 1,
@@ -128,12 +135,13 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   labelCurrent: {
-    color: "#ffffff",
+    color: colors.surface,
   },
   labelComplete: {
-    color: "#111827",
+    color: colors.ink,
   },
   labelPending: {
-    color: "#94a3b8",
+    color: colors.inkMuted,
   },
 });
+}

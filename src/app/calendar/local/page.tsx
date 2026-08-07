@@ -169,11 +169,11 @@ function eventOverlapsHour(event: CalendarEvent, hour: number) {
 }
 
 function eventColor(category: CalendarEvent["category"]) {
-  if (category === "work") return "border-blue-200 bg-blue-50 text-blue-900";
-  if (category === "study") return "border-amber-200 bg-amber-50 text-amber-950";
-  if (category === "personal") return "border-emerald-200 bg-emerald-50 text-emerald-950";
-  if (category === "unavailable") return "border-zinc-300 bg-zinc-100 text-zinc-800";
-  return "border-violet-200 bg-violet-50 text-violet-950";
+  if (category === "work") return "border-focus/30 bg-focus/10 text-focus";
+  if (category === "study") return "border-warning/40 bg-warning/10 text-warning";
+  if (category === "personal") return "border-success/40 bg-success/10 text-success";
+  if (category === "unavailable") return "border-line bg-surface2 text-ink-muted";
+  return "border-goal/30 bg-goal/10 text-goal";
 }
 
 function clickStartedOnEvent(clickEvent: MouseEvent<HTMLElement>) {
@@ -213,7 +213,7 @@ function ViewSwitcher({
 }) {
   return (
     <div
-      className="rounded-lg border border-zinc-300 bg-white p-1 shadow-sm"
+      className="rounded-lg border border-line bg-surface p-1 shadow-sm"
       style={{ display: "inline-flex", alignItems: "stretch", height: "2.75rem", width: "fit-content" }}
     >
       {calendarViews.map((view) => {
@@ -222,7 +222,7 @@ function ViewSwitcher({
         return (
           <Link
             className={`inline-flex items-center rounded-md px-4 text-sm font-medium capitalize transition ${
-              isActive ? "bg-zinc-900 text-white" : "text-zinc-700 hover:bg-zinc-100 hover:text-zinc-950"
+              isActive ? "bg-teal text-on-teal" : "text-ink-muted hover:bg-surface2 hover:text-ink"
             }`}
             href={calendarHref(view, currentDate)}
             key={view}
@@ -247,17 +247,17 @@ function CalendarNavigation({
 
   return (
     <div
-      className="rounded-lg border border-zinc-300 bg-white shadow-sm"
+      className="rounded-lg border border-line bg-surface shadow-sm"
       style={{ display: "inline-flex", alignItems: "stretch", height: "2.75rem", width: "fit-content" }}
     >
       <Link
-        className="inline-flex items-center border-r border-zinc-300 px-4 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 hover:text-zinc-950"
+        className="inline-flex items-center border-r border-line px-4 text-sm font-medium text-ink-muted transition hover:bg-surface2 hover:text-ink"
         href={calendarHref(currentView, previousDate)}
       >
         Previous
       </Link>
       <Link
-        className="inline-flex items-center px-4 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 hover:text-zinc-950"
+        className="inline-flex items-center px-4 text-sm font-medium text-ink-muted transition hover:bg-surface2 hover:text-ink"
         href={calendarHref(currentView, nextDate)}
       >
         Next
@@ -303,14 +303,14 @@ function MonthCalendar({
   todayKey: string;
 }) {
   return (
-    <section className="overflow-x-auto rounded-lg border border-zinc-200 bg-white shadow-sm">
+    <section className="overflow-x-auto rounded-lg border border-line bg-surface shadow-sm">
       <div className="min-w-[44rem]">
         <div
-          className="border-b border-zinc-200 bg-zinc-50"
+          className="border-b border-line bg-surface2"
           style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))" }}
         >
           {weekdayLabels.map((label) => (
-            <div className="px-3 py-3 text-center text-xs font-semibold uppercase tracking-wide text-zinc-500" key={label}>
+            <div className="px-3 py-3 text-center text-xs font-semibold uppercase tracking-wide text-ink-muted" key={label}>
               {label}
             </div>
           ))}
@@ -319,7 +319,7 @@ function MonthCalendar({
         <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))" }}>
           {monthDays.map((day, index) => {
             if (!day) {
-              return <div className="min-h-32 border-r border-t border-zinc-100 bg-zinc-50/70" key={`blank-${index}`} />;
+              return <div className="min-h-32 border-r border-t border-line bg-surface2/70" key={`blank-${index}`} />;
             }
 
             const dateKey = toDateKey(day);
@@ -328,8 +328,8 @@ function MonthCalendar({
 
             return (
               <div
-                className={`min-h-32 border-r border-t border-zinc-100 p-2 text-left transition hover:bg-zinc-50 ${
-                  isToday ? "bg-sky-50" : "bg-white"
+                className={`min-h-32 border-r border-t border-line p-2 text-left transition hover:bg-surface2 ${
+                  isToday ? "bg-teal/10" : "bg-surface"
                 }`}
                 key={dateKey}
                 onClick={(clickEvent) => {
@@ -342,7 +342,7 @@ function MonthCalendar({
                 <div className="mb-2 flex items-center justify-between">
                   <span
                     className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold ${
-                      isToday ? "bg-zinc-900 text-white" : "text-zinc-800"
+                      isToday ? "bg-teal text-on-teal" : "text-ink"
                     }`}
                   >
                     {day.getDate()}
@@ -354,7 +354,7 @@ function MonthCalendar({
                     <EventPill event={event} key={event.id} onEditEvent={onEditEvent} />
                   ))}
                   {events.length > 3 ? (
-                    <p className="px-1 text-xs font-medium text-zinc-500">+{events.length - 3} more</p>
+                    <p className="px-1 text-xs font-medium text-ink-muted">+{events.length - 3} more</p>
                   ) : null}
                 </div>
               </div>
@@ -382,13 +382,13 @@ function WeekCalendar({
   const hours = Array.from({ length: 24 }, (_, index) => index);
 
   return (
-    <section className="overflow-x-auto rounded-lg border border-zinc-200 bg-white shadow-sm">
+    <section className="overflow-x-auto rounded-lg border border-line bg-surface shadow-sm">
       <div className="min-w-[56rem]">
         <div
-          className="border-b border-zinc-200 bg-zinc-50"
+          className="border-b border-line bg-surface2"
           style={{ display: "grid", gridTemplateColumns: "4.5rem repeat(7, minmax(0, 1fr))" }}
         >
-          <div className="border-r border-zinc-200 px-3 py-3 text-xs font-semibold uppercase tracking-wide text-zinc-400">
+          <div className="border-r border-line px-3 py-3 text-xs font-semibold uppercase tracking-wide text-ink-muted">
             Time
           </div>
           {weekDays.map((day) => {
@@ -396,9 +396,9 @@ function WeekCalendar({
             const isToday = dateKey === todayKey;
 
             return (
-              <div className={`border-r border-zinc-200 px-3 py-3 text-center ${isToday ? "bg-sky-50" : ""}`} key={dateKey}>
-                <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">{weekdayLabels[day.getDay()]}</p>
-                <p className={`mt-1 text-lg font-semibold ${isToday ? "text-zinc-950" : "text-zinc-800"}`}>{day.getDate()}</p>
+              <div className={`border-r border-line px-3 py-3 text-center ${isToday ? "bg-teal/10" : ""}`} key={dateKey}>
+                <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">{weekdayLabels[day.getDay()]}</p>
+                <p className={`mt-1 text-lg font-semibold ${isToday ? "text-ink" : "text-ink"}`}>{day.getDate()}</p>
               </div>
             );
           })}
@@ -406,11 +406,11 @@ function WeekCalendar({
 
         {hours.map((hour) => (
           <div
-            className="border-t border-zinc-200"
+            className="border-t border-line"
             key={hour}
             style={{ display: "grid", gridTemplateColumns: "4.5rem repeat(7, minmax(0, 1fr))" }}
           >
-            <div className="border-r border-zinc-200 bg-zinc-50 px-3 py-2 text-right text-xs font-medium text-zinc-500">
+            <div className="border-r border-line bg-surface2 px-3 py-2 text-right text-xs font-medium text-ink-muted">
               {formatHour(hour)}
             </div>
             {weekDays.map((day) => {
@@ -421,8 +421,8 @@ function WeekCalendar({
               if (events.length === 0) {
                 return (
                   <div
-                    className={`min-h-11 border-r border-zinc-100 p-1 text-left transition hover:bg-zinc-50 ${
-                      isToday ? "bg-sky-50/60" : "bg-white"
+                    className={`min-h-11 border-r border-line p-1 text-left transition hover:bg-surface2 ${
+                      isToday ? "bg-teal/10" : "bg-surface"
                     }`}
                     key={`${dateKey}-${hour}`}
                     onClick={() => onSelectSlot(slotForHour(dateKey, hour))}
@@ -434,8 +434,8 @@ function WeekCalendar({
 
               return (
                 <div
-                  className={`min-h-11 border-r border-zinc-100 p-1 text-left ${
-                    isToday ? "bg-sky-50/60" : "bg-white"
+                  className={`min-h-11 border-r border-line p-1 text-left ${
+                    isToday ? "bg-teal/10" : "bg-surface"
                   }`}
                   key={`${dateKey}-${hour}`}
                 >
@@ -482,18 +482,18 @@ function DayCalendar({
   const hours = Array.from({ length: 24 }, (_, index) => index);
 
   return (
-    <section className="overflow-x-auto rounded-lg border border-zinc-200 bg-white shadow-sm">
+    <section className="overflow-x-auto rounded-lg border border-line bg-surface shadow-sm">
       <div className="min-w-[34rem]">
         <div
-          className="border-b border-zinc-200 bg-zinc-50"
+          className="border-b border-line bg-surface2"
           style={{ display: "grid", gridTemplateColumns: "4.5rem minmax(0, 1fr)" }}
         >
-          <div className="border-r border-zinc-200 px-3 py-3 text-xs font-semibold uppercase tracking-wide text-zinc-400">
+          <div className="border-r border-line px-3 py-3 text-xs font-semibold uppercase tracking-wide text-ink-muted">
             Time
           </div>
           <div className="px-3 py-3 text-center">
-            <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">{weekdayLabels[day.getDay()]}</p>
-            <p className="mt-1 text-lg font-semibold text-zinc-800">{formatDay(day)}</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">{weekdayLabels[day.getDay()]}</p>
+            <p className="mt-1 text-lg font-semibold text-ink">{formatDay(day)}</p>
           </div>
         </div>
 
@@ -502,22 +502,22 @@ function DayCalendar({
 
           return (
             <div
-              className="border-t border-zinc-200"
+              className="border-t border-line"
               key={hour}
               style={{ display: "grid", gridTemplateColumns: "4.5rem minmax(0, 1fr)" }}
             >
-              <div className="border-r border-zinc-200 bg-zinc-50 px-3 py-2 text-right text-xs font-medium text-zinc-500">
+              <div className="border-r border-line bg-surface2 px-3 py-2 text-right text-xs font-medium text-ink-muted">
                 {formatHour(hour)}
               </div>
               {hourEvents.length === 0 ? (
                 <div
-                  className="min-h-11 bg-white p-1 text-left transition hover:bg-zinc-50"
+                  className="min-h-11 bg-surface p-1 text-left transition hover:bg-surface2"
                   onClick={() => onSelectSlot(slotForHour(dateKey, hour))}
                   role="button"
                   tabIndex={0}
                 />
               ) : (
-                <div className="min-h-11 bg-white p-1 text-left">
+                <div className="min-h-11 bg-surface p-1 text-left">
                   <div className="space-y-1">
                     {hourEvents.map((event) => (
                       <button
@@ -561,23 +561,23 @@ function EventModal({
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/50 px-4">
-      <div className="w-full max-w-lg rounded-lg border border-zinc-200 bg-white p-6 shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-teal/50 px-4">
+      <div className="w-full max-w-lg rounded-lg border border-line bg-surface p-6 shadow-xl">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
-            <p className="text-sm font-medium uppercase tracking-wide text-zinc-500">{isEditing ? "Edit event" : "New event"}</p>
-            <h2 className="mt-1 text-2xl font-semibold text-zinc-900">{form.date}</h2>
+            <p className="text-sm font-medium uppercase tracking-wide text-ink-muted">{isEditing ? "Edit event" : "New event"}</p>
+            <h2 className="mt-1 text-2xl font-semibold text-ink">{form.date}</h2>
           </div>
-          <button className="rounded-md px-2 py-1 text-sm text-zinc-600 hover:bg-zinc-100" onClick={onClose} type="button">
+          <button className="rounded-md px-2 py-1 text-sm text-ink-muted hover:bg-surface2" onClick={onClose} type="button">
             Close
           </button>
         </div>
 
         <form className="space-y-4" onSubmit={onSubmit}>
           <label className="block">
-            <span className="text-sm font-medium text-zinc-800">Title</span>
+            <span className="text-sm font-medium text-ink">Title</span>
             <input
-              className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900"
+              className="mt-1 w-full rounded-lg border border-line px-3 py-2 text-sm text-ink"
               onChange={(event) => onChange({ title: event.target.value })}
               placeholder="Event title"
               value={form.title}
@@ -586,27 +586,27 @@ function EventModal({
 
           <div className="grid gap-3 sm:grid-cols-3">
             <label className="block">
-              <span className="text-sm font-medium text-zinc-800">Date</span>
+              <span className="text-sm font-medium text-ink">Date</span>
               <input
-                className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900"
+                className="mt-1 w-full rounded-lg border border-line px-3 py-2 text-sm text-ink"
                 onChange={(event) => onChange({ date: event.target.value })}
                 type="date"
                 value={form.date}
               />
             </label>
             <label className="block">
-              <span className="text-sm font-medium text-zinc-800">Start</span>
+              <span className="text-sm font-medium text-ink">Start</span>
               <input
-                className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900"
+                className="mt-1 w-full rounded-lg border border-line px-3 py-2 text-sm text-ink"
                 onChange={(event) => onChange({ startTime: event.target.value })}
                 type="time"
                 value={form.startTime}
               />
             </label>
             <label className="block">
-              <span className="text-sm font-medium text-zinc-800">End</span>
+              <span className="text-sm font-medium text-ink">End</span>
               <input
-                className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900"
+                className="mt-1 w-full rounded-lg border border-line px-3 py-2 text-sm text-ink"
                 onChange={(event) => onChange({ endTime: event.target.value })}
                 type="time"
                 value={form.endTime}
@@ -616,9 +616,9 @@ function EventModal({
 
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block">
-              <span className="text-sm font-medium text-zinc-800">Category</span>
+              <span className="text-sm font-medium text-ink">Category</span>
               <select
-                className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm capitalize text-zinc-900"
+                className="mt-1 w-full rounded-lg border border-line px-3 py-2 text-sm capitalize text-ink"
                 onChange={(event) => onChange({ category: event.target.value as ScheduleBlockCategory })}
                 value={form.category}
               >
@@ -631,9 +631,9 @@ function EventModal({
             </label>
 
             <label className="block">
-              <span className="text-sm font-medium text-zinc-800">Repeat</span>
+              <span className="text-sm font-medium text-ink">Repeat</span>
               <select
-                className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900"
+                className="mt-1 w-full rounded-lg border border-line px-3 py-2 text-sm text-ink"
                 onChange={(event) => onChange({ recurrence: event.target.value as EventFormState["recurrence"] })}
                 value={form.recurrence}
               >
@@ -643,13 +643,13 @@ function EventModal({
             </label>
           </div>
 
-          {error ? <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
+          {error ? <p className="rounded-lg border border-danger bg-surface px-3 py-2 text-sm text-danger">{error}</p> : null}
 
           <div className="flex justify-end gap-3 pt-2">
-            <button className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700" onClick={onClose} type="button">
+            <button className="rounded-lg border border-line px-4 py-2 text-sm font-medium text-ink-muted" onClick={onClose} type="button">
               Cancel
             </button>
-            <button className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white" type="submit">
+            <button className="rounded-lg bg-teal px-4 py-2 text-sm font-medium text-on-teal" type="submit">
               {isEditing ? "Save changes" : "Add event"}
             </button>
           </div>
@@ -938,7 +938,7 @@ export default function LocalCalendarPage() {
   return (
     <main className="relative mx-auto min-h-screen w-full max-w-6xl px-6 py-12">
       <Link
-        className="text-sm font-medium text-zinc-700 underline"
+        className="text-sm font-medium text-ink-muted underline"
         href="/"
         style={{ position: "fixed", right: "1.5rem", top: "1.5rem", zIndex: 20 }}
       >
@@ -947,27 +947,27 @@ export default function LocalCalendarPage() {
 
       <header className="mb-8 pr-24">
         <div>
-          <p className="text-sm font-medium uppercase tracking-wide text-zinc-500">Local calendar</p>
-          <h1 className="text-3xl font-semibold tracking-tight text-zinc-900">{title}</h1>
-          <p className="mt-2 max-w-2xl text-zinc-700">
+          <p className="text-sm font-medium uppercase tracking-wide text-ink-muted">Local calendar</p>
+          <h1 className="text-3xl font-semibold tracking-tight text-ink">{title}</h1>
+          <p className="mt-2 max-w-2xl text-ink-muted">
             A simple local calendar view powered by the app&apos;s calendar model.
           </p>
         </div>
       </header>
 
       {isLoadingCalendar ? (
-        <section className="rounded-lg border border-zinc-200 bg-white p-6 text-zinc-700 shadow-sm">
+        <section className="rounded-lg border border-line bg-surface p-6 text-ink-muted shadow-sm">
           Loading calendar...
         </section>
       ) : !userId ? (
-        <section className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
-          <p className="text-zinc-700">Sign in to save calendar events.</p>
-          <Link className="mt-4 inline-flex rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white" href="/auth">
+        <section className="rounded-lg border border-line bg-surface p-6 shadow-sm">
+          <p className="text-ink-muted">Sign in to save calendar events.</p>
+          <Link className="mt-4 inline-flex rounded-lg bg-teal px-4 py-2 text-sm font-medium text-on-teal" href="/auth">
             Go to auth
           </Link>
         </section>
       ) : loadError ? (
-        <section className="rounded-lg border border-red-200 bg-red-50 p-6 text-sm text-red-700 shadow-sm">
+        <section className="rounded-lg border border-danger bg-surface p-6 text-sm text-danger shadow-sm">
           {loadError}
         </section>
       ) : (
@@ -1015,9 +1015,9 @@ export default function LocalCalendarPage() {
           )}
         </div>
 
-        <aside className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
-          <p className="text-sm font-medium uppercase tracking-wide text-zinc-500">Today</p>
-          <h2 className="mt-1 text-xl font-semibold text-zinc-900">June 8</h2>
+        <aside className="rounded-lg border border-line bg-surface p-5 shadow-sm">
+          <p className="text-sm font-medium uppercase tracking-wide text-ink-muted">Today</p>
+          <h2 className="mt-1 text-xl font-semibold text-ink">June 8</h2>
 
           <div className="mt-5 space-y-3">
             {todayEvents.map((event) => (
@@ -1035,11 +1035,11 @@ export default function LocalCalendarPage() {
             ))}
           </div>
 
-          <div className="mt-6 border-t border-zinc-200 pt-5">
-            <p className="text-sm font-medium text-zinc-900">Free windows</p>
+          <div className="mt-6 border-t border-line pt-5">
+            <p className="text-sm font-medium text-ink">Free windows</p>
             <ul className="mt-3 space-y-2">
               {calendar.getFreeWindows(todayKey, "08:00", "20:00").map((window) => (
-                <li className="rounded-lg bg-zinc-50 px-3 py-2 text-sm text-zinc-700" key={`${window.startTime}-${window.endTime}`}>
+                <li className="rounded-lg bg-surface2 px-3 py-2 text-sm text-ink-muted" key={`${window.startTime}-${window.endTime}`}>
                   {window.startTime} - {window.endTime}
                 </li>
               ))}

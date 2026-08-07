@@ -27,17 +27,17 @@ export default async function SavedMealsPage() {
     <main className="mx-auto min-h-screen w-full max-w-4xl px-6 py-12">
       <div className="mb-8 flex items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-medium uppercase tracking-wide text-zinc-500">Tracking</p>
-          <h1 className="text-3xl font-semibold tracking-tight text-zinc-900">Saved meals</h1>
-          <p className="mt-2 max-w-2xl text-zinc-700">Track a saved meal again without re-entering its macros.</p>
+          <p className="text-sm font-medium uppercase tracking-wide text-ink-muted">Tracking</p>
+          <h1 className="text-3xl font-semibold tracking-tight text-ink">Saved meals</h1>
+          <p className="mt-2 max-w-2xl text-ink-muted">Track a saved meal again without re-entering its macros.</p>
         </div>
-        <Link className="text-sm text-zinc-600 underline" href="/tracking/meals">
+        <Link className="text-sm text-ink-muted underline" href="/tracking/meals">
           Back to meals
         </Link>
       </div>
 
       {error ? (
-        <p className="mb-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <p className="mb-4 rounded-lg border border-danger bg-surface px-4 py-3 text-sm text-danger">
           Error: {error.message}
         </p>
       ) : null}
@@ -47,8 +47,8 @@ export default async function SavedMealsPage() {
       <div className="grid gap-6 lg:grid-cols-[1fr_0.9fr]">
         <SavedMealForm />
 
-        <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-zinc-900">Trackable meals</h2>
+        <section className="rounded-2xl border border-line bg-surface p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-ink">Trackable meals</h2>
           <SavedMealList savedMeals={savedMeals} />
         </section>
       </div>

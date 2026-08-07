@@ -27,10 +27,10 @@ export function OnboardingProgress({ currentStep }: { currentStep: 1 | 2 | 3 }) 
                 className={[
                   "flex items-center gap-3 rounded-lg border px-3 py-2 text-sm",
                   isCurrent
-                    ? "border-zinc-900 bg-zinc-900 text-white"
+                    ? "border-teal bg-teal text-on-teal"
                     : isComplete
-                      ? "border-zinc-300 bg-white text-zinc-900"
-                      : "border-zinc-200 bg-white text-zinc-500",
+                      ? "border-line bg-surface text-ink"
+                      : "border-line bg-surface text-ink-muted",
                 ].join(" ")}
                 href={step.href}
               >

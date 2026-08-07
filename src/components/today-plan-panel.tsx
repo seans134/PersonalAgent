@@ -2,12 +2,20 @@
 
 import { useReducer } from "react";
 import type { TodayPlanResponse } from "@/lib/planner/client-types";
-import { TodayPlanCalendar } from "./today-plan-calendar";
+import { TodayPlanMeridian } from "./today-plan-meridian";
 import {
   initialTodayPlanState,
   parseTodayPlanResponse,
   reduceTodayPlanState,
 } from "./today-plan-state";
+
+const legend = [
+  { key: "goal", label: "Goal", color: "var(--color-goal)" },
+  { key: "focus", label: "Focus", color: "var(--color-focus)" },
+  { key: "fitness", label: "Fitness", color: "var(--color-fitness)" },
+  { key: "wellness", label: "Wellness", color: "var(--color-wellness)" },
+  { key: "commit", label: "Fixed", color: "var(--color-commit)" },
+];
 
 function formatGeneratedAt(value: string): string {
   const date = new Date(value);
@@ -37,6 +45,15 @@ async function requestTodayPlan(): Promise<TodayPlanResponse> {
   return parseTodayPlanResponse(payload);
 }
 
+function StatTile({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="rounded-[12px] border border-line bg-surface2 px-4 py-3">
+      <p className="font-mono text-[11px] uppercase tracking-[0.1em] text-ink-muted">{label}</p>
+      <p className="mt-1.5 font-display text-2xl font-bold tracking-tight text-teal">{value}</p>
+    </div>
+  );
+}
+
 export function TodayPlanPanel() {
   const [state, dispatch] = useReducer(reduceTodayPlanState, initialTodayPlanState);
 
@@ -58,46 +75,37 @@ export function TodayPlanPanel() {
   }
 
   return (
-    <section className="space-y-4 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+    <section className="space-y-4 rounded-[16px] border border-line bg-surface p-6 shadow-[var(--shadow-sm)]">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-semibold text-zinc-900">Today&apos;s Plan</h2>
-          <p className="text-sm text-zinc-600">Generate actions from your goals, preferences, and calendar.</p>
+          <h2 className="font-display text-xl font-bold tracking-tight text-ink">Today, charted</h2>
+          <p className="text-sm text-ink-muted">A route through your day from your goals, preferences, and calendar.</p>
         </div>
         <button
-          className="inline-flex rounded-lg bg-zinc-900 px-5 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex items-center rounded-[11px] bg-teal px-5 py-2.5 font-display text-sm font-medium text-on-teal transition hover:bg-teal-strong disabled:cursor-not-allowed disabled:opacity-60"
           disabled={isLoading}
           onClick={handleGeneratePlan}
           type="button"
         >
-          {isLoading ? "Generating..." : "Generate Today Plan"}
+          {isLoading ? "Charting..." : "Generate today"}
         </button>
       </div>
 
       {errorMessage ? (
-        <p className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">{errorMessage}</p>
+        <p className="rounded-[11px] border border-danger border-l-[3px] bg-surface px-4 py-3 text-sm text-danger">{errorMessage}</p>
       ) : null}
 
       {planData ? (
         <div className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-lg bg-zinc-50 p-4">
-              <p className="text-xs uppercase tracking-wide text-zinc-500">Goals Used</p>
-              <p className="mt-2 text-2xl font-semibold text-zinc-900">{planData.meta.goalsCount}</p>
-            </div>
-            <div className="rounded-lg bg-zinc-50 p-4">
-              <p className="text-xs uppercase tracking-wide text-zinc-500">Events Considered</p>
-              <p className="mt-2 text-2xl font-semibold text-zinc-900">{planData.meta.eventsCount}</p>
-            </div>
-            <div className="rounded-lg bg-zinc-50 p-4">
-              <p className="text-xs uppercase tracking-wide text-zinc-500">Generated</p>
-              <p className="mt-2 text-sm font-medium text-zinc-900">{formatGeneratedAt(planData.meta.generatedAt)}</p>
-            </div>
+            <StatTile label="Goals used" value={planData.meta.goalsCount} />
+            <StatTile label="Events" value={planData.meta.eventsCount} />
+            <StatTile label="Moves" value={planData.plan.items.length} />
           </div>
 
           {planData.meta.warnings.length > 0 ? (
-            <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-              <p className="font-medium">Warnings</p>
+            <div className="rounded-[11px] border border-warning border-l-[3px] bg-surface px-4 py-3 text-sm text-warning">
+              <p className="font-semibold">Heads up</p>
               <ul className="mt-1 list-disc pl-5">
                 {planData.meta.warnings.map((warning) => (
                   <li key={warning}>{warning}</li>
@@ -107,20 +115,33 @@ export function TodayPlanPanel() {
           ) : null}
 
           {planData.plan.explanation ? (
-            <p className="rounded-lg border border-zinc-300 bg-zinc-50 px-4 py-3 text-sm text-zinc-700">{planData.plan.explanation}</p>
+            <p className="rounded-[11px] border border-line bg-surface2 px-4 py-3 text-sm text-ink-muted">{planData.plan.explanation}</p>
           ) : null}
           {planData.summary ? (
-            <p className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-700">{planData.summary}</p>
+            <p className="rounded-[11px] border border-line border-l-[3px] border-l-teal bg-surface2 px-4 py-3 text-sm text-ink">{planData.summary}</p>
           ) : null}
 
-          <TodayPlanCalendar
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h3 className="font-display text-lg font-bold tracking-tight text-ink">Your day</h3>
+            <div className="flex flex-wrap gap-3">
+              {legend.map((entry) => (
+                <span className="flex items-center gap-1.5" key={entry.key}>
+                  <span className="h-2.5 w-2.5 rotate-45 rounded-[2px]" style={{ background: entry.color }} />
+                  <span className="font-mono text-[11px] text-ink-muted">{entry.label}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <TodayPlanMeridian
             contextEvents={planData.contextEvents}
             generatedAt={planData.meta.generatedAt}
             items={planData.plan.items}
           />
+          <p className="text-right font-mono text-[11px] text-ink-muted">Charted {formatGeneratedAt(planData.meta.generatedAt)}</p>
         </div>
       ) : (
-        <p className="text-sm text-zinc-600">No plan generated yet.</p>
+        <p className="text-sm text-ink-muted">No plan yet — generate one to chart your day.</p>
       )}
     </section>
   );

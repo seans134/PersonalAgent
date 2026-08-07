@@ -58,46 +58,45 @@ export default async function Home() {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-4xl flex-col px-6 py-12">
       <header className="mb-8">
-        <div>
-          <p className="text-sm font-medium uppercase tracking-wide text-zinc-500">Atlas</p>
-          <h1 className="text-4xl font-semibold tracking-tight text-zinc-900">Personal AI life agent</h1>
-          <p className="mt-3 max-w-xl text-zinc-700">
-            Phase 1 is live: authentication, schedule setup, goals, and daily planning.
-          </p>
-        </div>
+        <p className="flex items-center gap-2.5 font-mono text-[12px] uppercase tracking-[0.14em] text-teal">
+          <span className="inline-block h-px w-6 bg-teal" aria-hidden="true" />
+          Atlas
+        </p>
+        <h1 className="mt-3 text-balance font-display text-4xl font-bold tracking-tight text-ink">Your day, charted.</h1>
+        <p className="mt-3 max-w-xl text-ink-muted">
+          Goals, calendar, meals, and training — routed into a single plan, with the times kept honest.
+        </p>
       </header>
 
       {!user ? (
-        <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-          <p className="mb-4 text-zinc-700">Sign in to start onboarding.</p>
-          <Link className="inline-flex rounded-lg bg-zinc-900 px-5 py-2 text-sm font-medium text-white" href="/auth">
-            Go to auth
+        <section className="rounded-[16px] border border-line bg-surface p-6 shadow-[var(--shadow-sm)]">
+          <p className="mb-4 text-ink-muted">Sign in to start charting your day.</p>
+          <Link
+            className="inline-flex rounded-[11px] bg-teal px-5 py-2.5 font-display text-sm font-medium text-on-teal transition hover:bg-teal-strong"
+            href="/auth"
+          >
+            Sign in
           </Link>
         </section>
       ) : (
         <div className="space-y-4">
-          <section className="space-y-4 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-            <p className="text-sm text-zinc-600">Signed in as {user.email}</p>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-lg bg-zinc-50 p-4">
-                <p className="text-xs uppercase tracking-wide text-zinc-500">Active goals</p>
-                <p className="mt-2 text-2xl font-semibold text-zinc-900">{activeGoalsCount ?? 0}</p>
-              </div>
-              <div className="rounded-lg bg-zinc-50 p-4">
-                <p className="text-xs uppercase tracking-wide text-zinc-500">Completed goals</p>
-                <p className="mt-2 text-2xl font-semibold text-zinc-900">{completedGoalsCount ?? 0}</p>
-              </div>
-              <div className="rounded-lg bg-zinc-50 p-4">
-                <p className="text-xs uppercase tracking-wide text-zinc-500">Meals logged today</p>
-                <p className="mt-2 text-2xl font-semibold text-zinc-900">{mealsLoggedCount ?? 0}</p>
-              </div>
-              <div className="rounded-lg bg-zinc-50 p-4">
-                <p className="text-xs uppercase tracking-wide text-zinc-500">Workouts logged today</p>
-                <p className="mt-2 text-2xl font-semibold text-zinc-900">{workoutsLoggedCount ?? 0}</p>
-              </div>
+          <section className="space-y-4 rounded-[16px] border border-line bg-surface p-6 shadow-[var(--shadow-sm)]">
+            <p className="font-mono text-[12px] text-ink-muted">Signed in as {user.email}</p>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {[
+                { label: "Active goals", value: activeGoalsCount ?? 0 },
+                { label: "Completed", value: completedGoalsCount ?? 0 },
+                { label: "Meals today", value: mealsLoggedCount ?? 0 },
+                { label: "Workouts today", value: workoutsLoggedCount ?? 0 },
+              ].map((stat) => (
+                <div className="rounded-[12px] border border-line bg-surface2 p-4" key={stat.label}>
+                  <p className="font-mono text-[11px] uppercase tracking-[0.1em] text-ink-muted">{stat.label}</p>
+                  <p className="mt-1.5 font-display text-2xl font-bold tracking-tight text-ink">{stat.value}</p>
+                </div>
+              ))}
             </div>
-            <p className="text-sm text-zinc-700">
-              Work hours: {profile?.work_start_time ?? "--:--"} - {profile?.work_end_time ?? "--:--"} | Workout: {profile?.workout_preference ?? "none"}
+            <p className="font-mono text-[12px] text-ink-muted">
+              Work {profile?.work_start_time ?? "--:--"}–{profile?.work_end_time ?? "--:--"} · Workout: {profile?.workout_preference ?? "none"}
             </p>
           </section>
           <TodayPlanPanel />

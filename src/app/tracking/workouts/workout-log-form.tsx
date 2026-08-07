@@ -35,7 +35,7 @@ const methodsByType: Record<WorkoutType, { value: WorkoutTrackingMethod; label: 
 };
 
 const initialResult: TrackingActionResult = { ok: false };
-const inputClass = "w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-50 placeholder:text-zinc-300";
+const inputClass = "w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-muted";
 
 function Field({
   label,
@@ -54,7 +54,7 @@ function Field({
 }) {
   return (
     <div className="space-y-2">
-      <label className="block text-sm text-zinc-700" htmlFor={name}>
+      <label className="block text-sm text-ink-muted" htmlFor={name}>
         {label}
       </label>
       <input className={inputClass} id={name} min={min} name={name} placeholder={placeholder} step={step} type={type} />
@@ -175,15 +175,15 @@ export function WorkoutLogForm() {
   }
 
   return (
-    <form ref={formRef} onSubmit={handleSubmit} className="space-y-5 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+    <form ref={formRef} onSubmit={handleSubmit} className="space-y-5 rounded-2xl border border-line bg-surface p-6 shadow-sm">
       <div>
-        <h2 className="text-lg font-semibold text-zinc-900">Log a workout</h2>
-        <p className="mt-1 text-sm text-zinc-600">Choose the workout type, then track the details that fit it.</p>
+        <h2 className="text-lg font-semibold text-ink">Log a workout</h2>
+        <p className="mt-1 text-sm text-ink-muted">Choose the workout type, then track the details that fit it.</p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <label className="block text-sm text-zinc-700" htmlFor="workout_type">
+          <label className="block text-sm text-ink-muted" htmlFor="workout_type">
             Type
           </label>
           <select
@@ -202,7 +202,7 @@ export function WorkoutLogForm() {
         </div>
 
         <div className="space-y-2">
-          <label className="block text-sm text-zinc-700" htmlFor="tracking_method">
+          <label className="block text-sm text-ink-muted" htmlFor="tracking_method">
             Tracking
           </label>
           <select
@@ -225,7 +225,7 @@ export function WorkoutLogForm() {
         <Field label="Workout title" name="title" placeholder="Upper body" />
         <Field label="Duration minutes" min={1} name="duration_minutes" type="number" />
         <div className="space-y-2">
-          <label className="block text-sm text-zinc-700" htmlFor="intensity">
+          <label className="block text-sm text-ink-muted" htmlFor="intensity">
             Intensity
           </label>
           <select className={inputClass} defaultValue="moderate" id="intensity" name="intensity">
@@ -243,22 +243,22 @@ export function WorkoutLogForm() {
       </div>
 
       <div className="space-y-2">
-        <label className="block text-sm text-zinc-700" htmlFor="notes">
+        <label className="block text-sm text-ink-muted" htmlFor="notes">
           Notes
         </label>
         <textarea
-          className="min-h-20 w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-50 placeholder:text-zinc-300"
+          className="min-h-20 w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-muted"
           id="notes"
           name="notes"
           placeholder="Optional notes"
         />
       </div>
 
-      {result.error ? <p className="text-sm text-red-600">{result.error}</p> : null}
-      {result.ok ? <p className="text-sm text-emerald-700">Workout logged.</p> : null}
+      {result.error ? <p className="text-sm text-danger">{result.error}</p> : null}
+      {result.ok ? <p className="text-sm text-success">Workout logged.</p> : null}
 
       <button
-        className="rounded-lg bg-zinc-900 px-5 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+        className="rounded-lg bg-teal px-5 py-2 text-sm font-medium text-on-teal disabled:cursor-not-allowed disabled:opacity-60"
         disabled={pending}
         type="submit"
       >

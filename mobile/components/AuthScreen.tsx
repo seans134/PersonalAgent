@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useTheme } from "../lib/theme";
+import type { Theme } from "../lib/theme";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -17,6 +19,8 @@ import { supabase } from "../lib/supabase";
 type AuthMode = "sign-in" | "sign-up";
 
 export function AuthScreen({ initialMessage }: { initialMessage?: string }) {
+  const theme = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const [mode, setMode] = useState<AuthMode>("sign-in");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -94,7 +98,7 @@ export function AuthScreen({ initialMessage }: { initialMessage?: string }) {
           keyboardType="email-address"
           onChangeText={setEmail}
           placeholder="Email"
-          placeholderTextColor="#73808c"
+          placeholderTextColor={theme.colors.inkMuted}
           style={styles.input}
           textContentType="emailAddress"
           value={email}
@@ -104,7 +108,7 @@ export function AuthScreen({ initialMessage }: { initialMessage?: string }) {
           autoComplete={mode === "sign-in" ? "current-password" : "new-password"}
           onChangeText={setPassword}
           placeholder="Password"
-          placeholderTextColor="#73808c"
+          placeholderTextColor={theme.colors.inkMuted}
           secureTextEntry
           style={styles.input}
           textContentType={mode === "sign-in" ? "password" : "newPassword"}
@@ -121,7 +125,7 @@ export function AuthScreen({ initialMessage }: { initialMessage?: string }) {
             (pressed || loading) && styles.buttonPressed,
           ]}
         >
-          {loading ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.primaryText}>{actionLabel}</Text>}
+          {loading ? <ActivityIndicator color={theme.colors.surface} /> : <Text style={styles.primaryText}>{actionLabel}</Text>}
         </Pressable>
 
         {mode === "sign-in" ? (
@@ -153,7 +157,9 @@ export function AuthScreen({ initialMessage }: { initialMessage?: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(theme: Theme) {
+  const { colors } = theme;
+  return StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: "center",
@@ -163,38 +169,30 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   brand: {
-    color: "#0f766e",
-    fontSize: 18,
-    fontWeight: "800",
+    ...theme.text("title", "teal"),
     marginBottom: 8,
   },
   title: {
-    color: "#111827",
-    fontSize: 30,
-    fontWeight: "800",
-    lineHeight: 36,
+    ...theme.text("displayXl", "ink"),
   },
   form: {
     gap: 12,
   },
   input: {
-    backgroundColor: "#ffffff",
-    borderColor: "#cbd5e1",
+    ...theme.text("bodyLg", "ink"),
+    backgroundColor: colors.surface,
+    borderColor: colors.line,
     borderRadius: 8,
     borderWidth: 1,
-    color: "#111827",
-    fontSize: 16,
     minHeight: 52,
     paddingHorizontal: 14,
   },
   message: {
-    color: "#b91c1c",
-    fontSize: 14,
-    lineHeight: 20,
+    ...theme.text("body", "danger"),
   },
   primaryButton: {
     alignItems: "center",
-    backgroundColor: "#0f766e",
+    backgroundColor: colors.teal,
     borderRadius: 8,
     justifyContent: "center",
     minHeight: 52,
@@ -204,18 +202,14 @@ const styles = StyleSheet.create({
     opacity: 0.78,
   },
   primaryText: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "700",
+    ...theme.text("heading", "surface"),
   },
   secondaryButton: {
     alignItems: "center",
     padding: 12,
   },
   secondaryText: {
-    color: "#334155",
-    fontSize: 15,
-    fontWeight: "600",
+    ...theme.text("body", "ink"),
   },
   legalLinks: {
     flexDirection: "row",
@@ -224,9 +218,8 @@ const styles = StyleSheet.create({
     paddingTop: 6,
   },
   legalText: {
-    color: "#475569",
-    fontSize: 13,
-    fontWeight: "700",
+    ...theme.text("label", "inkMuted"),
     textDecorationLine: "underline",
   },
 });
+}

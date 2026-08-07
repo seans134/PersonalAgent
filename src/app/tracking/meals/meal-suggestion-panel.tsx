@@ -185,29 +185,29 @@ export function MealSuggestionPanel() {
   }
 
   return (
-    <section className="mb-6 space-y-4 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+    <section className="mb-6 space-y-4 rounded-2xl border border-line bg-surface p-6 shadow-sm">
       <div>
         <div>
-          <h2 className="text-lg font-semibold text-zinc-900">Atlas meal chat</h2>
-          <p className="mt-1 text-sm text-zinc-600">
+          <h2 className="text-lg font-semibold text-ink">Atlas meal chat</h2>
+          <p className="mt-1 text-sm text-ink-muted">
             Tell Atlas what sounds good, ask for alternatives, or say okay to log the current suggestion.
           </p>
         </div>
       </div>
 
-      {error ? <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
-      {message ? <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{message}</p> : null}
+      {error ? <p className="rounded-lg border border-danger bg-surface px-3 py-2 text-sm text-danger">{error}</p> : null}
+      {message ? <p className="rounded-lg border border-success bg-surface2 px-3 py-2 text-sm text-success">{message}</p> : null}
 
       <div className="space-y-3">
         {messages.length === 0 && isSuggesting ? (
-          <p className="rounded-lg bg-zinc-50 px-4 py-3 text-sm text-zinc-700">Atlas is checking today&apos;s meals, workouts, and calendar...</p>
+          <p className="rounded-lg bg-surface2 px-4 py-3 text-sm text-ink-muted">Atlas is checking today&apos;s meals, workouts, and calendar...</p>
         ) : null}
         {messages.map((chatMessage) => (
           <p
             className={
               chatMessage.role === "agent"
-                ? "max-w-[85%] rounded-lg bg-zinc-50 px-4 py-3 text-sm text-zinc-800"
-                : "ml-auto max-w-[85%] rounded-lg bg-zinc-900 px-4 py-3 text-sm text-white"
+                ? "max-w-[85%] rounded-lg bg-surface2 px-4 py-3 text-sm text-ink"
+                : "ml-auto max-w-[85%] rounded-lg bg-teal px-4 py-3 text-sm text-on-teal"
             }
             key={chatMessage.id}
           >
@@ -217,43 +217,43 @@ export function MealSuggestionPanel() {
       </div>
 
       {draft ? (
-        <div className="rounded-lg bg-zinc-50 p-4">
+        <div className="rounded-lg bg-surface2 p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="text-base font-semibold text-zinc-900">{draft.name}</p>
-              <p className="mt-1 text-sm text-zinc-600">
+              <p className="text-base font-semibold text-ink">{draft.name}</p>
+              <p className="mt-1 text-sm text-ink-muted">
                 {formatLoggedAt(draft.logged_at)} - {draft.meal_type}
               </p>
-              {draft.suggested_timing ? <p className="mt-1 text-sm text-zinc-600">{draft.suggested_timing}</p> : null}
+              {draft.suggested_timing ? <p className="mt-1 text-sm text-ink-muted">{draft.suggested_timing}</p> : null}
             </div>
-            <span className="rounded-full bg-zinc-900 px-2 py-1 text-xs font-medium text-white">
+            <span className="rounded-full bg-teal px-2 py-1 text-xs font-medium text-on-teal">
               {formatNumber(draft.calories)} cal
             </span>
           </div>
 
-          <div className="mt-3 grid gap-2 text-sm text-zinc-700 sm:grid-cols-4">
+          <div className="mt-3 grid gap-2 text-sm text-ink-muted sm:grid-cols-4">
             <p>Protein: {formatNumber(draft.protein_grams)}g</p>
             <p>Carbs: {formatNumber(draft.carbs_grams)}g</p>
             <p>Fat: {formatNumber(draft.fat_grams)}g</p>
             <p>Fiber: {formatNumber(draft.fiber_grams)}g</p>
           </div>
 
-          <p className="mt-3 text-sm text-zinc-700">{draft.suggestion_reason}</p>
-          {draft.target_alignment ? <p className="mt-2 text-sm text-zinc-700">{draft.target_alignment}</p> : null}
-          {draft.notes ? <p className="mt-2 text-sm text-zinc-600">{draft.notes}</p> : null}
+          <p className="mt-3 text-sm text-ink-muted">{draft.suggestion_reason}</p>
+          {draft.target_alignment ? <p className="mt-2 text-sm text-ink-muted">{draft.target_alignment}</p> : null}
+          {draft.notes ? <p className="mt-2 text-sm text-ink-muted">{draft.notes}</p> : null}
         </div>
       ) : null}
 
       <form className="flex flex-col gap-3 sm:flex-row" onSubmit={handleSubmit}>
         <input
-          className="min-w-0 flex-1 rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400"
+          className="min-w-0 flex-1 rounded-lg border border-line px-3 py-2 text-sm text-ink placeholder:text-ink-muted"
           disabled={isSuggesting || isApplying}
           onChange={(event) => setInput(event.target.value)}
           placeholder={draft ? "Say okay to log it, or ask for a change..." : "Ask Atlas for something specific..."}
           value={input}
         />
         <button
-          className="rounded-lg bg-zinc-900 px-5 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-lg bg-teal px-5 py-2 text-sm font-medium text-on-teal disabled:cursor-not-allowed disabled:opacity-60"
           disabled={isSuggesting || isApplying || input.trim().length === 0}
           type="submit"
         >
@@ -262,7 +262,7 @@ export function MealSuggestionPanel() {
       </form>
 
       {warnings.length ? (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+        <div className="rounded-lg border border-warning bg-surface px-3 py-2 text-sm text-warning">
           <p className="font-medium">Context notes</p>
           <ul className="mt-1 list-disc pl-5">
             {warnings.map((warning) => (

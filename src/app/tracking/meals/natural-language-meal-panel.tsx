@@ -120,14 +120,14 @@ export function NaturalLanguageMealPanel({ mode }: { mode: NaturalLanguageMealMo
   }
 
   return (
-    <section className="mb-6 space-y-4 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+    <section className="mb-6 space-y-4 rounded-2xl border border-line bg-surface p-6 shadow-sm">
       <div>
-        <h2 className="text-lg font-semibold text-zinc-900">{copy.title}</h2>
-        <p className="mt-1 text-sm text-zinc-600">{copy.description}</p>
+        <h2 className="text-lg font-semibold text-ink">{copy.title}</h2>
+        <p className="mt-1 text-sm text-ink-muted">{copy.description}</p>
       </div>
 
       <textarea
-        className="min-h-24 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400"
+        className="min-h-24 w-full rounded-lg border border-line px-3 py-2 text-sm text-ink placeholder:text-ink-muted"
         onChange={(event) => setText(event.target.value)}
         placeholder={copy.placeholder}
         value={text}
@@ -135,7 +135,7 @@ export function NaturalLanguageMealPanel({ mode }: { mode: NaturalLanguageMealMo
 
       <div className="flex flex-wrap items-center gap-3">
         <button
-          className="rounded-lg bg-zinc-900 px-5 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-lg bg-teal px-5 py-2 text-sm font-medium text-on-teal disabled:cursor-not-allowed disabled:opacity-60"
           disabled={isParsing || text.trim().length < 8}
           onClick={handleParse}
           type="button"
@@ -144,7 +144,7 @@ export function NaturalLanguageMealPanel({ mode }: { mode: NaturalLanguageMealMo
         </button>
         {draft ? (
           <button
-            className="rounded-lg border border-zinc-300 px-5 py-2 text-sm font-medium text-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-lg border border-line px-5 py-2 text-sm font-medium text-ink disabled:cursor-not-allowed disabled:opacity-60"
             disabled={isApplying}
             onClick={handleApply}
             type="button"
@@ -154,37 +154,37 @@ export function NaturalLanguageMealPanel({ mode }: { mode: NaturalLanguageMealMo
         ) : null}
       </div>
 
-      {error ? <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
-      {message ? <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{message}</p> : null}
+      {error ? <p className="rounded-lg border border-danger bg-surface px-3 py-2 text-sm text-danger">{error}</p> : null}
+      {message ? <p className="rounded-lg border border-success bg-surface2 px-3 py-2 text-sm text-success">{message}</p> : null}
 
       {draft ? (
-        <div className="rounded-lg bg-zinc-50 p-4">
+        <div className="rounded-lg bg-surface2 p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="text-base font-semibold text-zinc-900">{draft.name}</p>
+              <p className="text-base font-semibold text-ink">{draft.name}</p>
               {draft.mode === "log" ? (
-                <p className="mt-1 text-sm text-zinc-600">
+                <p className="mt-1 text-sm text-ink-muted">
                   {formatLoggedAt(draft.logged_at)} - {draft.meal_type}
                 </p>
               ) : null}
             </div>
-            <span className="rounded-full bg-zinc-900 px-2 py-1 text-xs font-medium text-white">
+            <span className="rounded-full bg-teal px-2 py-1 text-xs font-medium text-on-teal">
               {formatNumber(draft.calories)} cal
             </span>
           </div>
 
-          <div className="mt-3 grid gap-2 text-sm text-zinc-700 sm:grid-cols-4">
+          <div className="mt-3 grid gap-2 text-sm text-ink-muted sm:grid-cols-4">
             <p>Protein: {formatNumber(draft.protein_grams)}g</p>
             <p>Carbs: {formatNumber(draft.carbs_grams)}g</p>
             <p>Fat: {formatNumber(draft.fat_grams)}g</p>
             <p>Fiber: {formatNumber(draft.fiber_grams)}g</p>
           </div>
-          {draft.notes ? <p className="mt-2 text-sm text-zinc-600">{draft.notes}</p> : null}
+          {draft.notes ? <p className="mt-2 text-sm text-ink-muted">{draft.notes}</p> : null}
         </div>
       ) : null}
 
       {draft?.warnings.length ? (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+        <div className="rounded-lg border border-warning bg-surface px-3 py-2 text-sm text-warning">
           <p className="font-medium">Review notes</p>
           <ul className="mt-1 list-disc pl-5">
             {draft.warnings.map((warning) => (

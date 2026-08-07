@@ -1,3 +1,6 @@
+import { useMemo } from "react";
+import { useTheme } from "../lib/theme";
+import type { Theme } from "../lib/theme";
 import { ScrollView, StyleSheet, Text, View, Pressable } from "react-native";
 import type { Calendar, CalendarEvent } from "@personal-agent/core/calendar";
 import {
@@ -50,6 +53,8 @@ function EventPill({
   event: CalendarEvent;
   onEditEvent: (event: CalendarEvent) => void;
 }) {
+  const theme = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const colors = eventColor(event.category);
 
   return (
@@ -75,6 +80,8 @@ function MonthCalendar({
   onSelectSlot,
   todayKey,
 }: Pick<GridProps, "calendar" | "monthDays" | "onEditEvent" | "onSelectSlot" | "todayKey">) {
+  const theme = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   return (
     <View style={styles.card}>
       <View style={styles.monthHeaderRow}>
@@ -132,6 +139,8 @@ function WeekCalendar({
   todayKey,
   weekDays,
 }: Pick<GridProps, "calendar" | "onEditEvent" | "onSelectSlot" | "todayKey" | "weekDays">) {
+  const theme = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   return (
     <View style={styles.card}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -206,6 +215,8 @@ function DayCalendar({
   onSelectSlot,
   selectedDate,
 }: Pick<GridProps, "calendar" | "onEditEvent" | "onSelectSlot" | "selectedDate">) {
+  const theme = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const dateKey = toDateKey(selectedDate);
   const day = fromDateKey(dateKey);
   const events = calendar.getEventsForDate(dateKey);
@@ -280,17 +291,19 @@ export function CalendarGrid(props: GridProps) {
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(theme: Theme) {
+  const { colors } = theme;
+  return StyleSheet.create({
   card: {
-    backgroundColor: "#ffffff",
-    borderColor: "#d8e1ea",
+    backgroundColor: colors.surface,
+    borderColor: colors.line,
     borderRadius: 8,
     borderWidth: 1,
     overflow: "hidden",
   },
   monthHeaderRow: {
-    backgroundColor: "#f8fafc",
-    borderBottomColor: "#e2e8f0",
+    backgroundColor: colors.paper,
+    borderBottomColor: colors.line,
     borderBottomWidth: 1,
     flexDirection: "row",
   },
@@ -300,32 +313,29 @@ const styles = StyleSheet.create({
     width: `${100 / 7}%`,
   },
   monthHeaderText: {
-    color: "#64748b",
-    fontSize: 11,
-    fontWeight: "800",
-    textTransform: "uppercase",
+    ...theme.text("monoLabel", "inkMuted"),
   },
   monthGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
   },
   monthCell: {
-    borderRightColor: "#f1f5f9",
+    borderRightColor: colors.surface2,
     borderRightWidth: 1,
-    borderTopColor: "#f1f5f9",
+    borderTopColor: colors.surface2,
     borderTopWidth: 1,
     minHeight: 96,
     padding: 3,
     width: `${100 / 7}%`,
   },
   monthCellBlank: {
-    backgroundColor: "#f8fafc",
+    backgroundColor: colors.paper,
   },
   monthCellEvents: {
     gap: 2,
   },
   todayCell: {
-    backgroundColor: "#f0f9ff",
+    backgroundColor: colors.surface2,
   },
   dayNumberWrap: {
     alignItems: "center",
@@ -337,25 +347,25 @@ const styles = StyleSheet.create({
     width: 22,
   },
   dayNumberWrapToday: {
-    backgroundColor: "#111827",
+    backgroundColor: colors.ink,
   },
   dayNumber: {
-    color: "#1f2937",
+    color: colors.ink,
     fontSize: 12,
     fontWeight: "800",
   },
   dayNumberToday: {
-    color: "#ffffff",
+    color: colors.surface,
   },
   moreText: {
-    color: "#64748b",
+    color: colors.inkMuted,
     fontSize: 10,
     fontWeight: "700",
     paddingLeft: 2,
   },
   timeHeaderRow: {
-    backgroundColor: "#f8fafc",
-    borderBottomColor: "#e2e8f0",
+    backgroundColor: colors.paper,
+    borderBottomColor: colors.line,
     borderBottomWidth: 1,
     flexDirection: "row",
   },
@@ -365,22 +375,17 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   timeHeaderLabel: {
-    color: "#94a3b8",
-    fontSize: 11,
-    fontWeight: "800",
-    textTransform: "uppercase",
+    ...theme.text("monoLabel", "inkMuted"),
   },
   dayHeaderNumber: {
-    color: "#1f2937",
-    fontSize: 15,
-    fontWeight: "800",
+    ...theme.text("body", "ink"),
     marginTop: 2,
   },
   dayHeaderNumberToday: {
-    color: "#0f172a",
+    color: colors.ink,
   },
   hourRow: {
-    borderTopColor: "#e2e8f0",
+    borderTopColor: colors.line,
     borderTopWidth: 1,
     flexDirection: "row",
   },
@@ -389,21 +394,19 @@ const styles = StyleSheet.create({
     padding: 3,
   },
   hourLabel: {
-    color: "#64748b",
-    fontSize: 11,
-    fontWeight: "600",
+    ...theme.text("monoTime", "inkMuted"),
     textAlign: "right",
   },
   timeGutter: {
-    backgroundColor: "#f8fafc",
-    borderRightColor: "#e2e8f0",
+    backgroundColor: colors.paper,
+    borderRightColor: colors.line,
     borderRightWidth: 1,
     justifyContent: "center",
     paddingHorizontal: 6,
     width: hourColumnWidth,
   },
   dayColumn: {
-    borderRightColor: "#f1f5f9",
+    borderRightColor: colors.surface2,
     borderRightWidth: 1,
     gap: 2,
     width: dayColumnWidth,
@@ -429,3 +432,4 @@ const styles = StyleSheet.create({
     opacity: 0.65,
   },
 });
+}

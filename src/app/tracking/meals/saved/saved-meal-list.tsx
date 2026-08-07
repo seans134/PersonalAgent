@@ -92,7 +92,7 @@ export function SavedMealList({ savedMeals }: { savedMeals: SavedMealListItem[] 
   }
 
   if (savedMeals.length === 0) {
-    return <p className="text-sm text-zinc-600">No saved meals yet. Save one from today&apos;s tracked meals first.</p>;
+    return <p className="text-sm text-ink-muted">No saved meals yet. Save one from today&apos;s tracked meals first.</p>;
   }
 
   return (
@@ -104,19 +104,19 @@ export function SavedMealList({ savedMeals }: { savedMeals: SavedMealListItem[] 
         const successMessage = successMessageByMealId[meal.id] ?? "Done.";
 
         return (
-          <li className="rounded-lg border border-zinc-200 p-4" key={meal.id}>
+          <li className="rounded-lg border border-line p-4" key={meal.id}>
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="font-medium text-zinc-900">{meal.name}</p>
-                <p className="mt-1 text-sm text-zinc-600">
+                <p className="font-medium text-ink">{meal.name}</p>
+                <p className="mt-1 text-sm text-ink-muted">
                   {formatNumber(meal.calories)} cal - P {formatNumber(meal.protein_grams)}g / C{" "}
                   {formatNumber(meal.carbs_grams)}g / F {formatNumber(meal.fat_grams)}g / Fiber{" "}
                   {formatNumber(meal.fiber_grams)}g
                 </p>
-                {meal.notes ? <p className="mt-2 text-sm text-zinc-600">{meal.notes}</p> : null}
+                {meal.notes ? <p className="mt-2 text-sm text-ink-muted">{meal.notes}</p> : null}
               </div>
               <button
-                className="shrink-0 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+                className="shrink-0 rounded-lg bg-teal px-4 py-2 text-sm font-medium text-on-teal disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={isMealPending}
                 onClick={() => handleTrack(meal.id)}
                 type="button"
@@ -124,27 +124,27 @@ export function SavedMealList({ savedMeals }: { savedMeals: SavedMealListItem[] 
                 {isMealPending ? "Tracking..." : "Track"}
               </button>
               <button
-                className="shrink-0 rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-900"
+                className="shrink-0 rounded-lg border border-line px-4 py-2 text-sm font-medium text-ink"
                 onClick={() => setEditingMealId(isEditing ? null : meal.id)}
                 type="button"
               >
                 {isEditing ? "Close" : "Edit"}
               </button>
             </div>
-            {result?.error ? <p className="mt-3 text-sm text-red-600">{result.error}</p> : null}
-            {result?.ok ? <p className="mt-3 text-sm text-emerald-700">{successMessage}</p> : null}
+            {result?.error ? <p className="mt-3 text-sm text-danger">{result.error}</p> : null}
+            {result?.ok ? <p className="mt-3 text-sm text-success">{successMessage}</p> : null}
 
             {isEditing ? (
-              <form className="mt-4 space-y-4 border-t border-zinc-200 pt-4" onSubmit={(event) => handleSave(event, meal.id)}>
+              <form className="mt-4 space-y-4 border-t border-line pt-4" onSubmit={(event) => handleSave(event, meal.id)}>
                 <input name="id" type="hidden" value={meal.id} />
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <label className="block text-sm text-zinc-700" htmlFor={`saved-name-${meal.id}`}>
+                    <label className="block text-sm text-ink-muted" htmlFor={`saved-name-${meal.id}`}>
                       Meal name
                     </label>
                     <input
-                      className="w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-50"
+                      className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink"
                       defaultValue={meal.name}
                       id={`saved-name-${meal.id}`}
                       name="name"
@@ -153,11 +153,11 @@ export function SavedMealList({ savedMeals }: { savedMeals: SavedMealListItem[] 
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="block text-sm text-zinc-700" htmlFor={`saved-calories-${meal.id}`}>
+                    <label className="block text-sm text-ink-muted" htmlFor={`saved-calories-${meal.id}`}>
                       Calories
                     </label>
                     <input
-                      className="w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-50"
+                      className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink"
                       defaultValue={inputValue(meal.calories)}
                       id={`saved-calories-${meal.id}`}
                       min={0}
@@ -169,11 +169,11 @@ export function SavedMealList({ savedMeals }: { savedMeals: SavedMealListItem[] 
 
                 <div className="grid gap-4 sm:grid-cols-4">
                   <div className="space-y-2">
-                    <label className="block text-sm text-zinc-700" htmlFor={`saved-protein-${meal.id}`}>
+                    <label className="block text-sm text-ink-muted" htmlFor={`saved-protein-${meal.id}`}>
                       Protein g
                     </label>
                     <input
-                      className="w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-50"
+                      className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink"
                       defaultValue={inputValue(meal.protein_grams)}
                       id={`saved-protein-${meal.id}`}
                       min={0}
@@ -183,11 +183,11 @@ export function SavedMealList({ savedMeals }: { savedMeals: SavedMealListItem[] 
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="block text-sm text-zinc-700" htmlFor={`saved-carbs-${meal.id}`}>
+                    <label className="block text-sm text-ink-muted" htmlFor={`saved-carbs-${meal.id}`}>
                       Carbs g
                     </label>
                     <input
-                      className="w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-50"
+                      className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink"
                       defaultValue={inputValue(meal.carbs_grams)}
                       id={`saved-carbs-${meal.id}`}
                       min={0}
@@ -197,11 +197,11 @@ export function SavedMealList({ savedMeals }: { savedMeals: SavedMealListItem[] 
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="block text-sm text-zinc-700" htmlFor={`saved-fat-${meal.id}`}>
+                    <label className="block text-sm text-ink-muted" htmlFor={`saved-fat-${meal.id}`}>
                       Fat g
                     </label>
                     <input
-                      className="w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-50"
+                      className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink"
                       defaultValue={inputValue(meal.fat_grams)}
                       id={`saved-fat-${meal.id}`}
                       min={0}
@@ -211,11 +211,11 @@ export function SavedMealList({ savedMeals }: { savedMeals: SavedMealListItem[] 
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="block text-sm text-zinc-700" htmlFor={`saved-fiber-${meal.id}`}>
+                    <label className="block text-sm text-ink-muted" htmlFor={`saved-fiber-${meal.id}`}>
                       Fiber g
                     </label>
                     <input
-                      className="w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-50"
+                      className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink"
                       defaultValue={inputValue(meal.fiber_grams)}
                       id={`saved-fiber-${meal.id}`}
                       min={0}
@@ -227,11 +227,11 @@ export function SavedMealList({ savedMeals }: { savedMeals: SavedMealListItem[] 
                 </div>
 
                 <div className="space-y-2">
-                  <label className="block text-sm text-zinc-700" htmlFor={`saved-notes-${meal.id}`}>
+                  <label className="block text-sm text-ink-muted" htmlFor={`saved-notes-${meal.id}`}>
                     Notes
                   </label>
                   <textarea
-                    className="min-h-20 w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-50"
+                    className="min-h-20 w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink"
                     defaultValue={meal.notes ?? ""}
                     id={`saved-notes-${meal.id}`}
                     name="notes"
@@ -240,14 +240,14 @@ export function SavedMealList({ savedMeals }: { savedMeals: SavedMealListItem[] 
 
                 <div className="flex flex-wrap gap-3">
                   <button
-                    className="rounded-lg bg-zinc-900 px-5 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+                    className="rounded-lg bg-teal px-5 py-2 text-sm font-medium text-on-teal disabled:cursor-not-allowed disabled:opacity-60"
                     disabled={isMealPending}
                     type="submit"
                   >
                     {isMealPending ? "Saving..." : "Save"}
                   </button>
                   <button
-                    className="rounded-lg border border-red-700 bg-red-600 px-5 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+                    className="rounded-lg border border-danger bg-danger px-5 py-2 text-sm font-medium text-on-teal disabled:cursor-not-allowed disabled:opacity-60"
                     disabled={isMealPending}
                     onClick={() => handleRemove(meal.id)}
                     type="button"
