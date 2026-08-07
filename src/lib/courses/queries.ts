@@ -29,13 +29,13 @@ export async function listCourseSummaries(
 
   const categoriesByCourse = groupBy((categories ?? []) as CourseCategoryRow[], (c) => c.course_id);
   const itemsByCourse = groupBy((items ?? []) as CourseItemRow[], (i) => i.course_id);
-  const nowIso = new Date().toISOString();
+  const nowMs = Date.now();
 
   return ((courses ?? []) as CourseRow[]).map((course) => {
     const courseCategories = categoriesByCourse.get(course.id) ?? [];
     const courseItems = itemsByCourse.get(course.id) ?? [];
     const grade = courseGradeFromRows(courseCategories, courseItems);
-    const upcoming = courseItems.filter((i) => i.score_earned === null && i.due_at >= nowIso);
+    const upcoming = courseItems.filter((i) => i.score_earned === null && new Date(i.due_at).getTime() >= nowMs);
     const nextItem = upcoming[0]
       ? { id: upcoming[0].id, title: upcoming[0].title, kind: upcoming[0].kind, dueAt: upcoming[0].due_at }
       : null;
@@ -53,12 +53,15 @@ export async function getCourseDetail(supabase: SupabaseClient, userId: string, 
   if (error) throw new Error(`Unable to load course: ${error.message}`);
   if (!course) return null;
 
-  const { data: categories } = await supabase
+  const { data: categories, error: categoriesError } = await supabase
     .from("course_categories").select(CATEGORY_COLUMNS).eq("user_id", userId).eq("course_id", courseId)
     .order("position", { ascending: true });
-  const { data: items } = await supabase
+  if (categoriesError) throw new Error(`Unable to load categories: ${categoriesError.message}`);
+
+  const { data: items, error: itemsError } = await supabase
     .from("course_items").select(ITEM_COLUMNS).eq("user_id", userId).eq("course_id", courseId)
     .order("due_at", { ascending: true });
+  if (itemsError) throw new Error(`Unable to load course items: ${itemsError.message}`);
 
   return {
     course: course as CourseRow,
