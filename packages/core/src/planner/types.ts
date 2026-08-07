@@ -25,7 +25,7 @@ export type CalendarEvent = {
   endTime: string;
 };
 
-export type PlannedItemType = "goal" | "focus" | "fitness" | "wellness" | "fallback";
+export type PlannedItemType = "goal" | "focus" | "fitness" | "wellness" | "study" | "fallback";
 
 export type PlannedItem = {
   type: PlannedItemType;
@@ -39,4 +39,14 @@ export type DailyPlan = {
   items: PlannedItem[];
   constrained: boolean;
   explanation?: string;
+};
+
+export type StudyFocusMode = "finish_first" | "continuous" | "deferred";
+export type StudyTask = {
+  id: string;
+  title: string;
+  reason: string;
+  durationMinutes: number;
+  priority: 1 | 2 | 3;
+  focusMode: StudyFocusMode;
 };

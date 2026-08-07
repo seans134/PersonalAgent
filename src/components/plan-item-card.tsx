@@ -5,6 +5,7 @@ const TYPE_CLASS: Record<PlannedItem["type"], string> = {
   focus: "bg-focus/12 text-focus",
   fitness: "bg-fitness/12 text-fitness",
   wellness: "bg-wellness/12 text-wellness",
+  study: "bg-focus/12 text-focus",
   fallback: "bg-ink-muted/12 text-ink-muted",
 };
 
