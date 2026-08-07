@@ -80,4 +80,24 @@ describe("deriveStudyTasks", () => {
     ];
     expect(deriveStudyTasks(items, "2026-08-07", 7)).toHaveLength(0);
   });
+
+  it("sorts finish_first items by due date even when passed out of order", () => {
+    const items: StudyItem[] = [
+      { ...base, id: "ff-later", estimatedEffortHours: 3, focusMode: "finish_first", dueLocalDate: "2026-08-13" },
+      { ...base, id: "ff-earlier", estimatedEffortHours: 3, focusMode: "finish_first", dueLocalDate: "2026-08-10" },
+    ];
+    const tasks = deriveStudyTasks(items, "2026-08-07");
+    expect(tasks[0].id).toBe("ff-earlier");
+    expect(tasks[1].id).toBe("ff-later");
+  });
+
+  it("sorts same-priority continuous items by due date even when passed out of order", () => {
+    const items: StudyItem[] = [
+      { ...base, id: "cont-later", estimatedEffortHours: 6, focusMode: "continuous", dueLocalDate: "2026-08-14" },
+      { ...base, id: "cont-earlier", estimatedEffortHours: 6, focusMode: "continuous", dueLocalDate: "2026-08-12" },
+    ];
+    const tasks = deriveStudyTasks(items, "2026-08-07");
+    expect(tasks[0].id).toBe("cont-earlier");
+    expect(tasks[1].id).toBe("cont-later");
+  });
 });

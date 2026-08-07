@@ -38,7 +38,24 @@ export function deriveStudyTasks(items: StudyItem[], todayLocalDate: string, hor
     return daysUntilDue <= horizonDays;
   });
 
-  const tasks: StudyTask[] = eligible.map((item) => {
+  const sortedEligible = [...eligible].sort((a, b) => {
+    const aFF = a.focusMode === "finish_first" ? 0 : 1;
+    const bFF = b.focusMode === "finish_first" ? 0 : 1;
+    if (aFF !== bFF) return aFF - bFF;
+
+    const daysAUntilDue = Math.max(1, diffInDays(a.dueLocalDate, todayLocalDate));
+    const daysBUntilDue = Math.max(1, diffInDays(b.dueLocalDate, todayLocalDate));
+
+    const aPriority: 1 | 2 | 3 = a.focusMode === "finish_first" ? 1 : daysAUntilDue <= 1 ? 1 : daysAUntilDue <= 3 ? 2 : 3;
+    const bPriority: 1 | 2 | 3 = b.focusMode === "finish_first" ? 1 : daysBUntilDue <= 1 ? 1 : daysBUntilDue <= 3 ? 2 : 3;
+
+    if (aPriority !== bPriority) return aPriority - bPriority;
+
+    if (a.dueLocalDate !== b.dueLocalDate) return a.dueLocalDate < b.dueLocalDate ? -1 : 1;
+    return 0;
+  });
+
+  const tasks: StudyTask[] = sortedEligible.map((item) => {
     const daysUntilDue = Math.max(1, diffInDays(item.dueLocalDate, todayLocalDate));
     const evenShare = Math.round(((item.estimatedEffortHours as number) * 60) / daysUntilDue);
     const isFinishFirst = item.focusMode === "finish_first";
@@ -57,11 +74,5 @@ export function deriveStudyTasks(items: StudyItem[], todayLocalDate: string, hor
     };
   });
 
-  return tasks.sort((a, b) => {
-    const aFF = a.focusMode === "finish_first" ? 0 : 1;
-    const bFF = b.focusMode === "finish_first" ? 0 : 1;
-    if (aFF !== bFF) return aFF - bFF;
-    if (a.priority !== b.priority) return a.priority - b.priority;
-    return 0;
-  });
+  return tasks;
 }
