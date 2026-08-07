@@ -24,6 +24,7 @@ type MockState = {
     no_meeting_end: string | null;
     focus_block_minutes: number;
     workout_preference: "none" | "light" | "moderate" | "intense";
+    timezone?: string;
   } | null;
   profileError?: string;
   scheduleBlocks?: Array<{
@@ -34,6 +35,25 @@ type MockState = {
     end_time: string;
   }>;
   scheduleBlocksError?: string;
+  courseItems?: Array<{
+    id: string;
+    course_id: string;
+    category_id: string | null;
+    user_id: string;
+    kind: "assignment" | "quiz" | "exam";
+    title: string;
+    due_at: string;
+    end_at: string | null;
+    location: string | null;
+    score_earned: number | null;
+    score_max: number;
+    estimated_effort_hours: number | null;
+    focus_mode: "finish_first" | "continuous" | "deferred";
+    created_at: string;
+  }>;
+  courseItemsError?: string;
+  courses?: Array<{ id: string; name: string }>;
+  coursesError?: string;
 };
 
 function createSupabaseMock(state: MockState) {
@@ -110,6 +130,36 @@ function createSupabaseMock(state: MockState) {
                   }),
                 };
               },
+            };
+          },
+        };
+      }
+
+      if (table === "course_items") {
+        return {
+          select() {
+            return {
+              eq() {
+                return {
+                  order: async () => ({
+                    data: state.courseItems ?? [],
+                    error: state.courseItemsError ? { message: state.courseItemsError } : null,
+                  }),
+                };
+              },
+            };
+          },
+        };
+      }
+
+      if (table === "courses") {
+        return {
+          select() {
+            return {
+              eq: async () => ({
+                data: state.courses ?? [],
+                error: state.coursesError ? { message: state.coursesError } : null,
+              }),
             };
           },
         };
@@ -235,5 +285,70 @@ describe("generateTodayPlanForUser", () => {
     expect(result.body.meta.warnings.length).toBe(1);
     expect(result.body.meta.warnings[0]).toMatch(/local schedule read failed/i);
     expect(result.body.meta.eventsCount).toBe(0);
+  });
+
+  it("reserves study time and blocks a same-day exam from course items", async () => {
+    // Build a due_at that lands on "today" in the fallback timezone (America/Toronto)
+    // regardless of when the test runs, by reading today's local date via Intl and
+    // anchoring the time to mid-day UTC so DST offsets never push it into a different
+    // local calendar day.
+    const formatter = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Toronto",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+    const parts: Record<string, string> = {};
+    for (const part of formatter.formatToParts(new Date())) {
+      if (part.type !== "literal") parts[part.type] = part.value;
+    }
+    const todayLocalDate = `${parts.year}-${parts.month}-${parts.day}`;
+    const dueAt = `${todayLocalDate}T16:00:00.000Z`;
+
+    const result = await generateTodayPlanForUser({
+      supabase: createSupabaseMock({
+        goals: [{ title: "Ship roadmap", priority: 1 }],
+        profile: {
+          work_start_time: "09:00",
+          work_end_time: "20:00",
+          no_meeting_start: null,
+          no_meeting_end: null,
+          focus_block_minutes: 60,
+          workout_preference: "none",
+        },
+        courses: [{ id: "course-1", name: "Biology" }],
+        courseItems: [
+          {
+            id: "item-1",
+            course_id: "course-1",
+            category_id: null,
+            user_id: "user-1",
+            kind: "exam",
+            title: "Midterm",
+            due_at: dueAt,
+            end_at: null,
+            location: null,
+            score_earned: null,
+            score_max: 100,
+            estimated_effort_hours: 3,
+            focus_mode: "continuous",
+            created_at: dueAt,
+          },
+        ],
+      }) as never,
+      userId: "user-1",
+      enhancePlan: async ({ plan }) => ({ plan }),
+    });
+
+    expect(result.status).toBe(200);
+
+    if ("error" in result.body) {
+      throw new Error("Expected successful plan body.");
+    }
+
+    expect(result.body.meta.warnings).toEqual([]);
+    const studyItem = result.body.plan.items.find((item) => item.type === "study");
+    expect(studyItem).toBeDefined();
+    expect(studyItem?.title).toMatch(/Midterm/);
   });
 });
