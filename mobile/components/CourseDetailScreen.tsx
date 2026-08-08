@@ -83,6 +83,7 @@ export function CourseDetailScreen({ accessToken, courseId, onBack }: CourseDeta
   const [itemModal, setItemModal] = useState<ItemModalState>(closedItemModal);
 
   const loadDetail = useCallback(async () => {
+    setLoading(true);
     setError(undefined);
 
     try {
@@ -96,7 +97,6 @@ export function CourseDetailScreen({ accessToken, courseId, onBack }: CourseDeta
   }, [accessToken, courseId]);
 
   useEffect(() => {
-    setLoading(true);
     const timeout = setTimeout(() => {
       void loadDetail();
     }, 0);
@@ -595,10 +595,6 @@ function ItemCard({
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const [gradeText, setGradeText] = useState(item.score_earned !== null ? String(item.score_earned) : "");
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    setGradeText(item.score_earned !== null ? String(item.score_earned) : "");
-  }, [item.score_earned]);
 
   const timeLabel =
     item.kind === "assignment"

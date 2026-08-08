@@ -127,11 +127,11 @@ export function CourseItemModal({ visible, initial, categories, onSubmit, onClos
   // Reset the form whenever the sheet is (re)opened, for either add or edit mode.
   useEffect(() => {
     if (visible) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: resets the form when the sheet (re)opens
       setForm(formFromInitial(initial));
       setError("");
       setSaving(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, initial]);
 
   function updateForm(patch: Partial<ItemFormState>) {
