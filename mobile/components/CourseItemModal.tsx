@@ -448,7 +448,7 @@ function makeStyles(theme: Theme) {
       paddingHorizontal: 12,
     },
     choiceButtonActive: {
-      backgroundColor: colors.compassSoft,
+      backgroundColor: colors.surface2,
       borderColor: colors.teal,
     },
     choiceText: {

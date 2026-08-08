@@ -64,20 +64,20 @@ export function CoursesScreen({ accessToken, onOpenCourse }: CoursesScreenProps)
   const [courses, setCourses] = useState<MobileCourseSummary[]>([]);
   const [form, setForm] = useState<CourseFormState>(emptyForm);
   const [showForm, setShowForm] = useState(false);
-  const [message, setMessage] = useState<string | undefined>();
+  const [message, setMessage] = useState<{ text: string; tone: "info" | "error" } | null>(null);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const loadCourses = useCallback(async () => {
     setLoading(true);
-    setMessage(undefined);
+    setMessage(null);
 
     try {
       const result = await fetchMobileCourses(accessToken);
       setCourses(result.courses);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to load courses.");
+      setMessage({ text: error instanceof Error ? error.message : "Unable to load courses.", tone: "error" });
     }
 
     setLoading(false);
@@ -108,16 +108,16 @@ export function CoursesScreen({ accessToken, onOpenCourse }: CoursesScreenProps)
 
   async function submitCourse() {
     setSaving(true);
-    setMessage(undefined);
+    setMessage(null);
 
     try {
       await createMobileCourse(accessToken, inputFromForm(form));
       setForm(emptyForm);
       setShowForm(false);
-      setMessage("Course added.");
+      setMessage({ text: "Course added.", tone: "info" });
       await loadCourses();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to save course.");
+      setMessage({ text: error instanceof Error ? error.message : "Unable to save course.", tone: "error" });
     }
 
     setSaving(false);
@@ -159,7 +159,9 @@ export function CoursesScreen({ accessToken, onOpenCourse }: CoursesScreenProps)
         <Text style={styles.body}>See how you&apos;re tracking toward your target grade in every course.</Text>
       </View>
 
-      {message ? <Text style={styles.message}>{message}</Text> : null}
+      {message ? (
+        <Text style={[styles.message, message.tone === "error" && styles.messageError]}>{message.text}</Text>
+      ) : null}
 
       <View style={styles.panel}>
         <View style={styles.panelHeader}>
@@ -357,6 +359,9 @@ function makeStyles(theme: Theme) {
       borderRadius: 8,
       borderWidth: 1,
       padding: 10,
+    },
+    messageError: {
+      color: colors.danger,
     },
     panel: {
       backgroundColor: colors.surface,

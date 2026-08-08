@@ -90,7 +90,12 @@ export function ItemRow({
           inputMode="decimal"
           min={0}
           name="score_earned"
-          onBlur={(e) => e.currentTarget.form?.requestSubmit()}
+          onBlur={(e) => {
+            const current = e.currentTarget.value.trim();
+            const existing = item.score_earned === null ? "" : String(item.score_earned);
+            if (current === existing) return;
+            e.currentTarget.form?.requestSubmit();
+          }}
           type="number"
         />
         <span className="font-mono text-sm text-ink-muted">/ {item.score_max}</span>

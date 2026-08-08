@@ -79,7 +79,7 @@ export function CourseDetailScreen({ accessToken, courseId, onBack }: CourseDeta
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | undefined>();
-  const [message, setMessage] = useState<string | undefined>();
+  const [message, setMessage] = useState<{ text: string; tone: "info" | "error" } | null>(null);
   const [itemModal, setItemModal] = useState<ItemModalState>(closedItemModal);
 
   const loadDetail = useCallback(async () => {
@@ -130,7 +130,10 @@ export function CourseDetailScreen({ accessToken, courseId, onBack }: CourseDeta
                 await deleteMobileCategory(accessToken, courseId, category.id);
                 await loadDetail();
               } catch (err) {
-                setMessage(err instanceof Error ? err.message : "Unable to remove category.");
+                setMessage({
+                  text: err instanceof Error ? err.message : "Unable to remove category.",
+                  tone: "error",
+                });
               }
             })();
           },
@@ -151,7 +154,7 @@ export function CourseDetailScreen({ accessToken, courseId, onBack }: CourseDeta
       await setMobileItemGrade(accessToken, courseId, item.id, scoreEarned);
       await loadDetail();
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : "Unable to save grade.");
+      setMessage({ text: err instanceof Error ? err.message : "Unable to save grade.", tone: "error" });
     }
   }
 
@@ -167,7 +170,7 @@ export function CourseDetailScreen({ accessToken, courseId, onBack }: CourseDeta
               await deleteMobileItem(accessToken, courseId, item.id);
               await loadDetail();
             } catch (err) {
-              setMessage(err instanceof Error ? err.message : "Unable to remove item.");
+              setMessage({ text: err instanceof Error ? err.message : "Unable to remove item.", tone: "error" });
             }
           })();
         },
@@ -228,7 +231,9 @@ export function CourseDetailScreen({ accessToken, courseId, onBack }: CourseDeta
           />
         }
       >
-        {message ? <Text style={styles.message}>{message}</Text> : null}
+        {message ? (
+          <Text style={[styles.message, message.tone === "error" && styles.messageError]}>{message.text}</Text>
+        ) : null}
 
         {loading && !detail ? (
           <View style={styles.loadingRow}>
@@ -724,6 +729,9 @@ function makeStyles(theme: Theme) {
       borderRadius: 8,
       borderWidth: 1,
       padding: 10,
+    },
+    messageError: {
+      color: colors.danger,
     },
     loadingRow: {
       alignItems: "center",
