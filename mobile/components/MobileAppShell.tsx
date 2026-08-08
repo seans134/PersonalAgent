@@ -14,6 +14,8 @@ export type MobileScreen =
   | "workoutCoach"
   | "more"
   | "goals"
+  | "courses"
+  | "courseDetail"
   | "onboarding"
   | "notifications"
   | "settings";
@@ -31,6 +33,8 @@ export const screenToTab: Record<MobileScreen, MobileTab> = {
   workoutCoach: "workouts",
   more: "more",
   goals: "more",
+  courses: "more",
+  courseDetail: "more",
   onboarding: "more",
   notifications: "more",
   settings: "more",

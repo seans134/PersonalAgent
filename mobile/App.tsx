@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Linking,
+  Pressable,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -30,6 +31,7 @@ import {
   type MobileTab,
 } from "./components/MobileAppShell";
 import { MoreMenuScreen } from "./components/MoreMenuScreen";
+import { PlaceholderScreen } from "./components/PlaceholderScreen";
 import { MealsScreen } from "./components/MealsScreen";
 import { OnboardingScreen } from "./components/OnboardingScreen";
 import { NotificationSettingsScreen } from "./components/NotificationSettingsScreen";
@@ -47,6 +49,7 @@ function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [loadingSession, setLoadingSession] = useState(true);
   const [activeScreen, setActiveScreen] = useState<MobileScreen>("dashboard");
+  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [isRecoveringPassword, setIsRecoveringPassword] = useState(false);
   const [authLinkMessage, setAuthLinkMessage] = useState<string | undefined>();
   const env = getMobileEnv();
@@ -122,6 +125,11 @@ function App() {
     resetAnalyticsUser();
   }
 
+  function openCourse(courseId: string) {
+    setSelectedCourseId(courseId);
+    setActiveScreen("courseDetail");
+  }
+
   function handleSelectTab(tab: MobileTab) {
     // Re-tapping the current tab keeps its sub-screen; switching tabs lands on the default.
     if (screenToTab[activeScreen] === tab) return;
@@ -193,6 +201,31 @@ function App() {
         <View style={styles.tabBody}>
           <DetailHeader onBack={() => setActiveScreen("more")} title="Goals" />
           <GoalsScreen accessToken={token} />
+        </View>
+      );
+    }
+
+    if (activeScreen === "courses") {
+      return (
+        <View style={styles.tabBody}>
+          <DetailHeader onBack={() => setActiveScreen("more")} title="Courses" />
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => openCourse("sample-course")}
+            style={styles.placeholderAction}
+          >
+            <Text style={theme.text("label", "teal")}>Open sample course</Text>
+          </Pressable>
+          <PlaceholderScreen label="Courses" />
+        </View>
+      );
+    }
+
+    if (activeScreen === "courseDetail") {
+      return (
+        <View style={styles.tabBody}>
+          <DetailHeader onBack={() => setActiveScreen("courses")} title="Course" />
+          <PlaceholderScreen label={selectedCourseId ? `Course: ${selectedCourseId}` : "Course"} />
         </View>
       );
     }
@@ -294,6 +327,10 @@ const styles = StyleSheet.create({
   },
   tabBody: {
     flex: 1,
+  },
+  placeholderAction: {
+    alignItems: "center",
+    paddingVertical: 12,
   },
   centered: {
     alignItems: "center",
