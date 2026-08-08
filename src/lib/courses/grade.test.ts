@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { expect, it } from "vitest";
 import { courseGradeFromRows } from "./grade";
 import type { CourseCategoryRow, CourseItemRow } from "./types";
 
