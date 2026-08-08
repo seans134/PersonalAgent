@@ -1,4 +1,4 @@
-import type { CalendarEvent, DailyPlan, Goal, PlannerPreferences, PlannedItem, PlannedItemType } from "./types";
+import type { CalendarEvent, DailyPlan, Goal, PlannerPreferences, PlannedItem, PlannedItemType, StudyTask } from "./types";
 import { subtractRanges, toMinutes, toTimeString, type TimeRange } from "./time";
 
 type TaskBlueprint = {
@@ -7,7 +7,7 @@ type TaskBlueprint = {
   title: string;
   reason: string;
   priority: 1 | 2 | 3;
-  source: "system" | "goal";
+  source: "system" | "goal" | "study";
 };
 
 type SlotCandidate = {
@@ -178,6 +178,21 @@ function createTaskBlueprints(goals: Goal[]): TaskBlueprint[] {
   return tasks;
 }
 
+function studyTasksToBlueprints(studyTasks: StudyTask[]): { finishFirst: TaskBlueprint[]; rest: TaskBlueprint[] } {
+  const toBlueprint = (task: StudyTask): TaskBlueprint => ({
+    type: "study",
+    durationMinutes: normalizeDuration(task.durationMinutes, 15, 180),
+    title: task.title,
+    reason: task.reason,
+    priority: task.priority,
+    source: "study",
+  });
+  return {
+    finishFirst: studyTasks.filter((t) => t.focusMode === "finish_first").map(toBlueprint),
+    rest: studyTasks.filter((t) => t.focusMode !== "finish_first").map(toBlueprint),
+  };
+}
+
 function addBusyRangesFromCalendar(events: CalendarEvent[]): TimeRange[] {
   return events.map((event) => ({
     start: toMinutes(event.startTime),
@@ -322,6 +337,12 @@ function scoreTaskTimeFit(task: TaskBlueprint, candidate: SlotCandidate): number
     if (midpointHour >= 9 && midpointHour <= 12.5) return 18;
     if (midpointHour > 12.5 && midpointHour <= 16) return 10;
     return 0;
+  }
+
+  if (task.type === "study") {
+    if (midpointHour >= 9 && midpointHour <= 12) return 24;
+    if (midpointHour > 12 && midpointHour <= 16) return 10;
+    return -8;
   }
 
   return 0;
@@ -716,16 +737,11 @@ function scheduleTasks(
   };
 }
 
-function hasGoalSource(items: Array<PlannedItem & { source?: TaskBlueprint["source"] }>): boolean {
-  return items.some((item) => item.source === "goal" || item.type === "goal");
-}
-
 function needsFallback(items: Array<PlannedItem & { source?: TaskBlueprint["source"] }>): boolean {
-  if (!hasGoalSource(items)) {
-    return true;
-  }
-
-  return false;
+  const hasSubstantive = items.some(
+    (item) => item.source === "goal" || item.source === "study" || item.type === "goal" || item.type === "study",
+  );
+  return !hasSubstantive;
 }
 
 function chooseFallbackSlot(freeRange: TimeRange, durationMinutes: number): TimeRange {
@@ -775,8 +791,9 @@ export function generateDailyPlan(input: {
   goals: Goal[];
   preferences: PlannerPreferences;
   calendarEvents: CalendarEvent[];
+  studyTasks?: StudyTask[];
 }): DailyPlan {
-  const { goals, preferences, calendarEvents } = input;
+  const { goals, preferences, calendarEvents, studyTasks = [] } = input;
 
   const dayWindow: TimeRange = {
     start: toMinutes(preferences.workStartTime),
@@ -802,7 +819,9 @@ export function generateDailyPlan(input: {
   const busyRanges = [...addBusyRangesFromCalendar(calendarEvents), ...addNoMeetingBusyRange(preferences)];
   const freeRanges = subtractRanges(dayWindow, busyRanges);
   const locationContextRanges = toContextRanges(calendarEvents);
-  const tasks = createTaskBlueprints(goals);
+  const goalBlueprints = createTaskBlueprints(goals);
+  const { finishFirst, rest } = studyTasksToBlueprints(studyTasks);
+  const tasks = [...finishFirst, ...goalBlueprints, ...rest];
   const scheduleResult = scheduleTasks(freeRanges, tasks, busyRanges, dayWindow, locationContextRanges);
   const scheduledItems = scheduleResult.scheduled;
   const items = scheduledItems.map((item) => ({

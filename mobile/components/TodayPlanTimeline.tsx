@@ -48,6 +48,8 @@ function categoryColor(colors: ThemeColors, category: EntryCategory): string {
       return colors.fitness;
     case "wellness":
       return colors.wellness;
+    case "study":
+      return colors.focus;
     case "commit":
       return colors.commit;
     case "fallback":

@@ -189,3 +189,56 @@ body {
     }
   }
 }
+
+.bullet {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  border-radius: var(--radius-node);
+  background: var(--color-surface2);
+}
+
+.bullet__zone {
+  position: absolute;
+  inset: 0 auto 0 0;
+  height: 100%;
+}
+
+.bullet__zone--danger {
+  left: 0;
+  width: 60%;
+  background: color-mix(in srgb, var(--color-danger) 18%, transparent);
+}
+
+.bullet__zone--warning {
+  left: 60%;
+  width: 20%;
+  background: color-mix(in srgb, var(--color-warning) 18%, transparent);
+}
+
+.bullet__zone--success {
+  left: 80%;
+  width: 20%;
+  background: color-mix(in srgb, var(--color-success) 18%, transparent);
+}
+
+.bullet__fill {
+  position: absolute;
+  inset: 0;
+  transform-origin: left;
+  transition: transform 200ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bullet__fill {
+    transition: none;
+  }
+}
+
+.bullet__target {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--color-ink);
+}

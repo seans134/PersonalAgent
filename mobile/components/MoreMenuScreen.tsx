@@ -12,6 +12,7 @@ type MoreMenuScreenProps = {
 
 const items: Array<{ screen: MobileScreen; label: string; subtitle: string }> = [
   { screen: "goals", label: "Goals", subtitle: "Active outcomes Atlas plans around" },
+  { screen: "courses", label: "Courses", subtitle: "Grades and assignments per course" },
   { screen: "onboarding", label: "Onboarding", subtitle: "Schedule, profile, and first goals" },
   { screen: "notifications", label: "Notifications", subtitle: "Reminder schedule" },
   { screen: "settings", label: "Settings & Legal", subtitle: "Support and account" },

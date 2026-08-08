@@ -1,4 +1,5 @@
 import type { createClient } from "@/lib/supabase/server";
+import { deriveStudyTasks, type StudyTask } from "@personal-agent/core";
 import { enhancePlanCopy, type EnhancePlanResult } from "./enhance-plan";
 import {
   toPlannerGoals,
@@ -9,6 +10,9 @@ import {
 import { generateDailyPlan } from "./planner";
 import type { CalendarEvent } from "./types";
 import type { TodayPlanContextEvent } from "./client-types";
+import { fetchAllCourseItems, fetchCoursesById } from "@/lib/courses/queries";
+import { courseItemsToStudyItems, courseItemsToTodayBusyEvents } from "@/lib/courses/projection";
+import { localDateOnly } from "@/lib/courses/local-time";
 
 type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -146,7 +150,9 @@ export async function generateTodayPlanForUser(input: {
 
   const { data: profileRow, error: profileError } = await supabase
     .from("user_profiles")
-    .select("work_start_time, work_end_time, no_meeting_start, no_meeting_end, focus_block_minutes, workout_preference")
+    .select(
+      "work_start_time, work_end_time, no_meeting_start, no_meeting_end, focus_block_minutes, workout_preference, timezone",
+    )
     .eq("user_id", userId)
     .maybeSingle();
 
@@ -163,6 +169,7 @@ export async function generateTodayPlanForUser(input: {
 
   const goals = toPlannerGoals((goalsRows ?? []) as GoalRow[]);
   const preferences = toPlannerPreferences(profileRow as UserProfileRow);
+  const timezone = (profileRow as { timezone?: string }).timezone ?? "America/Toronto";
 
   const warnings: string[] = [];
   let calendarEvents: CalendarEvent[] = [];
@@ -184,10 +191,27 @@ export async function generateTodayPlanForUser(input: {
     warnings.push(`Local schedule read failed: ${message}`);
   }
 
+  let studyTasks: StudyTask[] = [];
+  try {
+    const [items, courseNames] = await Promise.all([
+      fetchAllCourseItems(supabase, userId),
+      fetchCoursesById(supabase, userId),
+    ]);
+    const todayLocalDate = localDateOnly(new Date().toISOString(), timezone);
+    const studyItems = courseItemsToStudyItems(items, courseNames, timezone);
+    studyTasks = deriveStudyTasks(studyItems, todayLocalDate);
+    const examBusy = courseItemsToTodayBusyEvents(items, timezone, todayLocalDate);
+    calendarEvents = [...calendarEvents, ...examBusy];
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unable to load courses.";
+    warnings.push(`Course read failed: ${message}`);
+  }
+
   const deterministicPlan = generateDailyPlan({
     goals,
     preferences,
     calendarEvents,
+    studyTasks,
   });
   const enhanced = await enhancePlan({
     plan: deterministicPlan,

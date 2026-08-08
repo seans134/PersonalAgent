@@ -17,6 +17,8 @@ import type { Session } from "@supabase/supabase-js";
 import { AuthScreen } from "./components/AuthScreen";
 import { AccountSettingsScreen } from "./components/AccountSettingsScreen";
 import { CalendarScreen } from "./components/CalendarScreen";
+import { CourseDetailScreen } from "./components/CourseDetailScreen";
+import { CoursesScreen } from "./components/CoursesScreen";
 import { DashboardScreen } from "./components/DashboardScreen";
 import { GoalsScreen } from "./components/GoalsScreen";
 import { MealCoachScreen } from "./components/MealCoachScreen";
@@ -47,6 +49,7 @@ function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [loadingSession, setLoadingSession] = useState(true);
   const [activeScreen, setActiveScreen] = useState<MobileScreen>("dashboard");
+  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [isRecoveringPassword, setIsRecoveringPassword] = useState(false);
   const [authLinkMessage, setAuthLinkMessage] = useState<string | undefined>();
   const env = getMobileEnv();
@@ -122,6 +125,11 @@ function App() {
     resetAnalyticsUser();
   }
 
+  function openCourse(courseId: string) {
+    setSelectedCourseId(courseId);
+    setActiveScreen("courseDetail");
+  }
+
   function handleSelectTab(tab: MobileTab) {
     // Re-tapping the current tab keeps its sub-screen; switching tabs lands on the default.
     if (screenToTab[activeScreen] === tab) return;
@@ -193,6 +201,29 @@ function App() {
         <View style={styles.tabBody}>
           <DetailHeader onBack={() => setActiveScreen("more")} title="Goals" />
           <GoalsScreen accessToken={token} />
+        </View>
+      );
+    }
+
+    if (activeScreen === "courses") {
+      return (
+        <View style={styles.tabBody}>
+          <DetailHeader onBack={() => setActiveScreen("more")} title="Courses" />
+          <CoursesScreen accessToken={token} onOpenCourse={openCourse} />
+        </View>
+      );
+    }
+
+    if (activeScreen === "courseDetail") {
+      if (!selectedCourseId) return null;
+
+      return (
+        <View style={styles.tabBody}>
+          <CourseDetailScreen
+            accessToken={token}
+            courseId={selectedCourseId}
+            onBack={() => setActiveScreen("courses")}
+          />
         </View>
       );
     }
