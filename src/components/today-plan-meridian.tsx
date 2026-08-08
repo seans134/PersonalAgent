@@ -38,6 +38,8 @@ function accentVar(category: EntryCategory): string {
       return "var(--color-fitness)";
     case "wellness":
       return "var(--color-wellness)";
+    case "study":
+      return "var(--color-focus)";
     case "commit":
       return "var(--color-commit)";
     case "fallback":
