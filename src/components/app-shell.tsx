@@ -10,6 +10,7 @@ const navItems = [
   { href: "/onboarding/schedule", label: "Schedule" },
   { href: "/goals", label: "Goals" },
   { href: "/goals/completed", label: "Completed" },
+  { href: "/courses", label: "Courses" },
   { href: "/calendar/local", label: "Local calendar" },
   { href: "/calendar", label: "Calendar" },
   { href: "/tracking/meals", label: "Meals" },
