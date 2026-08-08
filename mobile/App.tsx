@@ -17,6 +17,7 @@ import type { Session } from "@supabase/supabase-js";
 import { AuthScreen } from "./components/AuthScreen";
 import { AccountSettingsScreen } from "./components/AccountSettingsScreen";
 import { CalendarScreen } from "./components/CalendarScreen";
+import { CourseDetailScreen } from "./components/CourseDetailScreen";
 import { CoursesScreen } from "./components/CoursesScreen";
 import { DashboardScreen } from "./components/DashboardScreen";
 import { GoalsScreen } from "./components/GoalsScreen";
@@ -31,7 +32,6 @@ import {
   type MobileTab,
 } from "./components/MobileAppShell";
 import { MoreMenuScreen } from "./components/MoreMenuScreen";
-import { PlaceholderScreen } from "./components/PlaceholderScreen";
 import { MealsScreen } from "./components/MealsScreen";
 import { OnboardingScreen } from "./components/OnboardingScreen";
 import { NotificationSettingsScreen } from "./components/NotificationSettingsScreen";
@@ -215,10 +215,15 @@ function App() {
     }
 
     if (activeScreen === "courseDetail") {
+      if (!selectedCourseId) return null;
+
       return (
         <View style={styles.tabBody}>
-          <DetailHeader onBack={() => setActiveScreen("courses")} title="Course" />
-          <PlaceholderScreen label={selectedCourseId ? `Course: ${selectedCourseId}` : "Course"} />
+          <CourseDetailScreen
+            accessToken={token}
+            courseId={selectedCourseId}
+            onBack={() => setActiveScreen("courses")}
+          />
         </View>
       );
     }
