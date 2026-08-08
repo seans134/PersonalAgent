@@ -54,6 +54,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const { id } = await params;
 
   try {
+    const { data: course, error: ownershipError } = await result.auth.supabase
+      .from("courses").select("id").eq("id", id).eq("user_id", result.auth.user.id).maybeSingle();
+    if (ownershipError) return NextResponse.json({ error: ownershipError.message }, { status: 500 });
+    if (!course) return NextResponse.json({ error: "Course not found." }, { status: 404 });
+
     const payload = (await request.json()) as CategoryPayload;
     const { data, error } = await result.auth.supabase
       .from("course_categories")
@@ -90,6 +95,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if ("name" in payload) update.name = requiredText(payload.name, "Category name");
     if ("weight" in payload) update.weight = weightValue(payload.weight);
     if ("position" in payload) update.position = positionValue(payload.position);
+
+    if (Object.keys(update).length === 0) {
+      return NextResponse.json({ error: "No fields to update." }, { status: 400 });
+    }
 
     const { data, error } = await result.auth.supabase
       .from("course_categories")
