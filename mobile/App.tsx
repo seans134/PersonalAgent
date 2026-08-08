@@ -8,7 +8,6 @@ import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Linking,
-  Pressable,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -18,6 +17,7 @@ import type { Session } from "@supabase/supabase-js";
 import { AuthScreen } from "./components/AuthScreen";
 import { AccountSettingsScreen } from "./components/AccountSettingsScreen";
 import { CalendarScreen } from "./components/CalendarScreen";
+import { CoursesScreen } from "./components/CoursesScreen";
 import { DashboardScreen } from "./components/DashboardScreen";
 import { GoalsScreen } from "./components/GoalsScreen";
 import { MealCoachScreen } from "./components/MealCoachScreen";
@@ -209,14 +209,7 @@ function App() {
       return (
         <View style={styles.tabBody}>
           <DetailHeader onBack={() => setActiveScreen("more")} title="Courses" />
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => openCourse("sample-course")}
-            style={styles.placeholderAction}
-          >
-            <Text style={theme.text("label", "teal")}>Open sample course</Text>
-          </Pressable>
-          <PlaceholderScreen label="Courses" />
+          <CoursesScreen accessToken={token} onOpenCourse={openCourse} />
         </View>
       );
     }
@@ -327,10 +320,6 @@ const styles = StyleSheet.create({
   },
   tabBody: {
     flex: 1,
-  },
-  placeholderAction: {
-    alignItems: "center",
-    paddingVertical: 12,
   },
   centered: {
     alignItems: "center",
