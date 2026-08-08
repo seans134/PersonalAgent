@@ -195,7 +195,7 @@ body {
   width: 100%;
   overflow: hidden;
   border-radius: var(--radius-node);
-  background: var(--color-paper-muted, transparent);
+  background: var(--color-surface2);
 }
 
 .bullet__zone {
