@@ -20,11 +20,13 @@ const FOCUS_MODE_OPTIONS: Array<{ value: CourseItemRow["focus_mode"]; label: str
 const inputClass = "w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-muted";
 const labelClass = "block text-xs text-ink-muted";
 
-// datetime-local inputs expect "YYYY-MM-DDTHH:mm". Slicing the stored ISO string
-// is acceptable here — see task brief: do not over-engineer timezone handling.
+// datetime-local inputs hold browser-local wall-clock; mirror item-row's local display.
 function toDateTimeLocal(iso: string | null): string {
   if (!iso) return "";
-  return iso.slice(0, 16);
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 function SubmitButton({ isEdit }: { isEdit: boolean }) {
