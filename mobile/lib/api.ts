@@ -751,3 +751,185 @@ export async function sendWorkoutCoachMessage(
   });
   return response;
 }
+
+export type MobileCourseSummary = {
+  id: string;
+  name: string;
+  code: string | null;
+  color: string | null;
+  term: string | null;
+  targetGrade: number | null;
+  archivedAt: string | null;
+  average: number | null;
+  gradedWeight: number;
+  nextItem: { id: string; title: string; kind: "assignment" | "quiz" | "exam"; dueAt: string } | null;
+};
+
+export type MobileCourseDetail = {
+  course: {
+    id: string;
+    name: string;
+    code: string | null;
+    color: string | null;
+    term: string | null;
+    target_grade: number | null;
+    archived_at: string | null;
+  };
+  categories: Array<{ id: string; name: string; weight: number; position: number }>;
+  items: Array<{
+    id: string;
+    course_id: string;
+    category_id: string | null;
+    kind: "assignment" | "quiz" | "exam";
+    title: string;
+    due_at: string;
+    end_at: string | null;
+    location: string | null;
+    score_earned: number | null;
+    score_max: number;
+    estimated_effort_hours: number | null;
+    focus_mode: "finish_first" | "continuous" | "deferred";
+  }>;
+  grade: {
+    average: number | null;
+    gradedWeight: number;
+    warnings: string[];
+    categories: Array<{ id: string; name: string; weight: number; score: number | null; gradedCount: number; itemCount: number }>;
+  };
+};
+
+export type MobileCourseInput = {
+  name: string;
+  code?: string | null;
+  color?: string | null;
+  term?: string | null;
+  targetGrade?: number | null;
+};
+
+export type MobileCourseUpdateInput = {
+  name?: string;
+  code?: string | null;
+  color?: string | null;
+  term?: string | null;
+  targetGrade?: number | null;
+  archived?: boolean;
+};
+
+export type MobileCourseCategoryInput = {
+  categoryId?: string;
+  name?: string;
+  weight?: number;
+  position?: number;
+};
+
+export type MobileCourseItemInput = {
+  itemId?: string;
+  kind?: "assignment" | "quiz" | "exam";
+  title?: string;
+  categoryId?: string | null;
+  dueAt?: string;
+  endAt?: string | null;
+  location?: string | null;
+  scoreMax?: number;
+  scoreEarned?: number | null;
+  estimatedEffortHours?: number | null;
+  focusMode?: "finish_first" | "continuous" | "deferred";
+};
+
+export async function fetchMobileCourses(
+  accessToken: string,
+  includeArchived?: boolean,
+): Promise<{ courses: MobileCourseSummary[] }> {
+  const path = includeArchived ? "/api/mobile/courses?archived=1" : "/api/mobile/courses";
+  return fetchJson<{ courses: MobileCourseSummary[] }>(path, accessToken, { method: "GET" }, "Unable to load courses.");
+}
+
+export async function createMobileCourse(accessToken: string, input: MobileCourseInput) {
+  const response = await fetchJson<{ course: MobileCourseDetail["course"] }>(
+    "/api/mobile/courses",
+    accessToken,
+    { method: "POST", body: JSON.stringify(input) },
+    "Unable to create course.",
+  );
+  captureEvent("course_created");
+  return response;
+}
+
+export async function fetchMobileCourseDetail(accessToken: string, id: string): Promise<MobileCourseDetail> {
+  return fetchJson<MobileCourseDetail>(
+    `/api/mobile/courses/${id}`,
+    accessToken,
+    { method: "GET" },
+    "Unable to load course.",
+  );
+}
+
+export async function updateMobileCourse(accessToken: string, id: string, input: MobileCourseUpdateInput) {
+  return fetchJson<{ course: MobileCourseDetail["course"] }>(
+    `/api/mobile/courses/${id}`,
+    accessToken,
+    { method: "PATCH", body: JSON.stringify(input) },
+    "Unable to update course.",
+  );
+}
+
+export async function deleteMobileCourse(accessToken: string, id: string) {
+  return fetchJson<{ ok: true }>(
+    `/api/mobile/courses/${id}`,
+    accessToken,
+    { method: "DELETE" },
+    "Unable to remove course.",
+  );
+}
+
+export async function saveMobileCategory(accessToken: string, courseId: string, input: MobileCourseCategoryInput) {
+  return fetchJson<{ category: MobileCourseDetail["categories"][number] }>(
+    `/api/mobile/courses/${courseId}/categories`,
+    accessToken,
+    { method: input.categoryId ? "PATCH" : "POST", body: JSON.stringify(input) },
+    "Unable to save category.",
+  );
+}
+
+export async function deleteMobileCategory(accessToken: string, courseId: string, categoryId: string) {
+  return fetchJson<{ ok: true }>(
+    `/api/mobile/courses/${courseId}/categories`,
+    accessToken,
+    { method: "DELETE", body: JSON.stringify({ categoryId }) },
+    "Unable to remove category.",
+  );
+}
+
+export async function saveMobileItem(accessToken: string, courseId: string, input: MobileCourseItemInput) {
+  return fetchJson<{ item: MobileCourseDetail["items"][number] }>(
+    `/api/mobile/courses/${courseId}/items`,
+    accessToken,
+    { method: input.itemId ? "PATCH" : "POST", body: JSON.stringify(input) },
+    "Unable to save item.",
+  );
+}
+
+export async function setMobileItemGrade(
+  accessToken: string,
+  courseId: string,
+  itemId: string,
+  scoreEarned: number | null,
+) {
+  const response = await fetchJson<{ item: MobileCourseDetail["items"][number] }>(
+    `/api/mobile/courses/${courseId}/items`,
+    accessToken,
+    { method: "PATCH", body: JSON.stringify({ itemId, scoreEarned }) },
+    "Unable to save grade.",
+  );
+  captureEvent("course_item_graded");
+  return response;
+}
+
+export async function deleteMobileItem(accessToken: string, courseId: string, itemId: string) {
+  return fetchJson<{ ok: true }>(
+    `/api/mobile/courses/${courseId}/items`,
+    accessToken,
+    { method: "DELETE", body: JSON.stringify({ itemId }) },
+    "Unable to remove item.",
+  );
+}
