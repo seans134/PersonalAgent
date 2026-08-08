@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedRequestClient } from "@/lib/supabase/request";
 
+type AuthenticatedSupabaseClient = NonNullable<
+  Awaited<ReturnType<typeof getAuthenticatedRequestClient>>
+>["supabase"];
+
 const ITEM_COLUMNS =
   "id, course_id, category_id, user_id, kind, title, due_at, end_at, location, score_earned, score_max, estimated_effort_hours, focus_mode, created_at";
 
@@ -77,6 +81,28 @@ async function requireAuth(request: NextRequest) {
   return { auth };
 }
 
+async function assertCategoryInCourse(
+  supabase: AuthenticatedSupabaseClient,
+  userId: string,
+  courseId: string,
+  categoryId: string | null,
+): Promise<{ error: string; status: number } | null> {
+  if (!categoryId) return null; // no category is valid (nullable)
+
+  const { data, error } = await supabase
+    .from("course_categories")
+    .select("id")
+    .eq("id", categoryId)
+    .eq("course_id", courseId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) return { error: error.message, status: 500 };
+  if (!data) return { error: "Category not found for this course.", status: 400 };
+
+  return null;
+}
+
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const result = await requireAuth(request);
   if ("response" in result) return result.response;
@@ -90,12 +116,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (!course) return NextResponse.json({ error: "Course not found." }, { status: 404 });
 
     const payload = (await request.json()) as ItemPayload;
+    const categoryId = optionalText(payload.categoryId);
+    const categoryError = await assertCategoryInCourse(result.auth.supabase, result.auth.user.id, id, categoryId);
+    if (categoryError) {
+      return NextResponse.json({ error: categoryError.error }, { status: categoryError.status });
+    }
+
     const { data, error } = await result.auth.supabase
       .from("course_items")
       .insert({
         user_id: result.auth.user.id,
         course_id: id,
-        category_id: optionalText(payload.categoryId),
+        category_id: categoryId,
         kind: parseKind(payload.kind),
         title: requiredText(payload.title, "Title"),
         due_at: parseIsoRequired(payload.dueAt, "Due date"),
@@ -130,7 +162,14 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const update: Record<string, unknown> = {};
     if ("kind" in payload) update.kind = parseKind(payload.kind);
     if ("title" in payload) update.title = requiredText(payload.title, "Title");
-    if ("categoryId" in payload) update.category_id = optionalText(payload.categoryId);
+    if ("categoryId" in payload) {
+      const categoryId = optionalText(payload.categoryId);
+      const categoryError = await assertCategoryInCourse(result.auth.supabase, result.auth.user.id, id, categoryId);
+      if (categoryError) {
+        return NextResponse.json({ error: categoryError.error }, { status: categoryError.status });
+      }
+      update.category_id = categoryId;
+    }
     if ("dueAt" in payload) update.due_at = parseIsoRequired(payload.dueAt, "Due date");
     if ("endAt" in payload) update.end_at = payload.endAt ? parseIsoRequired(payload.endAt, "End date") : null;
     if ("location" in payload) update.location = optionalText(payload.location);

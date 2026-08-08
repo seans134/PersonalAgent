@@ -1,3 +1,5 @@
+-- See also db/user_profiles_timezone.sql (adds user_profiles.timezone used by the courses projection).
+-- Apply this file in the Supabase SQL editor alongside db/schema.sql and db/tracking.sql.
 -- Atlas Courses: courses, weighted categories, graded items (assignment/quiz/exam)
 
 create table if not exists public.courses (

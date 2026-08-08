@@ -46,6 +46,7 @@ export function deriveStudyTasks(items: StudyItem[], todayLocalDate: string, hor
     const daysAUntilDue = Math.max(1, diffInDays(a.dueLocalDate, todayLocalDate));
     const daysBUntilDue = Math.max(1, diffInDays(b.dueLocalDate, todayLocalDate));
 
+    // NOTE: keep this priority formula in sync with the other occurrence in this file.
     const aPriority: 1 | 2 | 3 = a.focusMode === "finish_first" ? 1 : daysAUntilDue <= 1 ? 1 : daysAUntilDue <= 3 ? 2 : 3;
     const bPriority: 1 | 2 | 3 = b.focusMode === "finish_first" ? 1 : daysBUntilDue <= 1 ? 1 : daysBUntilDue <= 3 ? 2 : 3;
 
@@ -62,6 +63,7 @@ export function deriveStudyTasks(items: StudyItem[], todayLocalDate: string, hor
     const durationMinutes = isFinishFirst
       ? clamp(Math.max(45, evenShare * 2), 15, 120)
       : clamp(evenShare, 15, 120);
+    // NOTE: keep this priority formula in sync with the other occurrence in this file.
     const priority: 1 | 2 | 3 = isFinishFirst ? 1 : daysUntilDue <= 1 ? 1 : daysUntilDue <= 3 ? 2 : 3;
     const daysWord = daysUntilDue === 1 ? "tomorrow" : `in ${daysUntilDue} days`;
     return {
