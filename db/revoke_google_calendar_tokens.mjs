@@ -3,8 +3,9 @@
  *
  * Revokes every stored OAuth token at Google so no Atlas grant is left behind in
  * a user's Google account, then reports what it did. Run this BEFORE applying
- * db/drop_google_calendar.sql — once the table is dropped the tokens are gone
- * and the grants can no longer be revoked programmatically.
+ * the drop migration supabase/migrations/20260721200138_drop_google_calendar.sql —
+ * once the table is dropped the tokens are gone and the grants can no longer be
+ * revoked programmatically.
  *
  * Usage:
  *   SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... node db/revoke_google_calendar_tokens.mjs
@@ -82,4 +83,7 @@ if (failed > 0) {
   process.exit(1);
 }
 
-console.log("All tokens revoked. Safe to apply db/drop_google_calendar.sql.");
+console.log(
+  "All tokens revoked. Safe to apply the drop migration " +
+    "(supabase/migrations/20260721200138_drop_google_calendar.sql).",
+);

@@ -1,0 +1,10 @@
+# Supabase CLI configuration. Full reference: https://supabase.com/docs/guides/cli/config
+#
+# Schema is managed as versioned migrations in supabase/migrations/ and applied
+# with `supabase db push` (see README.md) — never by pasting SQL by hand.
+
+project_id = "atlas"
+
+[db]
+# Postgres major version of the linked project. Match your Supabase project's version.
+major_version = 15
