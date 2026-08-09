@@ -3,16 +3,18 @@
 These instructions are persistent guidance for coding sessions in this repo.
 
 ## Product Direction
-- End goal is a mobile app.
-- Continue validating core product behavior on web first, then migrate to mobile.
+- Atlas ships as a web app (Next.js) and a mobile app (Expo/React Native).
+- Develop the two surfaces side by side: a feature is not "done" until it lands
+  on both web and mobile (or is explicitly scoped to one with a reason).
 
-## Mobile Migration Guardrails (Always Apply)
-When implementing features now, keep migration easy later by following these rules:
+## Cross-Platform Guardrails (Always Apply)
+Keep web and mobile in lockstep by following these rules:
 1. Keep business logic API-driven (do not couple critical logic to web-only server actions).
-2. Keep planner logic in shared, pure modules.
-3. Define stable request/response contracts for endpoints.
-4. Avoid web-only assumptions in product copy and flows.
-5. Track core loop metrics: onboarding completed, schedule added, plan generated, plan accepted.
+2. Keep shared logic (planner, grade math, study scheduling) in pure modules in `packages/core`.
+3. Define stable request/response contracts for endpoints (`/api/mobile/*`) that both surfaces consume.
+4. Avoid platform-only assumptions in product copy and flows.
+5. Manage database schema as Supabase CLI migrations in `supabase/migrations/` (`supabase db push`); never apply SQL by hand.
+6. Track core loop metrics: onboarding completed, schedule added, plan generated, plan accepted.
 
 ## Delivery Prompts / Build Sequence
 Use this as the canonical MVP execution checklist:

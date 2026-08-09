@@ -44,3 +44,7 @@ next-env.d.ts
 
 # superpowers SDD scratch workspace
 .superpowers/
+
+# supabase CLI local artifacts
+supabase/.branches/
+supabase/.temp/

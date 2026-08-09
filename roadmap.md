@@ -1,11 +1,11 @@
 # Roadmap
 
 ## Vision
-Build PersonalAgent into a mobile-first personal life agent.
+Build PersonalAgent into a personal life agent delivered on web and mobile together.
 
 ## V1 Sprint
 
-**Scope:** Focus on better schedule input, goals that feel real, and a schedule view. Keep V1 shippable so mobile migration can start after.
+**Scope:** Focus on better schedule input, goals that feel real, and a schedule view. Build each feature on web and mobile side by side, backed by shared logic in `packages/core` and the `/api/mobile/*` contracts.
 **Out of scope for V1:** Food suggestions, chat-based replanning, and travel-time routing.
 
 ### Data Model
@@ -73,7 +73,7 @@ Build PersonalAgent into a mobile-first personal life agent.
 - Suggest activities based on interests
 
 ## Open Questions
-- Which V1 feature set is required before mobile migration starts?
+- Which surface (web/mobile) leads for any given feature when parity has to lag briefly, and how do we track catch-up?
 - How should goal progress be measured (binary complete vs percentage)?
 - What should be fixed constraints vs flexible plan items?
 - What level of travel-time accuracy is needed for first release?
