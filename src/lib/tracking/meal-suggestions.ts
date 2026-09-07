@@ -73,7 +73,7 @@ function hasUnprotectedPhrase(text: string, pattern: RegExp): boolean {
   return false;
 }
 
-function containsUnsafeLanguage(text: string): boolean {
+export function containsUnsafeLanguage(text: string): boolean {
   const normalized = text.replace(/\s+/g, " ").trim();
   const unsafePhrases = [
     /extreme (diet|calorie|restriction)/i,

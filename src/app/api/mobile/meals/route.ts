@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedRequestClient } from "@/lib/supabase/request";
+import { computeRecentNudges } from "@/lib/tracking/habit-report-request";
 
 const MEAL_TYPES = new Set(["breakfast", "lunch", "dinner", "snack", "meal"]);
 
@@ -134,7 +135,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ meal: data }, { status: 201 });
+    const nudges = await computeRecentNudges({ supabase: auth.supabase, userId: auth.user.id, focus: "meal" });
+    return NextResponse.json({ meal: data, nudges }, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to log meal.";
     return NextResponse.json({ error: message }, { status: 400 });

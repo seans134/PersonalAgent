@@ -16,6 +16,7 @@ export type MobileScreen =
   | "goals"
   | "courses"
   | "courseDetail"
+  | "insights"
   | "onboarding"
   | "notifications"
   | "settings";
@@ -35,6 +36,7 @@ export const screenToTab: Record<MobileScreen, MobileTab> = {
   goals: "more",
   courses: "more",
   courseDetail: "more",
+  insights: "more",
   onboarding: "more",
   notifications: "more",
   settings: "more",

@@ -32,6 +32,7 @@ import {
   type MobileTab,
 } from "./components/MobileAppShell";
 import { MoreMenuScreen } from "./components/MoreMenuScreen";
+import { InsightsScreen } from "./components/InsightsScreen";
 import { MealsScreen } from "./components/MealsScreen";
 import { OnboardingScreen } from "./components/OnboardingScreen";
 import { NotificationSettingsScreen } from "./components/NotificationSettingsScreen";
@@ -193,6 +194,15 @@ function App() {
     if (activeScreen === "more") {
       return (
         <MoreMenuScreen onNavigate={setActiveScreen} onSignOut={signOut} />
+      );
+    }
+
+    if (activeScreen === "insights") {
+      return (
+        <View style={styles.tabBody}>
+          <DetailHeader onBack={() => setActiveScreen("more")} title="Insights" />
+          <InsightsScreen accessToken={token} />
+        </View>
       );
     }
 

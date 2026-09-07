@@ -3,6 +3,7 @@
 import { FormEvent, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createMealLog } from "../actions";
+import { NudgeCallout } from "../nudge-callout";
 import type { TrackingActionResult } from "@/lib/tracking";
 
 const initialResult: TrackingActionResult = { ok: false };
@@ -134,6 +135,7 @@ export function MealLogForm() {
 
       {result.error ? <p className="text-sm text-danger">{result.error}</p> : null}
       {result.ok ? <p className="text-sm text-success">Meal logged.</p> : null}
+      <NudgeCallout nudges={result.nudges} />
 
       <button
         className="rounded-lg bg-teal px-5 py-2 text-sm font-medium text-on-teal disabled:cursor-not-allowed disabled:opacity-60"
