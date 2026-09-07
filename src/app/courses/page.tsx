@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation";
 import { listCourseSummaries } from "@/lib/courses/queries";
+import { isGeminiConfigured } from "@/lib/gemini/client";
 import { createClient } from "@/lib/supabase/server";
 import { CourseCard } from "./course-card";
 import { NewCourseForm } from "./new-course-form";
+import { SyllabusImportPanel } from "./syllabus-import-panel";
 
 export default async function CoursesPage({
   searchParams,
@@ -44,7 +46,8 @@ export default async function CoursesPage({
         <p className="mb-6 rounded-lg border border-danger bg-surface px-3 py-2 text-sm text-danger">{params.error}</p>
       ) : null}
 
-      <div className="mb-8">
+      <div className="mb-8 space-y-6">
+        <SyllabusImportPanel geminiConfigured={isGeminiConfigured()} />
         <NewCourseForm />
       </div>
 

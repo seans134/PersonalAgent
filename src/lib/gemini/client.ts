@@ -53,6 +53,14 @@ export type CoachIntentPromptInput = {
   hasActiveSuggestion: boolean;
 };
 
+export type GeminiPart = { text: string } | { inlineData: { mimeType: string; data: string } };
+
+export type SyllabusParsePromptInput = {
+  parts: GeminiPart[];
+  timezone: string;
+  today: string;
+};
+
 export type MealSuggestionPromptInput = {
   timezone: string;
   today: string;
@@ -157,6 +165,22 @@ function buildMealParserInstruction(): string {
     "Use numeric values for calories and grams. Use null for unknown nutrition.",
     "Do not invent precise nutrition when the note is vague. Include a warning when nutrition is estimated or uncertain.",
     "Avoid medical advice, extreme dieting, unsafe restrictions, purging, or shame-based wording.",
+  ].join("\n");
+}
+
+function buildSyllabusParserInstruction(): string {
+  return [
+    "Extract structured course data from the attached or pasted syllabus.",
+    "Return strict JSON with shape: {course: {code, name, term, target_grade}, categories: [{name, weight}], items: [{kind, title, categoryName, due_at, score_max}], warnings: [string]}.",
+    "course.code is the course code such as CHEM 201 or null. course.name is the full course title. course.term is the academic term such as Fall 2026 or null.",
+    "course.target_grade is a number 0-100 only if the syllabus states a required or target grade; otherwise null.",
+    "categories are the weighted grade breakdown. Each weight is a percentage number 0-100 (e.g. Midterm 30 means weight 30). Only include categories that carry a grade weight.",
+    "items are graded deliverables with a specific due date. Valid kind values are assignment, quiz, exam.",
+    "Map exam, midterm, final, and test to kind exam. Map homework, hw, problem set, project, lab, essay, paper, and report to kind assignment. Map quiz and pop quiz to kind quiz.",
+    "categoryName on each item must match the name of one of the categories when the syllabus indicates which bucket the item counts toward; otherwise null.",
+    "due_at must be a full ISO 8601 timestamp at 23:59 local time in the provided timezone on the item's due date. Infer the year from term or today when the syllabus omits it. Use null when there is no specific due date.",
+    "score_max is the item's maximum points if stated; otherwise null (a default is applied later).",
+    "Do not invent categories, items, weights, or dates that are not in the syllabus. Record anything ambiguous or uncertain in warnings.",
   ].join("\n");
 }
 
@@ -699,6 +723,92 @@ export async function requestMealParse(input: MealParsePromptInput): Promise<unk
         {
           role: "user",
           parts: [{ text: buildMealParserPrompt(input) }],
+        },
+      ],
+      generationConfig: {
+        temperature: 0.1,
+        responseMimeType: "application/json",
+      },
+    }),
+    cache: "no-store",
+  });
+
+  const payload = (await response.json()) as {
+    error?: { message?: string };
+    candidates?: Array<{
+      content?: {
+        parts?: Array<{
+          text?: string;
+        }>;
+      };
+    }>;
+  };
+
+  if (!response.ok) {
+    throw new Error(payload.error?.message ?? `Gemini request failed with status ${response.status}`);
+  }
+
+  const content = payload.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!content) {
+    throw new Error("Gemini returned empty content.");
+  }
+
+  try {
+    return JSON.parse(content);
+  } catch {
+    throw new Error("Gemini returned invalid JSON.");
+  }
+}
+
+export async function requestSyllabusParse(input: SyllabusParsePromptInput): Promise<unknown> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY is not configured.");
+  }
+
+  const model = process.env.GEMINI_MODEL ?? "gemini-2.0-flash";
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+  const promptPart: GeminiPart = {
+    text: JSON.stringify({
+      timezone: input.timezone,
+      today: input.today,
+      instructions: "Parse the attached syllabus into the expectedShape below.",
+      expectedShape: {
+        course: {
+          code: "string | null",
+          name: "string",
+          term: "string | null",
+          target_grade: "number 0-100 | null",
+        },
+        categories: [{ name: "string", weight: "number 0-100" }],
+        items: [
+          {
+            kind: "assignment | quiz | exam",
+            title: "string",
+            categoryName: "string | null",
+            due_at: "ISO string at 23:59 local | null",
+            score_max: "number | null",
+          },
+        ],
+        warnings: ["string"],
+      },
+    }),
+  };
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      systemInstruction: {
+        parts: [{ text: buildSyllabusParserInstruction() }],
+      },
+      contents: [
+        {
+          role: "user",
+          parts: [promptPart, ...input.parts],
         },
       ],
       generationConfig: {
