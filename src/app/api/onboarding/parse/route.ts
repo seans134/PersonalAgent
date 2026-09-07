@@ -7,6 +7,7 @@ import { getAuthenticatedRequestClient } from "@/lib/supabase/request";
 
 const MODES = new Set(["school_work", "weekly_rhythm", "goals"]);
 
+// Mobile app depends on this response shape — see src/app/api/mobile-contract.test.ts before changing the envelope.
 export async function POST(request: Request) {
   const auth = await getAuthenticatedRequestClient(request);
 

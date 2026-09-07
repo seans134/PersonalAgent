@@ -34,6 +34,7 @@ function toProfilePayload(draft: NaturalLanguageOnboardingDraft, userId: string)
   };
 }
 
+// Mobile app depends on this response shape — see src/app/api/mobile-contract.test.ts before changing the envelope.
 export async function POST(request: Request) {
   const auth = await getAuthenticatedRequestClient(request);
 

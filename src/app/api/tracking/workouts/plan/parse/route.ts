@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { parseNaturalLanguageWorkoutSchedule } from "@/lib/tracking/natural-language-workout";
 import { getAuthenticatedRequestClient } from "@/lib/supabase/request";
 
+// Mobile app depends on this response shape — see src/app/api/mobile-contract.test.ts before changing the envelope.
 export async function POST(request: NextRequest) {
   const auth = await getAuthenticatedRequestClient(request);
 

@@ -72,6 +72,25 @@ Build PersonalAgent into a personal life agent delivered on web and mobile toget
 - Let users add/remove interests over time
 - Suggest activities based on interests
 
+## Tech Debt (deferred)
+
+- **Mobile `/api/mobile/*` contract boundary leak.** The Expo app calls several
+  web-internal routes directly instead of going through the `/api/mobile/*`
+  namespace: `/api/onboarding/parse`, `/api/onboarding/apply`,
+  `/api/tracking/meals/apply`, `/api/tracking/meals/saved/apply`,
+  `/api/tracking/meals/assistant`, `/api/tracking/workouts/apply`,
+  `/api/tracking/workouts/plan/parse`, `/api/tracking/workouts/plan/apply`, and
+  `/api/tracking/workouts/assistant`. Auth is fine (both namespaces share
+  `getAuthenticatedRequestClient`), so this is not a bug — the risk is a
+  web-side refactor silently breaking mobile.
+  - *Mitigated for now:* a contract test (`src/app/api/mobile-contract.test.ts`)
+    pins each leaked route's response envelope so a breaking change fails CI, and
+    each route carries a comment pointing at it.
+  - *Real fix (later):* give these proper `/api/mobile/*` contracts (thin
+    wrappers over the shared handlers) so the mobile-facing surface is
+    versionable and refactor-safe. Do this alongside the coach-UX unification
+    (see the `mobile-parity-and-coach-unification` branch).
+
 ## Open Questions
 - Which surface (web/mobile) leads for any given feature when parity has to lag briefly, and how do we track catch-up?
 - How should goal progress be measured (binary complete vs percentage)?

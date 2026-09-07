@@ -8,6 +8,7 @@ function revalidateTrackingPaths() {
   revalidatePath("/tracking/workouts");
 }
 
+// Mobile app depends on this response shape — see src/app/api/mobile-contract.test.ts before changing the envelope.
 export async function POST(request: NextRequest) {
   const auth = await getAuthenticatedRequestClient(request);
 
