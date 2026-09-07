@@ -1,3 +1,5 @@
+import type { Nudge } from "@personal-agent/core";
+
 export type MealType = "breakfast" | "lunch" | "dinner" | "snack" | "meal";
 
 export type WorkoutType = "strength" | "cardio" | "recovery" | "sport";
@@ -77,4 +79,5 @@ export type BodyProfileLogInput = {
 export type TrackingActionResult = {
   ok: boolean;
   error?: string;
+  nudges?: Nudge[];
 };

@@ -1,4 +1,5 @@
 import type { DailyPlan, Goal, PlannerPreferences } from "@/lib/planner/types";
+import type { HabitMetrics, HabitPeriod, Nudge } from "@personal-agent/core";
 
 export type EnhancePromptInput = {
   plan: DailyPlan;
@@ -404,6 +405,107 @@ function buildMealSuggestionPrompt(input: MealSuggestionPromptInput): string {
 
 export function isGeminiConfigured() {
   return Boolean(process.env.GEMINI_API_KEY);
+}
+
+export type HabitDigestPromptInput = {
+  period: HabitPeriod;
+  timezone: string;
+  metrics: HabitMetrics;
+  nudges: Nudge[];
+  goals: unknown[];
+  previousMetrics?: HabitMetrics | null;
+};
+
+function buildHabitDigestInstruction(): string {
+  return [
+    "You are a supportive habit coach summarizing a user's logged meals and workouts.",
+    "Return strict JSON with shape: {headline: string, endorsements: string[], improvements: [{area: string, suggestion: string}], summary: string}.",
+    "Every number, streak, average, and count is already computed and provided in metrics and nudges. Narrate those numbers — never invent, recompute, or estimate new figures, targets, calories, or macros.",
+    "If a target (calorie or protein) is null, the user has not set one: speak qualitatively and do not invent a target.",
+    "endorsements: 1-3 short, specific celebrations of good habits grounded in the metrics (streaks, consistency, adherence, balance).",
+    "improvements: 0-3 gentle, actionable suggestions grounded in the improvement nudges and metrics. Each has a short area label and one concrete suggestion.",
+    "headline: one encouraging sentence capturing the period. summary: 1-2 sentences tying it together.",
+    "Match the period: 'daily' reflects today, 'weekly' reflects the last 7 days. Use previousMetrics only to note direction of change (up/down/steady), never to fabricate figures.",
+    "Always lead with what is going well before what to improve. Be warm, concise, and non-judgmental.",
+    "Avoid medical advice, diagnosis, extreme dieting, unsafe restriction, starvation, purging, detoxes, overtraining, guilt, or shame-based wording.",
+    "Keep headline <= 120 chars, each endorsement <= 160 chars, each suggestion <= 180 chars, summary <= 240 chars.",
+  ].join("\n");
+}
+
+function buildHabitDigestPrompt(input: HabitDigestPromptInput): string {
+  return JSON.stringify({
+    period: input.period,
+    timezone: input.timezone,
+    metrics: input.metrics,
+    nudges: input.nudges,
+    goals: input.goals,
+    previousMetrics: input.previousMetrics ?? null,
+    expectedShape: {
+      headline: "string",
+      endorsements: ["string"],
+      improvements: [{ area: "string", suggestion: "string" }],
+      summary: "string",
+    },
+  });
+}
+
+export async function requestHabitDigest(input: HabitDigestPromptInput): Promise<unknown> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY is not configured.");
+  }
+
+  const model = process.env.GEMINI_MODEL ?? "gemini-2.0-flash";
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      systemInstruction: {
+        parts: [{ text: buildHabitDigestInstruction() }],
+      },
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: buildHabitDigestPrompt(input) }],
+        },
+      ],
+      generationConfig: {
+        temperature: 0.3,
+        responseMimeType: "application/json",
+      },
+    }),
+    cache: "no-store",
+  });
+
+  const payload = (await response.json()) as {
+    error?: { message?: string };
+    candidates?: Array<{
+      content?: {
+        parts?: Array<{
+          text?: string;
+        }>;
+      };
+    }>;
+  };
+
+  if (!response.ok) {
+    throw new Error(payload.error?.message ?? `Gemini request failed with status ${response.status}`);
+  }
+
+  const content = payload.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!content) {
+    throw new Error("Gemini returned empty content.");
+  }
+
+  try {
+    return JSON.parse(content);
+  } catch {
+    throw new Error("Gemini returned invalid JSON.");
+  }
 }
 
 export async function requestPlanEnhancement(input: EnhancePromptInput): Promise<unknown> {

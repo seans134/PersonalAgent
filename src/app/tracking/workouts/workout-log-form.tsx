@@ -3,6 +3,7 @@
 import { FormEvent, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createWorkoutLog } from "../actions";
+import { NudgeCallout } from "../nudge-callout";
 import type { TrackingActionResult, WorkoutTrackingMethod, WorkoutType } from "@/lib/tracking";
 
 const workoutTypes: { value: WorkoutType; label: string }[] = [
@@ -256,6 +257,7 @@ export function WorkoutLogForm() {
 
       {result.error ? <p className="text-sm text-danger">{result.error}</p> : null}
       {result.ok ? <p className="text-sm text-success">Workout logged.</p> : null}
+      <NudgeCallout nudges={result.nudges} />
 
       <button
         className="rounded-lg bg-teal px-5 py-2 text-sm font-medium text-on-teal disabled:cursor-not-allowed disabled:opacity-60"

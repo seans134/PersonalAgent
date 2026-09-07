@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedRequestClient } from "@/lib/supabase/request";
+import { computeRecentNudges } from "@/lib/tracking/habit-report-request";
 
 const WORKOUT_TYPES = new Set(["strength", "cardio", "recovery", "sport"]);
 const INTENSITIES = new Set(["light", "moderate", "intense"]);
@@ -177,7 +178,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ workout: data }, { status: 201 });
+    const nudges = await computeRecentNudges({
+      supabase: result.auth.supabase,
+      userId: result.auth.user.id,
+      focus: "workout",
+    });
+    return NextResponse.json({ workout: data, nudges }, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to log workout.";
     return NextResponse.json({ error: message }, { status: 400 });
@@ -248,7 +254,12 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ workout: data }, { status: 201 });
+    const nudges = await computeRecentNudges({
+      supabase: result.auth.supabase,
+      userId: result.auth.user.id,
+      focus: "workout",
+    });
+    return NextResponse.json({ workout: data, nudges }, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to track planned workout.";
     return NextResponse.json({ error: message }, { status: 400 });

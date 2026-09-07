@@ -1,7 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import type { Nudge } from "@personal-agent/core";
 import { createClient } from "@/lib/supabase/server";
+import { computeRecentNudges } from "@/lib/tracking/habit-report-request";
 import {
   parseBodyProfileLogFormData,
   parseMealLogFormData,
@@ -12,8 +14,8 @@ import {
   type TrackingActionResult,
 } from "@/lib/tracking";
 
-function success(): TrackingActionResult {
-  return { ok: true };
+function success(nudges?: Nudge[]): TrackingActionResult {
+  return nudges && nudges.length > 0 ? { ok: true, nudges } : { ok: true };
 }
 
 function failure(error: unknown): TrackingActionResult {
@@ -67,7 +69,8 @@ export async function createMealLog(formData: FormData): Promise<TrackingActionR
     }
 
     revalidateTrackingPaths();
-    return success();
+    const nudges = await computeRecentNudges({ supabase, userId, focus: "meal" });
+    return success(nudges);
   } catch (error) {
     return failure(error);
   }
@@ -232,7 +235,8 @@ export async function createWorkoutLog(formData: FormData): Promise<TrackingActi
     }
 
     revalidateTrackingPaths();
-    return success();
+    const nudges = await computeRecentNudges({ supabase, userId, focus: "workout" });
+    return success(nudges);
   } catch (error) {
     return failure(error);
   }

@@ -1,6 +1,20 @@
 import type { TodayPlanResponse } from "@personal-agent/core/planner/client-types";
+import type { HabitDigest, HabitMetrics, HabitPeriod, Nudge } from "@personal-agent/core/habits";
 import { captureEvent, captureException } from "./analytics";
 import { requireMobileEnv } from "./env";
+
+export type { HabitDigest, HabitMetrics, HabitPeriod, Nudge };
+
+export type MobileHabitReport = {
+  period: HabitPeriod;
+  periodStart: string;
+  periodEnd: string;
+  generatedAt: string;
+  metrics: HabitMetrics;
+  nudges: Nudge[];
+  digest: HabitDigest;
+  source: string;
+};
 
 export type MobileOnboardingInput = {
   workStartTime: string;
@@ -546,6 +560,23 @@ export async function trackMobileSavedMeal(accessToken: string, id: string) {
   });
   captureEvent("meal_logged", { source: "saved" });
   return response;
+}
+
+export async function fetchMobileInsights(
+  accessToken: string,
+  period: HabitPeriod,
+  options: { referenceDate?: string; timezone?: string; refresh?: boolean } = {},
+): Promise<{ report: MobileHabitReport }> {
+  const params = new URLSearchParams({ period });
+  if (options.referenceDate) params.set("referenceDate", options.referenceDate);
+  if (options.timezone) params.set("timezone", options.timezone);
+  if (options.refresh) params.set("refresh", "true");
+  return fetchJson<{ report: MobileHabitReport }>(
+    `/api/mobile/insights?${params.toString()}`,
+    accessToken,
+    { method: "GET" },
+    "Unable to load insights.",
+  );
 }
 
 export async function fetchMobileGoals(accessToken: string) {
