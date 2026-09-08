@@ -18,6 +18,7 @@ const navItems = [
   { href: "/tracking/workouts", label: "Workouts" },
   { href: "/tracking/workouts/plan", label: "Workout plan" },
   { href: "/tracking/insights", label: "Insights" },
+  { href: "/settings", label: "Settings" },
 ];
 
 type ThemeChoice = "system" | "light" | "dark";

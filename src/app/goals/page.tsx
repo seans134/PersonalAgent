@@ -2,6 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { NaturalLanguageOnboardingPanel } from "@/components/natural-language-onboarding-panel";
 import { OnboardingProgress } from "@/components/onboarding-progress";
+import { completeOnboarding } from "@/app/onboarding/actions";
+import { isOnboardingComplete } from "@/lib/onboarding/status";
 import { createClient } from "@/lib/supabase/server";
 import { createGoal, saveFitnessOnboarding } from "./actions";
 import { GoalsList } from "./goals-list";
@@ -29,6 +31,8 @@ export default async function GoalsPage({
     redirect("/auth");
   }
 
+  const onboarded = await isOnboardingComplete(supabase, user.id);
+
   const { data: goals } = await supabase
     .from("goals")
     .select("id, title, description, priority, task_type, minimum_daily_minutes, end_date, completed_at")
@@ -49,16 +53,18 @@ export default async function GoalsPage({
     <main className="mx-auto min-h-screen w-full max-w-3xl px-6 py-12">
       <div className="mb-8 flex items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-medium uppercase tracking-wide text-ink-muted">Step 3 of 3</p>
+          {!onboarded ? (
+            <p className="text-sm font-medium uppercase tracking-wide text-ink-muted">Step 3 of 3</p>
+          ) : null}
           <h1 className="text-3xl font-semibold tracking-tight text-ink">Goals</h1>
           <p className="mt-2 text-ink-muted">Add the outcomes Atlas should use to shape your daily plan.</p>
         </div>
-        <Link className="text-sm text-ink-muted underline" href="/onboarding">
-          Back
+        <Link className="text-sm text-ink-muted underline" href={onboarded ? "/" : "/onboarding"}>
+          {onboarded ? "Back home" : "Back"}
         </Link>
       </div>
 
-      <OnboardingProgress currentStep={3} />
+      {!onboarded ? <OnboardingProgress currentStep={3} /> : null}
 
       <NaturalLanguageOnboardingPanel mode="goals" />
 
@@ -229,14 +235,16 @@ export default async function GoalsPage({
         <GoalsList goals={goals ?? []} />
       </section>
 
-      <div className="mt-6 flex flex-wrap items-center gap-3">
-        <Link className="rounded-lg bg-teal px-5 py-2 text-sm font-medium text-on-teal" href="/">
-          Finish onboarding
-        </Link>
-        <Link className="text-sm text-ink-muted underline" href="/">
-          Skip for now
-        </Link>
-      </div>
+      {!onboarded ? (
+        <form action={completeOnboarding} className="mt-6 flex flex-wrap items-center gap-3">
+          <button className="rounded-lg bg-teal px-5 py-2 text-sm font-medium text-on-teal" type="submit">
+            Finish onboarding
+          </button>
+          <button className="text-sm text-ink-muted underline" type="submit">
+            Skip for now
+          </button>
+        </form>
+      ) : null}
     </main>
   );
 }
