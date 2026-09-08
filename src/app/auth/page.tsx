@@ -2,16 +2,22 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AuthForm } from "@/components/auth-form";
 import { signIn, signUp } from "./actions";
+import { isOnboardingComplete } from "@/lib/onboarding/status";
 import { createClient } from "@/lib/supabase/server";
 
-export default async function AuthPage() {
+export default async function AuthPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ ok?: string; error?: string }>;
+}) {
+  const params = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   if (user) {
-    redirect("/onboarding/schedule");
+    redirect((await isOnboardingComplete(supabase, user.id)) ? "/" : "/onboarding/schedule");
   }
 
   return (
@@ -22,6 +28,12 @@ export default async function AuthPage() {
           <p className="text-ink-muted">
             Sign in or create an account to add school, work, goals, and planning preferences.
           </p>
+          {params.ok ? (
+            <p className="rounded-lg border border-success bg-surface2 px-3 py-2 text-sm text-success">{params.ok}</p>
+          ) : null}
+          {params.error ? (
+            <p className="rounded-lg border border-danger bg-surface px-3 py-2 text-sm text-danger">{params.error}</p>
+          ) : null}
           <Link className="text-sm text-ink-muted underline" href="/">
             Back to home
           </Link>

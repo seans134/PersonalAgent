@@ -52,3 +52,30 @@ export async function saveOnboarding(formData: FormData) {
   revalidatePath("/goals");
   redirect("/goals");
 }
+
+export async function completeOnboarding() {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/auth");
+  }
+
+  const { error } = await supabase.from("user_profiles").upsert(
+    {
+      user_id: user.id,
+      onboarding_completed_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id" },
+  );
+
+  if (error) {
+    redirect(`/goals?error=${encodeURIComponent(error.message)}`);
+  }
+
+  revalidatePath("/");
+  redirect("/");
+}
