@@ -11,6 +11,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { describeNeeded } from "@personal-agent/core";
 import { BulletBar } from "./BulletBar";
 import {
   createMobileCourse,
@@ -293,6 +294,7 @@ function CourseCard({
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const meta = [course.code, course.term].filter(Boolean).join(" · ");
   const targetLabel = course.targetGrade !== null ? formatGrade(course.targetGrade) : null;
+  const neededCopy = describeNeeded(course.needed);
 
   return (
     <Pressable
@@ -317,6 +319,7 @@ function CourseCard({
           <BulletBar target={course.targetGrade} value={course.average} />
         </View>
         <Text style={styles.courseCaption}>Based on {course.gradedWeight}% of your grade</Text>
+        {neededCopy ? <Text style={styles.courseNeeded}>{neededCopy.short}</Text> : null}
       </View>
 
       {course.nextItem ? (
@@ -504,6 +507,10 @@ function makeStyles(theme: Theme) {
     courseCaption: {
       ...theme.text("label", "inkMuted"),
       marginTop: 8,
+    },
+    courseNeeded: {
+      ...theme.text("label", "ink"),
+      marginTop: 4,
     },
     nextChip: {
       alignSelf: "flex-start",

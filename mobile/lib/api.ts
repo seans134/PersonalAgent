@@ -1,5 +1,6 @@
 import type { TodayPlanResponse } from "@personal-agent/core/planner/client-types";
 import type { HabitDigest, HabitMetrics, HabitPeriod, Nudge } from "@personal-agent/core/habits";
+import type { NeededScore } from "@personal-agent/core";
 import { captureEvent, captureException } from "./analytics";
 import { requireMobileEnv } from "./env";
 
@@ -795,6 +796,8 @@ export type MobileCourseSummary = {
   gradedWeight: number;
   nextItem: { id: string; title: string; kind: "assignment" | "quiz" | "exam"; dueAt: string } | null;
   dueThisWeek: number;
+  // Average needed on the remaining work to hit targetGrade.
+  needed: NeededScore;
 };
 
 export type MobileCourseDetail = {
@@ -828,6 +831,7 @@ export type MobileCourseDetail = {
     warnings: string[];
     categories: Array<{ id: string; name: string; weight: number; score: number | null; gradedCount: number; itemCount: number }>;
   };
+  needed: NeededScore;
 };
 
 export type MobileCourseInput = {

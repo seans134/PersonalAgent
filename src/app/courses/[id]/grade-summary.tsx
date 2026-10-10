@@ -1,19 +1,25 @@
 "use client";
 
-import type { CourseGrade } from "@personal-agent/core";
+import { describeNeeded, type CourseGrade, type GradeCategory, type GradedItem, type NeededScore } from "@personal-agent/core";
 import { BulletBar } from "@/components/bullet-bar";
 import { formatGrade } from "@/components/grade-format";
 import type { CourseRow } from "@/lib/courses/types";
+import { WhatIfProjection } from "./what-if";
 
 export function GradeSummary({
   course,
   grade,
+  needed,
+  gradeInputs,
 }: {
   course: CourseRow;
   grade: CourseGrade;
+  needed: NeededScore;
+  gradeInputs: { categories: GradeCategory[]; items: GradedItem[] };
 }) {
   const averageLabel = formatGrade(grade.average);
   const targetLabel = course.target_grade !== null ? formatGrade(course.target_grade) : null;
+  const neededCopy = describeNeeded(needed);
   const weightSum = grade.categories.reduce((sum, category) => sum + Number(category.weight), 0);
 
   return (
@@ -31,6 +37,15 @@ export function GradeSummary({
           />
         </div>
         <p className="mt-2 text-xs text-ink-muted">Based on {grade.gradedWeight}% of your final grade</p>
+        {neededCopy ? (
+          <div className="mt-4">
+            <p className="text-xs font-medium text-ink-muted">To hit your target</p>
+            <p className="mt-1 text-sm text-ink">{neededCopy.long}</p>
+          </div>
+        ) : null}
+        <div className="mt-4">
+          <WhatIfProjection categories={gradeInputs.categories} items={gradeInputs.items} />
+        </div>
       </div>
 
       {grade.warnings.includes("weights_sum_not_100") ? (
