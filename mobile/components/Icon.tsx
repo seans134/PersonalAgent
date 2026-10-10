@@ -2,6 +2,7 @@ import Svg, { Circle, Line, Polygon, Polyline, Rect } from "react-native-svg";
 
 export type IconName =
   | "today"
+  | "courses"
   | "calendar"
   | "meals"
   | "workouts"
@@ -35,6 +36,13 @@ export function Icon({ name, size = 24, color, strokeWidth = 1.8 }: IconProps) {
         <Svg width={size} height={size} viewBox="0 0 24 24">
           <Circle cx={12} cy={12} r={9} {...common} />
           <Polygon points="15.5,8.5 10.5,10.5 8.5,15.5 13.5,13.5" fill={color} stroke="none" />
+        </Svg>
+      );
+    case "courses": // open book
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24">
+          <Polygon points="12,6.5 3,4.5 3,18 12,20" {...common} />
+          <Polygon points="12,6.5 21,4.5 21,18 12,20" {...common} />
         </Svg>
       );
     case "calendar": // folded map

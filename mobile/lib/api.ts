@@ -794,6 +794,7 @@ export type MobileCourseSummary = {
   average: number | null;
   gradedWeight: number;
   nextItem: { id: string; title: string; kind: "assignment" | "quiz" | "exam"; dueAt: string } | null;
+  dueThisWeek: number;
 };
 
 export type MobileCourseDetail = {

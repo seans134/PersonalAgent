@@ -9,7 +9,9 @@ import {
   View,
 } from "react-native";
 import {
+  fetchMobileCourses,
   generateMobileTodayPlan,
+  type MobileCourseSummary,
   type MobileTodayPlanResponse,
 } from "../lib/api";
 import { readCachedTodayPlan, writeCachedTodayPlan } from "../lib/cache";
@@ -21,6 +23,8 @@ import { TodayPlanTimeline } from "./TodayPlanTimeline";
 
 type DashboardScreenProps = {
   accessToken: string;
+  onOpenCourse: (courseId: string) => void;
+  onOpenCourses: () => void;
 };
 
 const legendKeys = [
@@ -31,6 +35,15 @@ const legendKeys = [
   { key: "commit", label: "Fixed" },
 ] as const;
 
+function formatGrade(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return "—";
+  return `${value.toFixed(1)}%`;
+}
+
+function formatShortDate(iso: string): string {
+  return new Date(iso).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
+}
+
 function greetingFor(date: Date) {
   const hour = date.getHours();
   if (hour < 12) return "Good morning";
@@ -38,7 +51,7 @@ function greetingFor(date: Date) {
   return "Good evening";
 }
 
-export function DashboardScreen({ accessToken }: DashboardScreenProps) {
+export function DashboardScreen({ accessToken, onOpenCourse, onOpenCourses }: DashboardScreenProps) {
   const theme = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const { colors } = theme;
@@ -51,6 +64,7 @@ export function DashboardScreen({ accessToken }: DashboardScreenProps) {
   const [generatingPlan, setGeneratingPlan] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [schedulingReminder, setSchedulingReminder] = useState(false);
+  const [courses, setCourses] = useState<MobileCourseSummary[] | null>(null);
 
   const now = new Date();
   const greeting = greetingFor(now);
@@ -80,6 +94,23 @@ export function DashboardScreen({ accessToken }: DashboardScreenProps) {
     return () => clearTimeout(timeout);
   }, [loadCachedPlan]);
 
+  const loadCourses = useCallback(async () => {
+    try {
+      const response = await fetchMobileCourses(accessToken);
+      setCourses(response.courses);
+    } catch {
+      // Today still works without the course summary; keep whatever was shown.
+    }
+  }, [accessToken]);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      void loadCourses();
+    }, 0);
+
+    return () => clearTimeout(timeout);
+  }, [loadCourses]);
+
   const generatePlan = useCallback(async () => {
     setError(undefined);
     setNotice(undefined);
@@ -105,7 +136,7 @@ export function DashboardScreen({ accessToken }: DashboardScreenProps) {
 
   async function handleRefresh() {
     setRefreshing(true);
-    await generatePlan();
+    await Promise.all([generatePlan(), loadCourses()]);
     setRefreshing(false);
   }
 
@@ -266,6 +297,49 @@ export function DashboardScreen({ accessToken }: DashboardScreenProps) {
           </View>
         </View>
       ) : null}
+
+      {courses ? (
+        <View style={[styles.card, styles.coursesCard]}>
+          <View style={styles.coursesHeader}>
+            <Text style={theme.text("title", "ink")}>Your courses</Text>
+            <Pressable hitSlop={8} onPress={onOpenCourses}>
+              <Text style={theme.text("label", "teal")}>{courses.length > 0 ? "All courses" : "Add a course"}</Text>
+            </Pressable>
+          </View>
+          {courses.length > 0 ? (
+            courses.map((course, index) => (
+              <Pressable
+                key={course.id}
+                onPress={() => onOpenCourse(course.id)}
+                style={({ pressed }) => [
+                  styles.courseRow,
+                  index < courses.length - 1 && styles.courseRowDivider,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <View style={styles.courseCopy}>
+                  <Text numberOfLines={1} style={theme.text("heading", "ink")}>{course.name}</Text>
+                  <Text numberOfLines={1} style={theme.text("body", "inkMuted")}>
+                    {course.nextItem
+                      ? `Next: ${course.nextItem.title} · ${formatShortDate(course.nextItem.dueAt)}`
+                      : "Nothing due yet"}
+                  </Text>
+                </View>
+                <View style={styles.courseStats}>
+                  <Text style={theme.text("heading", "ink")}>{formatGrade(course.average)}</Text>
+                  {course.dueThisWeek > 0 ? (
+                    <Text style={theme.text("monoLabel", "teal")}>{course.dueThisWeek} due this week</Text>
+                  ) : null}
+                </View>
+              </Pressable>
+            ))
+          ) : (
+            <Text style={theme.text("body", "inkMuted")}>
+              Add your courses to see grades and what&apos;s due, and to get study time in your plan.
+            </Text>
+          )}
+        </View>
+      ) : null}
     </ScrollView>
   );
 }
@@ -314,6 +388,32 @@ function makeStyles(theme: Theme) {
     },
     heroCard: {
       gap: space.md,
+    },
+    coursesCard: {
+      gap: space.sm,
+    },
+    coursesHeader: {
+      alignItems: "center",
+      flexDirection: "row",
+      justifyContent: "space-between",
+    },
+    courseRow: {
+      alignItems: "center",
+      flexDirection: "row",
+      gap: space.md,
+      paddingVertical: space.sm,
+    },
+    courseRowDivider: {
+      borderBottomColor: colors.line,
+      borderBottomWidth: 1,
+    },
+    courseCopy: {
+      flex: 1,
+      gap: 2,
+    },
+    courseStats: {
+      alignItems: "flex-end",
+      gap: 2,
     },
     heroBody: {
       marginBottom: space.xs,
