@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { features } from "@personal-agent/core";
 import { createClient } from "@/lib/supabase/server";
 import { TodayPlanPanel } from "@/components/today-plan-panel";
 
@@ -37,7 +38,7 @@ export default async function Home() {
   const todayEnd = new Date();
   todayEnd.setHours(23, 59, 59, 999);
 
-  const { count: mealsLoggedCount } = user
+  const { count: mealsLoggedCount } = user && features.wellnessTracking
     ? await supabase
         .from("meal_logs")
         .select("id", { count: "exact", head: true })
@@ -46,7 +47,7 @@ export default async function Home() {
         .lte("logged_at", todayEnd.toISOString())
     : { count: 0 };
 
-  const { count: workoutsLoggedCount } = user
+  const { count: workoutsLoggedCount } = user && features.wellnessTracking
     ? await supabase
         .from("workout_logs")
         .select("id", { count: "exact", head: true })
@@ -64,7 +65,9 @@ export default async function Home() {
         </p>
         <h1 className="mt-3 text-balance font-display text-4xl font-bold tracking-tight text-ink">Your day, charted.</h1>
         <p className="mt-3 max-w-xl text-ink-muted">
-          Goals, calendar, meals, and training — routed into a single plan, with the times kept honest.
+          {features.wellnessTracking
+            ? "Goals, calendar, meals, and training — routed into a single plan, with the times kept honest."
+            : "Goals, classes, and calendar — routed into a single plan, with the times kept honest."}
         </p>
       </header>
 
@@ -86,8 +89,12 @@ export default async function Home() {
               {[
                 { label: "Active goals", value: activeGoalsCount ?? 0 },
                 { label: "Completed", value: completedGoalsCount ?? 0 },
-                { label: "Meals today", value: mealsLoggedCount ?? 0 },
-                { label: "Workouts today", value: workoutsLoggedCount ?? 0 },
+                ...(features.wellnessTracking
+                  ? [
+                      { label: "Meals today", value: mealsLoggedCount ?? 0 },
+                      { label: "Workouts today", value: workoutsLoggedCount ?? 0 },
+                    ]
+                  : []),
               ].map((stat) => (
                 <div className="rounded-[12px] border border-line bg-surface2 p-4" key={stat.label}>
                   <p className="font-mono text-[11px] uppercase tracking-[0.1em] text-ink-muted">{stat.label}</p>
@@ -96,7 +103,8 @@ export default async function Home() {
               ))}
             </div>
             <p className="font-mono text-[12px] text-ink-muted">
-              Work {profile?.work_start_time ?? "--:--"}–{profile?.work_end_time ?? "--:--"} · Workout: {profile?.workout_preference ?? "none"}
+              Work {profile?.work_start_time ?? "--:--"}–{profile?.work_end_time ?? "--:--"}
+              {features.wellnessTracking ? ` · Workout: ${profile?.workout_preference ?? "none"}` : null}
             </p>
           </section>
           <TodayPlanPanel />

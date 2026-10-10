@@ -3,14 +3,14 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useTheme, useThemePreference } from "../lib/theme";
 import type { Theme, ThemePreference } from "../lib/theme";
 import { Icon } from "./Icon";
-import type { MobileScreen } from "./MobileAppShell";
+import { isScreenEnabled, type MobileScreen } from "./MobileAppShell";
 
 type MoreMenuScreenProps = {
   onNavigate: (screen: MobileScreen) => void;
   onSignOut: () => void;
 };
 
-const items: Array<{ screen: MobileScreen; label: string; subtitle: string }> = [
+const allItems: Array<{ screen: MobileScreen; label: string; subtitle: string }> = [
   { screen: "insights", label: "Insights", subtitle: "How your meals and workouts are trending" },
   { screen: "goals", label: "Goals", subtitle: "Active outcomes Atlas plans around" },
   { screen: "courses", label: "Courses", subtitle: "Grades and assignments per course" },
@@ -18,6 +18,8 @@ const items: Array<{ screen: MobileScreen; label: string; subtitle: string }> = 
   { screen: "notifications", label: "Notifications", subtitle: "Reminder schedule" },
   { screen: "settings", label: "Settings & Legal", subtitle: "Support and account" },
 ];
+
+const items = allItems.filter((item) => isScreenEnabled(item.screen));
 
 const themeOptions: Array<{ value: ThemePreference; label: string }> = [
   { value: "system", label: "Auto" },

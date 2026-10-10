@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, useMemo } from "react";
+import { features } from "@personal-agent/core";
 import { useTheme } from "../lib/theme";
 import type { Theme } from "../lib/theme";
 import {
@@ -240,25 +241,29 @@ export function OnboardingScreen({ accessToken, onComplete }: OnboardingScreenPr
               value={focusBlockMinutes}
             />
 
-            <Text style={styles.label}>Workout preference</Text>
-            <View style={styles.optionRow}>
-              {workoutOptions.map((option) => (
-                <Pressable
-                  key={option}
-                  onPress={() => setWorkoutPreference(option)}
-                  style={[styles.option, workoutPreference === option && styles.optionSelected]}
-                >
-                  <Text
-                    style={[
-                      styles.optionText,
-                      workoutPreference === option && styles.optionTextSelected,
-                    ]}
-                  >
-                    {option}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
+            {features.wellnessTracking ? (
+              <>
+                <Text style={styles.label}>Workout preference</Text>
+                <View style={styles.optionRow}>
+                  {workoutOptions.map((option) => (
+                    <Pressable
+                      key={option}
+                      onPress={() => setWorkoutPreference(option)}
+                      style={[styles.option, workoutPreference === option && styles.optionSelected]}
+                    >
+                      <Text
+                        style={[
+                          styles.optionText,
+                          workoutPreference === option && styles.optionTextSelected,
+                        ]}
+                      >
+                        {option}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </>
+            ) : null}
 
             <Text style={styles.label}>Top goal</Text>
             <TextInput

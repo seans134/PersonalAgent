@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { features } from "@personal-agent/core";
 import { createClient } from "@/lib/supabase/server";
 import {
   deleteAccount,
@@ -147,23 +148,25 @@ export default async function SettingsPage({
               type="number"
             />
           </div>
-          <div className="space-y-2">
-            <label className="block text-sm text-ink-muted" htmlFor="workout_preference">
-              Workout preference
-            </label>
-            <select
-              className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink"
-              defaultValue={profile?.workout_preference ?? "none"}
-              id="workout_preference"
-              name="workout_preference"
-            >
-              {WORKOUT_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
+          {features.wellnessTracking ? (
+            <div className="space-y-2">
+              <label className="block text-sm text-ink-muted" htmlFor="workout_preference">
+                Workout preference
+              </label>
+              <select
+                className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink"
+                defaultValue={profile?.workout_preference ?? "none"}
+                id="workout_preference"
+                name="workout_preference"
+              >
+                {WORKOUT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
           <div className="space-y-2 sm:col-span-2">
             <label className="block text-sm text-ink-muted" htmlFor="timezone">
               Timezone
@@ -185,49 +188,51 @@ export default async function SettingsPage({
       </form>
 
       {/* Body metrics */}
-      <form action={updateBodyMetrics} className="mb-6 space-y-4 rounded-2xl border border-line bg-surface p-6 shadow-sm">
-        <div>
-          <h2 className="text-lg font-semibold text-ink">Body metrics</h2>
-          <p className="mt-1 text-sm text-ink-muted">
-            Update your current height and weight. Saving records a new entry used by meal and workout suggestions.
-          </p>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <label className="block text-sm text-ink-muted" htmlFor="height_cm">
-              Height cm
-            </label>
-            <input
-              className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-muted"
-              defaultValue={formatMetric(bodyProfile?.height_cm)}
-              id="height_cm"
-              min={1}
-              name="height_cm"
-              placeholder="178"
-              step="0.1"
-              type="number"
-            />
+      {features.wellnessTracking ? (
+        <form action={updateBodyMetrics} className="mb-6 space-y-4 rounded-2xl border border-line bg-surface p-6 shadow-sm">
+          <div>
+            <h2 className="text-lg font-semibold text-ink">Body metrics</h2>
+            <p className="mt-1 text-sm text-ink-muted">
+              Update your current height and weight. Saving records a new entry used by meal and workout suggestions.
+            </p>
           </div>
-          <div className="space-y-2">
-            <label className="block text-sm text-ink-muted" htmlFor="weight_kg">
-              Weight kg
-            </label>
-            <input
-              className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-muted"
-              defaultValue={formatMetric(bodyProfile?.weight_kg)}
-              id="weight_kg"
-              min={1}
-              name="weight_kg"
-              placeholder="75"
-              step="0.1"
-              type="number"
-            />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <label className="block text-sm text-ink-muted" htmlFor="height_cm">
+                Height cm
+              </label>
+              <input
+                className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-muted"
+                defaultValue={formatMetric(bodyProfile?.height_cm)}
+                id="height_cm"
+                min={1}
+                name="height_cm"
+                placeholder="178"
+                step="0.1"
+                type="number"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="block text-sm text-ink-muted" htmlFor="weight_kg">
+                Weight kg
+              </label>
+              <input
+                className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-muted"
+                defaultValue={formatMetric(bodyProfile?.weight_kg)}
+                id="weight_kg"
+                min={1}
+                name="weight_kg"
+                placeholder="75"
+                step="0.1"
+                type="number"
+              />
+            </div>
           </div>
-        </div>
-        <button className="rounded-lg bg-teal px-5 py-2 text-sm font-medium text-on-teal" type="submit">
-          Save body metrics
-        </button>
-      </form>
+          <button className="rounded-lg bg-teal px-5 py-2 text-sm font-medium text-on-teal" type="submit">
+            Save body metrics
+          </button>
+        </form>
+      ) : null}
 
       {/* Account credentials */}
       <section className="mb-6 space-y-6 rounded-2xl border border-line bg-surface p-6 shadow-sm">
