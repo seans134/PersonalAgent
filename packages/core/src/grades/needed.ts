@@ -3,7 +3,13 @@ import type { GradeCategory, GradedItem, NeededScore } from "./types";
 // The projected final grade is linear in the percent assumed on ungraded work:
 // final(p) = base + slope * p, with base and slope in final-grade points (0-100 scale).
 // slope * 100 is the share of the final grade that is still ungraded.
+// Weights are assumed >= 0 (the DB enforces 0-100). A category with no gradable items comes in
+// at the assumed percent, unlike computeCourseGrade's average, which re-normalizes over graded
+// categories only.
 type Projection = { base: number; slope: number };
+
+// Tolerance for boundary comparisons so floating-point noise doesn't flip a status.
+const EPS = 1e-9;
 
 function buildProjection(categories: GradeCategory[], items: GradedItem[]): Projection | null {
   const totalWeight = categories.reduce((sum, c) => sum + c.weight, 0);
@@ -15,7 +21,7 @@ function buildProjection(categories: GradeCategory[], items: GradedItem[]): Proj
   }
 
   for (const item of items) {
-    if (item.categoryId === null || !(item.scoreMax > 0)) continue;
+    if (item.categoryId === null || !(Number.isFinite(item.scoreMax) && item.scoreMax > 0)) continue;
     const bucket = buckets.get(item.categoryId);
     if (!bucket) continue;
     if (item.scoreEarned !== null && Number.isFinite(item.scoreEarned)) {
@@ -66,13 +72,15 @@ export function computeNeededScore(
 
   const { base, slope } = projection;
   if (slope <= 0) {
-    return { status: "nothing_left", finalGrade: base, met: base >= targetGrade, remainingWeight: 0 };
+    return { status: "nothing_left", finalGrade: base, met: base >= targetGrade - EPS, remainingWeight: 0 };
   }
 
   const remainingWeight = slope * 100;
-  const neededPercent = (targetGrade - base) / slope;
-  if (neededPercent <= 0) return { status: "secured", neededPercent, remainingWeight };
-  if (neededPercent > 100) {
+  let neededPercent = (targetGrade - base) / slope;
+  if (Math.abs(neededPercent) <= EPS) neededPercent = 0;
+  else if (Math.abs(neededPercent - 100) <= EPS) neededPercent = 100;
+  if (neededPercent <= EPS) return { status: "secured", neededPercent, remainingWeight };
+  if (neededPercent > 100 + EPS) {
     return { status: "out_of_reach", neededPercent, maxPossible: base + slope * 100, remainingWeight };
   }
   return { status: "needed", neededPercent, remainingWeight };

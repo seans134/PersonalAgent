@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { computeCourseGrade } from "./compute";
 import { computeNeededScore, projectFinalGrade } from "./needed";
 import type { GradeCategory, GradedItem } from "./types";
 
@@ -130,5 +131,52 @@ describe("computeNeededScore", () => {
     expect(atHundred).toBeGreaterThan(target);
     const projected = projectFinalGrade(cats, items, result.neededPercent)!;
     expect(Math.abs(projected - target)).toBeLessThan(1e-9);
+  });
+
+  it("treats a need of exactly 100 as needed despite float noise", () => {
+    const tight: GradeCategory[] = [
+      { id: "a", name: "A", weight: 10 },
+      { id: "b", name: "B", weight: 40 },
+      { id: "c", name: "C", weight: 50 },
+    ];
+    const result = computeNeededScore(
+      tight,
+      [
+        { categoryId: "a", scoreEarned: 70, scoreMax: 100 },
+        { categoryId: "b", scoreEarned: 70, scoreMax: 100 },
+        { categoryId: "c", scoreEarned: null, scoreMax: 100 },
+      ],
+      85,
+    );
+    // Exact need is 100; unrounded math gives 100.00000000000001
+    expect(result).toMatchObject({ status: "needed", neededPercent: 100 });
+  });
+
+  it("counts a final grade equal to the target as met despite float noise", () => {
+    const done: GradedItem[] = [
+      { categoryId: "hw", scoreEarned: 57, scoreMax: 100 },
+      { categoryId: "mid", scoreEarned: 57, scoreMax: 100 },
+      { categoryId: "fin", scoreEarned: 57, scoreMax: 100 },
+    ];
+    expect(computeNeededScore(cats, done, 57)).toMatchObject({ status: "nothing_left", met: true });
+  });
+
+  it("ignores items with a non-finite scoreMax", () => {
+    const withInfinity: GradedItem[] = [...items, { categoryId: "fin", scoreEarned: null, scoreMax: Infinity }];
+    expect(projectFinalGrade(cats, withInfinity, 50)).toBeCloseTo(63, 9);
+  });
+});
+
+describe("projectFinalGrade vs computeCourseGrade", () => {
+  it("matches the course average when every category is graded and nothing is left", () => {
+    const done: GradedItem[] = [
+      { categoryId: "hw", scoreEarned: 45, scoreMax: 50 },
+      { categoryId: "hw", scoreEarned: 8, scoreMax: 10 },
+      { categoryId: "mid", scoreEarned: 71, scoreMax: 90 },
+      { categoryId: "fin", scoreEarned: 88, scoreMax: 120 },
+    ];
+    const average = computeCourseGrade(cats, done).average!;
+    expect(projectFinalGrade(cats, done, 0)).toBeCloseTo(average, 9);
+    expect(projectFinalGrade(cats, done, 100)).toBeCloseTo(average, 9);
   });
 });
