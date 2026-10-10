@@ -11,3 +11,10 @@ export type CourseGrade = {
   categories: CourseGradeCategory[];
   warnings: CourseGradeWarning[];
 };
+export type NeededScore =
+  | { status: "no_target" }
+  | { status: "no_categories" }
+  | { status: "nothing_left"; finalGrade: number; met: boolean; remainingWeight: 0 }
+  | { status: "secured"; neededPercent: number; remainingWeight: number }
+  | { status: "out_of_reach"; neededPercent: number; maxPossible: number; remainingWeight: number }
+  | { status: "needed"; neededPercent: number; remainingWeight: number };
