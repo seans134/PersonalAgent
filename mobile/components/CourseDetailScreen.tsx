@@ -12,6 +12,14 @@ import {
   TextInput,
   View,
 } from "react-native";
+import {
+  describeNeeded,
+  formatGradePercent,
+  parsePercentInput,
+  projectFinalGrade,
+  type GradeCategory,
+  type GradedItem,
+} from "@personal-agent/core";
 import { BulletBar } from "./BulletBar";
 import { CourseItemModal } from "./CourseItemModal";
 import { Icon } from "./Icon";
@@ -256,7 +264,13 @@ export function CourseDetailScreen({ accessToken, courseId, onBack }: CourseDeta
           </View>
         ) : detail ? (
           <>
-            <GradeSummarySection course={detail.course} grade={detail.grade} />
+            <GradeSummarySection
+              categories={detail.categories}
+              course={detail.course}
+              grade={detail.grade}
+              items={detail.items}
+              needed={detail.needed}
+            />
             <CategoriesSection
               categories={detail.categories}
               onDelete={handleDeleteCategory}
@@ -284,15 +298,40 @@ export function CourseDetailScreen({ accessToken, courseId, onBack }: CourseDeta
   );
 }
 
+// Tolerance matching packages/core needed.ts: below this there is no ungraded work left.
+const WHAT_IF_EPS = 1e-9;
+
 function GradeSummarySection({
   course,
   grade,
+  needed,
+  categories,
+  items,
 }: {
   course: MobileCourseDetail["course"];
   grade: MobileCourseDetail["grade"];
+  needed: MobileCourseDetail["needed"];
+  categories: CourseCategoryRow[];
+  items: CourseItemRow[];
 }) {
   const theme = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
+  const [whatIfText, setWhatIfText] = useState("");
+  const gradeInputs = useMemo(() => {
+    const gradeCategories: GradeCategory[] = categories.map((c) => ({ id: c.id, name: c.name, weight: Number(c.weight) }));
+    const gradedItems: GradedItem[] = items.map((item) => ({
+      categoryId: item.category_id,
+      scoreEarned: item.score_earned === null ? null : Number(item.score_earned),
+      scoreMax: Number(item.score_max),
+    }));
+    return { categories: gradeCategories, items: gradedItems };
+  }, [categories, items]);
+  const neededCopy = describeNeeded(needed);
+  const lowFinish = projectFinalGrade(gradeInputs.categories, gradeInputs.items, 0);
+  const highFinish = projectFinalGrade(gradeInputs.categories, gradeInputs.items, 100);
+  const hasRemaining = lowFinish !== null && highFinish !== null && highFinish - lowFinish > WHAT_IF_EPS;
+  const assumed = parsePercentInput(whatIfText);
+  const projected = assumed === null ? null : projectFinalGrade(gradeInputs.categories, gradeInputs.items, assumed);
   const averageLabel = formatGrade(grade.average);
   const targetLabel = course.target_grade !== null ? formatGrade(course.target_grade) : null;
   const weightSum = grade.categories.reduce((sum, category) => sum + Number(category.weight), 0);
@@ -307,6 +346,33 @@ function GradeSummarySection({
         <BulletBar target={course.target_grade} value={grade.average} />
       </View>
       <Text style={styles.courseCaption}>Based on {grade.gradedWeight}% of your final grade</Text>
+
+      {neededCopy ? (
+        <View style={styles.neededBlock}>
+          <Text style={styles.neededLabel}>To hit your target</Text>
+          <Text style={styles.neededText}>{neededCopy.long}</Text>
+        </View>
+      ) : null}
+
+      {hasRemaining ? (
+        <View style={styles.whatIfRow}>
+          <Text style={styles.whatIfText}>If I average</Text>
+          <TextInput
+            accessibilityLabel="Average percent on the remaining work"
+            keyboardType="decimal-pad"
+            onChangeText={setWhatIfText}
+            placeholder="80"
+            placeholderTextColor={theme.colors.inkMuted}
+            returnKeyType="done"
+            style={styles.gradeInput}
+            value={whatIfText}
+          />
+          <Text style={styles.whatIfText}>% on the rest, I finish with</Text>
+          <Text style={styles.whatIfResult}>
+            {projected === null ? "—" : formatGradePercent(projected)}.
+          </Text>
+        </View>
+      ) : null}
 
       {grade.warnings.includes("weights_sum_not_100") ? (
         <View style={styles.warningRow}>
@@ -797,6 +863,27 @@ function makeStyles(theme: Theme) {
     },
     courseCaption: {
       ...theme.text("label", "inkMuted"),
+    },
+    neededBlock: {
+      gap: 4,
+    },
+    neededLabel: {
+      ...theme.text("label", "inkMuted"),
+    },
+    neededText: {
+      ...theme.text("body", "ink"),
+    },
+    whatIfRow: {
+      alignItems: "center",
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 6,
+    },
+    whatIfText: {
+      ...theme.text("body", "ink"),
+    },
+    whatIfResult: {
+      ...theme.text("monoTime", "ink"),
     },
     warningRow: {
       backgroundColor: colors.surface2,

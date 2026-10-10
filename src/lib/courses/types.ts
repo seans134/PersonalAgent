@@ -1,3 +1,5 @@
+import type { NeededScore } from "@personal-agent/core";
+
 export type CourseRow = {
   id: string; user_id: string; name: string; code: string | null; color: string | null;
   term: string | null; target_grade: number | null; archived_at: string | null; created_at: string;
@@ -18,4 +20,6 @@ export type CourseSummaryDTO = {
   nextItem: { id: string; title: string; kind: CourseItemRow["kind"]; dueAt: string } | null;
   // Ungraded items due in the next 7 days.
   dueThisWeek: number;
+  // Average needed on the remaining work to hit targetGrade.
+  needed: NeededScore;
 };

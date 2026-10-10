@@ -22,9 +22,9 @@ const course = {
   target_grade: 85, archived_at: null, created_at: "2026-09-01T00:00:00Z",
 };
 
-function item(id: string, dueAt: string, scoreEarned: number | null) {
+function item(id: string, dueAt: string, scoreEarned: number | null, categoryId: string | null = null) {
   return {
-    id, course_id: "c1", category_id: null, user_id: "u1", kind: "assignment", title: id, due_at: dueAt,
+    id, course_id: "c1", category_id: categoryId, user_id: "u1", kind: "assignment", title: id, due_at: dueAt,
     end_at: null, location: null, score_earned: scoreEarned, score_max: 100, estimated_effort_hours: null,
     focus_mode: "continuous", created_at: "2026-09-01T00:00:00Z",
   };
@@ -57,5 +57,39 @@ describe("listCourseSummaries", () => {
 
     expect(summary.dueThisWeek).toBe(2);
     expect(summary.nextItem).toMatchObject({ id: "soon" });
+  });
+
+  it("includes the average needed on the rest to hit the target", async () => {
+    const category = (id: string, weight: string) => ({
+      id, course_id: "c1", user_id: "u1", name: id, weight, position: 0, created_at: "2026-09-01T00:00:00Z",
+    });
+    const supabase = makeSupabase({
+      // target_grade 85; weights arrive as numeric strings from Postgres.
+      courses: [course],
+      course_categories: [category("hw", "50"), category("exam", "50")],
+      course_items: [
+        item("hw1", "2026-10-01T12:00:00Z", 80, "hw"),
+        item("final", "2026-12-10T12:00:00Z", null, "exam"),
+      ],
+    });
+
+    const [summary] = await listCourseSummaries(supabase as never, "u1");
+
+    expect(summary.needed.status).toBe("needed");
+    if (summary.needed.status !== "needed") return;
+    expect(summary.needed.neededPercent).toBeCloseTo(90, 9);
+    expect(summary.needed.remainingWeight).toBeCloseTo(50, 9);
+  });
+
+  it("reports no_target for a course without a target grade", async () => {
+    const supabase = makeSupabase({
+      courses: [{ ...course, target_grade: null }],
+      course_categories: [],
+      course_items: [],
+    });
+
+    const [summary] = await listCourseSummaries(supabase as never, "u1");
+
+    expect(summary.needed).toEqual({ status: "no_target" });
   });
 });

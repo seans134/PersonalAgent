@@ -1,6 +1,6 @@
 import { countDueWithin } from "@personal-agent/core";
 import type { createClient } from "@/lib/supabase/server";
-import { courseGradeFromRows } from "./grade";
+import { courseGradeFromRows, courseNeededFromRows } from "./grade";
 import type { CourseCategoryRow, CourseItemRow, CourseRow, CourseSummaryDTO } from "./types";
 
 type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
@@ -37,14 +37,16 @@ export async function listCourseSummaries(
     const courseCategories = categoriesByCourse.get(course.id) ?? [];
     const courseItems = itemsByCourse.get(course.id) ?? [];
     const grade = courseGradeFromRows(courseCategories, courseItems);
+    const targetGrade = course.target_grade === null ? null : Number(course.target_grade);
     const upcoming = courseItems.filter((i) => i.score_earned === null && new Date(i.due_at).getTime() >= nowMs);
     const nextItem = upcoming[0]
       ? { id: upcoming[0].id, title: upcoming[0].title, kind: upcoming[0].kind, dueAt: upcoming[0].due_at }
       : null;
     return {
       id: course.id, name: course.name, code: course.code, color: course.color, term: course.term,
-      targetGrade: course.target_grade === null ? null : Number(course.target_grade),
+      targetGrade,
       archivedAt: course.archived_at, average: grade.average, gradedWeight: grade.gradedWeight, nextItem,
+      needed: courseNeededFromRows(courseCategories, courseItems, targetGrade),
       dueThisWeek: countDueWithin(
         courseItems.map((i) => ({ dueAt: i.due_at, scoreEarned: i.score_earned === null ? null : Number(i.score_earned) })),
         now,

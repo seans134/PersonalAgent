@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { describeNeeded } from "@personal-agent/core";
 import { BulletBar } from "@/components/bullet-bar";
 import { formatGrade } from "@/components/grade-format";
 import type { CourseSummaryDTO } from "@/lib/courses/types";
@@ -16,6 +17,7 @@ export function CourseCard({
 }) {
   const meta = [course.code, course.term].filter(Boolean).join(" · ");
   const targetLabel = course.targetGrade !== null ? formatGrade(course.targetGrade) : null;
+  const neededCopy = describeNeeded(course.needed);
 
   return (
     <Link
@@ -40,6 +42,7 @@ export function CourseCard({
           />
         </div>
         <p className="mt-2 text-xs text-ink-muted">Based on {course.gradedWeight}% of your grade so far</p>
+        {neededCopy ? <p className="mt-1 text-xs font-medium text-ink">{neededCopy.short}</p> : null}
       </div>
 
       {course.nextItem ? (

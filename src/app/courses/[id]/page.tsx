@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { courseGradeFromRows } from "@/lib/courses/grade";
+import { courseGradeFromRows, courseNeededFromRows, gradeInputsFromRows } from "@/lib/courses/grade";
 import { getCourseDetail } from "@/lib/courses/queries";
 import type { CourseItemRow } from "@/lib/courses/types";
 import { createClient } from "@/lib/supabase/server";
@@ -34,6 +34,8 @@ export default async function CourseDetailPage({
 
   const { course, categories, items } = detail;
   const grade = courseGradeFromRows(categories, items);
+  const needed = courseNeededFromRows(categories, items, course.target_grade);
+  const gradeInputs = gradeInputsFromRows(categories, items);
   const meta = [course.code, course.term].filter(Boolean).join(" · ");
 
   const itemsByCategory = new Map<string, CourseItemRow[]>();
@@ -70,7 +72,7 @@ export default async function CourseDetailPage({
 
       <div className="grid gap-6 lg:grid-cols-[minmax(280px,360px)_1fr]">
         <aside className="lg:sticky lg:top-4 lg:self-start">
-          <GradeSummary course={course} grade={grade} />
+          <GradeSummary course={course} grade={grade} gradeInputs={gradeInputs} needed={needed} />
         </aside>
 
         <section className="flex flex-col gap-6">
