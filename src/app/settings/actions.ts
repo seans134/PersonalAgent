@@ -41,7 +41,9 @@ export async function updatePlanningPreferences(formData: FormData) {
   const noMeetingStart = parseOptionalTime(formData, "no_meeting_start");
   const noMeetingEnd = parseOptionalTime(formData, "no_meeting_end");
   const focusBlockMinutesRaw = Number(formData.get("focus_block_minutes") ?? "60");
-  const workoutPreferenceRaw = String(formData.get("workout_preference") ?? "none");
+  // The field is hidden while wellness tracking is off; leave the stored value alone then.
+  const workoutPreferenceField = formData.get("workout_preference");
+  const workoutPreferenceRaw = String(workoutPreferenceField ?? "none");
   const timezone = String(formData.get("timezone") ?? "").trim() || "America/Toronto";
 
   const focusBlockMinutes = Number.isFinite(focusBlockMinutesRaw)
@@ -59,7 +61,7 @@ export async function updatePlanningPreferences(formData: FormData) {
       no_meeting_start: noMeetingStart,
       no_meeting_end: noMeetingEnd,
       focus_block_minutes: focusBlockMinutes,
-      workout_preference: workoutPreference,
+      ...(workoutPreferenceField === null ? {} : { workout_preference: workoutPreference }),
       timezone,
     },
     { onConflict: "user_id" },

@@ -25,6 +25,7 @@ import { MealCoachScreen } from "./components/MealCoachScreen";
 import {
   DetailHeader,
   MobileAppShell,
+  isScreenEnabled,
   SegmentedTabs,
   screenToTab,
   tabDefaultScreen,
@@ -107,7 +108,7 @@ function App() {
   useEffect(() => {
     function openNotificationDestination(response: Notifications.NotificationResponse | null) {
       const screen = response?.notification.request.content.data.screen;
-      if (screen === "dashboard" || screen === "workouts") {
+      if ((screen === "dashboard" || screen === "workouts") && isScreenEnabled(screen)) {
         setActiveScreen(screen);
         captureEvent("notification_opened", { destination: screen });
       }
@@ -142,6 +143,10 @@ function App() {
 
     if (activeScreen === "calendar") {
       return <CalendarScreen accessToken={token} />;
+    }
+
+    if (!isScreenEnabled(activeScreen)) {
+      return <DashboardScreen accessToken={token} />;
     }
 
     if (activeScreen === "meals" || activeScreen === "mealCoach") {

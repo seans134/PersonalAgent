@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useSyncExternalStore } from "react";
+import { features } from "@personal-agent/core";
 
-const navItems = [
+const allNavItems = [
   { href: "/", label: "Today" },
   { href: "/onboarding", label: "Weekly rhythm" },
   { href: "/onboarding/schedule", label: "Schedule" },
@@ -20,6 +21,11 @@ const navItems = [
   { href: "/tracking/insights", label: "Insights" },
   { href: "/settings", label: "Settings" },
 ];
+
+// Meal, workout and insights pages sit behind the shared wellness switch.
+const navItems = features.wellnessTracking
+  ? allNavItems
+  : allNavItems.filter((item) => !item.href.startsWith("/tracking"));
 
 type ThemeChoice = "system" | "light" | "dark";
 

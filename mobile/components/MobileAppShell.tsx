@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { features } from "@personal-agent/core";
 import { useTheme } from "../lib/theme";
 import type { Theme } from "../lib/theme";
 import { Icon, type IconName } from "./Icon";
@@ -51,13 +52,29 @@ export const tabDefaultScreen: Record<MobileTab, MobileScreen> = {
   more: "more",
 };
 
-const tabs: Array<{ key: MobileTab; label: string; icon: IconName }> = [
+const allTabs: Array<{ key: MobileTab; label: string; icon: IconName }> = [
   { key: "today", label: "Today", icon: "today" },
   { key: "calendar", label: "Calendar", icon: "calendar" },
   { key: "meals", label: "Meals", icon: "meals" },
   { key: "workouts", label: "Train", icon: "workouts" },
   { key: "more", label: "More", icon: "more" },
 ];
+
+// Meal and workout tracking sit behind the shared wellness switch.
+export const wellnessScreens: ReadonlySet<MobileScreen> = new Set<MobileScreen>([
+  "meals",
+  "mealCoach",
+  "workouts",
+  "workoutPlan",
+  "workoutCoach",
+  "insights",
+]);
+
+export function isScreenEnabled(screen: MobileScreen): boolean {
+  return features.wellnessTracking || !wellnessScreens.has(screen);
+}
+
+const tabs = allTabs.filter((tab) => isScreenEnabled(tabDefaultScreen[tab.key]));
 
 type MobileAppShellProps = {
   activeTab: MobileTab;

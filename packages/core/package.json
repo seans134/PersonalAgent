@@ -14,6 +14,7 @@
     "./planner/types": "./src/planner/types.ts",
     "./planner/time": "./src/planner/time.ts",
     "./planner/client-types": "./src/planner/client-types.ts",
-    "./auth-deep-link": "./src/auth-deep-link.ts"
+    "./auth-deep-link": "./src/auth-deep-link.ts",
+    "./features": "./src/features.ts"
   }
 }

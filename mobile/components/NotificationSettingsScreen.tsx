@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, useMemo } from "react";
 import { useTheme } from "../lib/theme";
 import type { Theme } from "../lib/theme";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import { features } from "@personal-agent/core";
 import { fetchMobileWorkoutPlan } from "../lib/api";
 import {
   cancelAllAtlasNotifications,
@@ -48,9 +49,14 @@ export function NotificationSettingsScreen({ accessToken }: NotificationSettings
     setError(null);
 
     try {
-      const workoutPlan = await fetchMobileWorkoutPlan(accessToken);
-      const nextPreferences = { ...preferences, planLeadMinutes: Number(leadMinutes) };
-      const count = await saveNotificationPreferences(nextPreferences, workoutPlan.scheduleItems);
+      // With wellness tracking hidden, workout reminders are switched off and any scheduled ones are cleared.
+      const workoutItems = features.wellnessTracking ? (await fetchMobileWorkoutPlan(accessToken)).scheduleItems : [];
+      const nextPreferences = {
+        ...preferences,
+        planLeadMinutes: Number(leadMinutes),
+        workoutEnabled: features.wellnessTracking && preferences.workoutEnabled,
+      };
+      const count = await saveNotificationPreferences(nextPreferences, workoutItems);
       setPreferences(nextPreferences);
       setScheduledCount(count);
       setMessage(`Saved. ${count} recurring reminder${count === 1 ? "" : "s"} scheduled.`);
@@ -114,29 +120,31 @@ export function NotificationSettingsScreen({ accessToken }: NotificationSettings
         />
       </View>
 
-      <View style={styles.panel}>
-        <View style={styles.settingHeader}>
-          <View style={styles.settingCopy}>
-            <Text style={styles.settingTitle}>Workout-day prompt</Text>
-            <Text style={styles.settingBody}>Scheduled only on days in your weekly workout plan.</Text>
+      {features.wellnessTracking ? (
+        <View style={styles.panel}>
+          <View style={styles.settingHeader}>
+            <View style={styles.settingCopy}>
+              <Text style={styles.settingTitle}>Workout-day prompt</Text>
+              <Text style={styles.settingBody}>Scheduled only on days in your weekly workout plan.</Text>
+            </View>
+            <Switch
+              onValueChange={(workoutEnabled) => setPreferences((current) => ({ ...current, workoutEnabled }))}
+              trackColor={{ false: theme.colors.line, true: theme.colors.signal }}
+              thumbColor={preferences.workoutEnabled ? theme.colors.teal : theme.colors.paper}
+              value={preferences.workoutEnabled}
+            />
           </View>
-          <Switch
-            onValueChange={(workoutEnabled) => setPreferences((current) => ({ ...current, workoutEnabled }))}
-            trackColor={{ false: theme.colors.line, true: theme.colors.signal }}
-            thumbColor={preferences.workoutEnabled ? theme.colors.teal : theme.colors.paper}
-            value={preferences.workoutEnabled}
+          <TextInput
+            autoCapitalize="none"
+            editable={preferences.workoutEnabled}
+            onChangeText={(workoutTime) => setPreferences((current) => ({ ...current, workoutTime }))}
+            placeholder="17:00"
+            placeholderTextColor={theme.colors.inkMuted}
+            style={[styles.input, !preferences.workoutEnabled && styles.disabledInput]}
+            value={preferences.workoutTime}
           />
         </View>
-        <TextInput
-          autoCapitalize="none"
-          editable={preferences.workoutEnabled}
-          onChangeText={(workoutTime) => setPreferences((current) => ({ ...current, workoutTime }))}
-          placeholder="17:00"
-          placeholderTextColor={theme.colors.inkMuted}
-          style={[styles.input, !preferences.workoutEnabled && styles.disabledInput]}
-          value={preferences.workoutTime}
-        />
-      </View>
+      ) : null}
 
       <View style={styles.panel}>
         <Text style={styles.settingTitle}>{"Today's plan lead time"}</Text>
