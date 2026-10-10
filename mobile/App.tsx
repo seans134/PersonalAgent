@@ -146,7 +146,7 @@ function App() {
     }
 
     if (!isScreenEnabled(activeScreen)) {
-      return <DashboardScreen accessToken={token} />;
+      return <DashboardScreen accessToken={token} onOpenCourse={openCourse} onOpenCourses={() => setActiveScreen("courses")} />;
     }
 
     if (activeScreen === "meals" || activeScreen === "mealCoach") {
@@ -223,7 +223,6 @@ function App() {
     if (activeScreen === "courses") {
       return (
         <View style={styles.tabBody}>
-          <DetailHeader onBack={() => setActiveScreen("more")} title="Courses" />
           <CoursesScreen accessToken={token} onOpenCourse={openCourse} />
         </View>
       );
@@ -270,7 +269,7 @@ function App() {
       );
     }
 
-    return <DashboardScreen accessToken={token} />;
+    return <DashboardScreen accessToken={token} onOpenCourse={openCourse} onOpenCourses={() => setActiveScreen("courses")} />;
   }
 
   if (!env.isConfigured) {

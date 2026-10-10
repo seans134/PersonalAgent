@@ -22,7 +22,7 @@ export type MobileScreen =
   | "notifications"
   | "settings";
 
-export type MobileTab = "today" | "calendar" | "meals" | "workouts" | "more";
+export type MobileTab = "today" | "courses" | "calendar" | "meals" | "workouts" | "more";
 
 // Which bottom tab owns each screen.
 export const screenToTab: Record<MobileScreen, MobileTab> = {
@@ -35,8 +35,8 @@ export const screenToTab: Record<MobileScreen, MobileTab> = {
   workoutCoach: "workouts",
   more: "more",
   goals: "more",
-  courses: "more",
-  courseDetail: "more",
+  courses: "courses",
+  courseDetail: "courses",
   insights: "more",
   onboarding: "more",
   notifications: "more",
@@ -46,6 +46,7 @@ export const screenToTab: Record<MobileScreen, MobileTab> = {
 // The screen a tab lands on when tapped.
 export const tabDefaultScreen: Record<MobileTab, MobileScreen> = {
   today: "dashboard",
+  courses: "courses",
   calendar: "calendar",
   meals: "meals",
   workouts: "workouts",
@@ -54,6 +55,7 @@ export const tabDefaultScreen: Record<MobileTab, MobileScreen> = {
 
 const allTabs: Array<{ key: MobileTab; label: string; icon: IconName }> = [
   { key: "today", label: "Today", icon: "today" },
+  { key: "courses", label: "Courses", icon: "courses" },
   { key: "calendar", label: "Calendar", icon: "calendar" },
   { key: "meals", label: "Meals", icon: "meals" },
   { key: "workouts", label: "Train", icon: "workouts" },

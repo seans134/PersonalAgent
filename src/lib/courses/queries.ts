@@ -1,3 +1,4 @@
+import { countDueWithin } from "@personal-agent/core";
 import type { createClient } from "@/lib/supabase/server";
 import { courseGradeFromRows } from "./grade";
 import type { CourseCategoryRow, CourseItemRow, CourseRow, CourseSummaryDTO } from "./types";
@@ -29,7 +30,8 @@ export async function listCourseSummaries(
 
   const categoriesByCourse = groupBy((categories ?? []) as CourseCategoryRow[], (c) => c.course_id);
   const itemsByCourse = groupBy((items ?? []) as CourseItemRow[], (i) => i.course_id);
-  const nowMs = Date.now();
+  const now = new Date();
+  const nowMs = now.getTime();
 
   return ((courses ?? []) as CourseRow[]).map((course) => {
     const courseCategories = categoriesByCourse.get(course.id) ?? [];
@@ -43,6 +45,10 @@ export async function listCourseSummaries(
       id: course.id, name: course.name, code: course.code, color: course.color, term: course.term,
       targetGrade: course.target_grade === null ? null : Number(course.target_grade),
       archivedAt: course.archived_at, average: grade.average, gradedWeight: grade.gradedWeight, nextItem,
+      dueThisWeek: countDueWithin(
+        courseItems.map((i) => ({ dueAt: i.due_at, scoreEarned: i.score_earned === null ? null : Number(i.score_earned) })),
+        now,
+      ),
     };
   });
 }

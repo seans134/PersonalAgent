@@ -5,15 +5,15 @@ import { usePathname } from "next/navigation";
 import { useState, useSyncExternalStore } from "react";
 import { features } from "@personal-agent/core";
 
+// Students live in Today, Courses and Calendar, so those lead; setup pages follow.
 const allNavItems = [
   { href: "/", label: "Today" },
-  { href: "/onboarding", label: "Weekly rhythm" },
-  { href: "/onboarding/schedule", label: "Schedule" },
-  { href: "/goals", label: "Goals" },
-  { href: "/goals/completed", label: "Completed" },
   { href: "/courses", label: "Courses" },
-  { href: "/calendar/local", label: "Local calendar" },
-  { href: "/calendar", label: "Calendar" },
+  { href: "/calendar/local", label: "Calendar" },
+  { href: "/goals", label: "Goals" },
+  { href: "/goals/completed", label: "Completed goals" },
+  { href: "/onboarding/schedule", label: "School & work" },
+  { href: "/onboarding", label: "Weekly rhythm" },
   { href: "/tracking/meals", label: "Meals" },
   { href: "/tracking/meals/saved", label: "Saved meals" },
   { href: "/tracking/workouts", label: "Workouts" },

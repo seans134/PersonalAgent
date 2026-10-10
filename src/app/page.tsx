@@ -2,6 +2,25 @@ import Link from "next/link";
 import { features } from "@personal-agent/core";
 import { createClient } from "@/lib/supabase/server";
 import { TodayPlanPanel } from "@/components/today-plan-panel";
+import { formatGrade } from "@/components/grade-format";
+import { listCourseSummaries } from "@/lib/courses/queries";
+import type { CourseSummaryDTO } from "@/lib/courses/types";
+
+function formatShortDate(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+}
+
+async function loadCourses(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+): Promise<CourseSummaryDTO[]> {
+  try {
+    return await listCourseSummaries(supabase, userId);
+  } catch {
+    // Today should still render if courses fail to load.
+    return [];
+  }
+}
 
 export default async function Home() {
   const supabase = await createClient();
@@ -32,6 +51,9 @@ export default async function Home() {
         .eq("user_id", user.id)
         .not("completed_at", "is", null)
     : { count: 0 };
+
+  const courses = user ? await loadCourses(supabase, user.id) : [];
+  const dueThisWeekCount = courses.reduce((total, course) => total + course.dueThisWeek, 0);
 
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
@@ -87,8 +109,10 @@ export default async function Home() {
             <p className="font-mono text-[12px] text-ink-muted">Signed in as {user.email}</p>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {[
+                { label: "Due this week", value: dueThisWeekCount },
+                { label: "Courses", value: courses.length },
                 { label: "Active goals", value: activeGoalsCount ?? 0 },
-                { label: "Completed", value: completedGoalsCount ?? 0 },
+                { label: "Completed goals", value: completedGoalsCount ?? 0 },
                 ...(features.wellnessTracking
                   ? [
                       { label: "Meals today", value: mealsLoggedCount ?? 0 },
@@ -108,6 +132,47 @@ export default async function Home() {
             </p>
           </section>
           <TodayPlanPanel />
+          <section className="space-y-4 rounded-[16px] border border-line bg-surface p-6 shadow-[var(--shadow-sm)]">
+            <div className="flex items-baseline justify-between gap-3">
+              <h2 className="font-display text-lg font-semibold tracking-tight text-ink">Your courses</h2>
+              <Link className="text-sm font-medium text-teal hover:text-teal-strong" href="/courses">
+                {courses.length > 0 ? "All courses" : "Add a course"}
+              </Link>
+            </div>
+            {courses.length > 0 ? (
+              <ul className="divide-y divide-line">
+                {courses.map((course) => (
+                  <li key={course.id}>
+                    <Link
+                      className="flex items-center justify-between gap-4 py-3 transition hover:text-teal"
+                      href={`/courses/${course.id}`}
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-ink">{course.name}</p>
+                        <p className="truncate text-sm text-ink-muted">
+                          {course.nextItem
+                            ? `Next: ${course.nextItem.title} · ${formatShortDate(course.nextItem.dueAt)}`
+                            : "Nothing due yet"}
+                        </p>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <p className="font-mono text-lg font-semibold text-ink">{formatGrade(course.average)}</p>
+                        {course.dueThisWeek > 0 ? (
+                          <p className="font-mono text-[11px] uppercase tracking-[0.08em] text-teal">
+                            {course.dueThisWeek} due this week
+                          </p>
+                        ) : null}
+                      </div>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-ink-muted">
+                Add your courses to see grades and what&apos;s due, and to get study time in your plan.
+              </p>
+            )}
+          </section>
         </div>
       )}
     </main>
