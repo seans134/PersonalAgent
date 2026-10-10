@@ -11,6 +11,19 @@ export type StudyItem = {
   focusMode: StudyFocusMode;
 };
 
+/** Study hours assumed for an item the student has not estimated, by kind. */
+export const DEFAULT_EFFORT_HOURS: Record<StudyItem["kind"], number> = {
+  exam: 6,
+  quiz: 2,
+  assignment: 3,
+};
+
+/** The student's own positive estimate when set, else the default for the item's kind. */
+export function effortHoursFor(item: Pick<StudyItem, "kind" | "estimatedEffortHours">): number {
+  const own = item.estimatedEffortHours;
+  return own !== null && own > 0 ? own : DEFAULT_EFFORT_HOURS[item.kind];
+}
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function diffInDays(fromLocalDate: string, toLocalDate: string): number {
@@ -32,7 +45,8 @@ export function deriveStudyTasks(items: StudyItem[], todayLocalDate: string, hor
   const hasActiveFinishFirst = active.some((item) => item.focusMode === "finish_first");
 
   const eligible = active.filter((item) => {
-    if (item.estimatedEffortHours === null || !(item.estimatedEffortHours > 0)) return false;
+    // An explicit estimate of 0 (or less) means "no study needed"; null falls back to the kind default.
+    if (item.estimatedEffortHours !== null && !(item.estimatedEffortHours > 0)) return false;
     if (item.focusMode === "deferred" && hasActiveFinishFirst) return false;
     const daysUntilDue = Math.max(1, diffInDays(item.dueLocalDate, todayLocalDate));
     return daysUntilDue <= horizonDays;
@@ -58,7 +72,7 @@ export function deriveStudyTasks(items: StudyItem[], todayLocalDate: string, hor
 
   const tasks: StudyTask[] = sortedEligible.map((item) => {
     const daysUntilDue = Math.max(1, diffInDays(item.dueLocalDate, todayLocalDate));
-    const evenShare = Math.round(((item.estimatedEffortHours as number) * 60) / daysUntilDue);
+    const evenShare = Math.round((effortHoursFor(item) * 60) / daysUntilDue);
     const isFinishFirst = item.focusMode === "finish_first";
     const durationMinutes = isFinishFirst
       ? clamp(Math.max(45, evenShare * 2), 15, 120)

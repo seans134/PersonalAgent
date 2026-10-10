@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
+import { DEFAULT_EFFORT_HOURS } from "@personal-agent/core";
 import type { CourseCategoryRow, CourseItemRow } from "@/lib/courses/types";
 import { createItem, updateItem } from "../actions";
 
@@ -56,6 +57,7 @@ export function ItemForm({
   const isEdit = Boolean(item);
   const [kind, setKind] = useState<CourseItemRow["kind"]>(item?.kind ?? "assignment");
   const showScheduledFields = kind === "quiz" || kind === "exam";
+  const defaultEffortHours = DEFAULT_EFFORT_HOURS[kind];
   const formIdPrefix = item ? `item-${item.id}` : "item-new";
 
   return (
@@ -193,10 +195,13 @@ export function ItemForm({
             id={`${formIdPrefix}-effort`}
             min={0}
             name="estimated_effort_hours"
-            placeholder="Optional"
+            placeholder={`Default: ${defaultEffortHours}`}
             step="0.5"
             type="number"
           />
+          <p className="text-xs text-ink-muted">
+            Blank uses {defaultEffortHours} h ({kind} default); 0 skips study time.
+          </p>
         </div>
 
         <div className="space-y-1">

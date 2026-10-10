@@ -13,6 +13,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { DEFAULT_EFFORT_HOURS } from "@personal-agent/core";
 import type { MobileCourseDetail, MobileCourseItemInput } from "../lib/api";
 
 type CourseItem = MobileCourseDetail["items"][number];
@@ -139,6 +140,7 @@ export function CourseItemModal({ visible, initial, categories, onSubmit, onClos
   }
 
   const showScheduledFields = form.kind === "quiz" || form.kind === "exam";
+  const defaultEffortHours = DEFAULT_EFFORT_HOURS[form.kind];
 
   async function handleSubmit() {
     if (!form.title.trim()) {
@@ -315,13 +317,16 @@ export function CourseItemModal({ visible, initial, categories, onSubmit, onClos
                 <TextInput
                   keyboardType="decimal-pad"
                   onChangeText={(estimatedEffortHours) => updateForm({ estimatedEffortHours })}
-                  placeholder="Optional"
+                  placeholder={`Default: ${defaultEffortHours}`}
                   placeholderTextColor={theme.colors.inkMuted}
                   style={styles.input}
                   value={form.estimatedEffortHours}
                 />
               </View>
             </View>
+            <Text style={styles.hint}>
+              Blank uses {defaultEffortHours} h ({form.kind} default); 0 skips study time.
+            </Text>
 
             <Text style={styles.label}>Scheduling mode</Text>
             <View style={styles.segmentRow}>
@@ -416,6 +421,10 @@ function makeStyles(theme: Theme) {
     subLabel: {
       ...theme.text("label", "inkMuted"),
       marginBottom: 6,
+    },
+    hint: {
+      ...theme.text("label", "inkMuted"),
+      marginTop: 6,
     },
     input: {
       ...theme.text("body", "ink"),
