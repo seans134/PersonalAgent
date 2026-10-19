@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { analyticsEvents, type CourseSharePreview } from "@personal-agent/core";
 import { captureEvent } from "@/lib/analytics";
 
@@ -13,6 +13,15 @@ const KIND_LABEL: Record<CourseSharePreview["upcoming"][number]["kind"], string>
   quiz: "Quiz",
   assignment: "Assignment",
 };
+
+const noopSubscribe = () => () => {};
+
+/** Phones and tablets, where the installed app can take over via atlas://join/<token>. */
+function isMobileBrowser(): boolean {
+  const ua = navigator.userAgent;
+  // iPadOS reports a Mac user agent; touch support tells them apart.
+  return /Android|iPhone|iPad|iPod/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+}
 
 function formatDue(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
@@ -34,6 +43,8 @@ export function JoinCoursePanel({
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Rendered only after hydration (the server can't know the device).
+  const onMobile = useSyncExternalStore(noopSubscribe, isMobileBrowser, () => false);
 
   async function join() {
     setBusy(true);
@@ -109,6 +120,12 @@ export function JoinCoursePanel({
           </div>
         )}
         {error ? <p className="mt-3 text-sm text-danger">{error}</p> : null}
+        {/* Without universal links, a custom-scheme link is how a phone reaches the app's join screen. */}
+        {onMobile ? (
+          <a className="mt-4 inline-block text-sm text-teal underline" href={`atlas://join/${token}`}>
+            Open in the Atlas app
+          </a>
+        ) : null}
       </div>
     </div>
   );

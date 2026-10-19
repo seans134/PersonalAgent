@@ -23,7 +23,6 @@ export type CourseShareDTO = {
 };
 
 export type ResolvedShare = {
-  shareId: string;
   /** Set only when the caller owns the shared course. */
   ownCourseId: string | null;
   template: CourseTemplate;
@@ -32,6 +31,12 @@ export type ResolvedShare = {
 export type JoinShareResult =
   | { status: "not_found" }
   | { status: "joined"; courseId: string; created: boolean; itemCount: number };
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function isUuid(value: unknown): value is string {
+  return typeof value === "string" && UUID_PATTERN.test(value);
+}
 
 export class CourseShareError extends Error {
   constructor(message: string, readonly status: number) {
@@ -123,89 +128,28 @@ export async function resolveCourseShare(supabase: SupabaseClient, token: unknow
   if (!isShareToken(token)) return null;
   const { data, error } = await supabase.rpc("course_share_template", { share_token: token });
   if (error) throw new Error(`Unable to load shared course: ${error.message}`);
-  const snapshot = data as { shareId?: unknown; ownCourseId?: unknown } | null;
-  if (!snapshot || typeof snapshot.shareId !== "string") return null;
-  const template = courseTemplateFromSnapshot(snapshot);
+  const template = courseTemplateFromSnapshot(data);
   if (!template) return null;
-  return {
-    shareId: snapshot.shareId,
-    ownCourseId: typeof snapshot.ownCourseId === "string" ? snapshot.ownCourseId : null,
-    template,
-  };
-}
-
-async function existingJoinedCourse(supabase: SupabaseClient, userId: string, shareId: string) {
-  const { data, error } = await supabase
-    .from("courses").select("id").eq("user_id", userId).eq("joined_from_share_id", shareId).maybeSingle();
-  if (error) throw new Error(`Unable to load courses: ${error.message}`);
-  return (data as { id: string } | null)?.id ?? null;
+  const ownCourseId = (data as { ownCourseId?: unknown }).ownCourseId;
+  return { ownCourseId: typeof ownCourseId === "string" ? ownCourseId : null, template };
 }
 
 /**
- * Copies a shared course template into the student's account as a new course they own.
- * Joining the same share again returns the course from the first join; the owner gets their own course.
+ * Adds a shared course to the student's account through the join_course_share SECURITY DEFINER
+ * function, which copies the template in one transaction and is the only writer of
+ * courses.joined_from_share_id. Joining the same share again returns the course from the first
+ * join; the owner gets their own course back.
  */
-export async function joinCourseShare(supabase: SupabaseClient, userId: string, token: unknown): Promise<JoinShareResult> {
-  const share = await resolveCourseShare(supabase, token);
-  if (!share) return { status: "not_found" };
-  const { template } = share;
-  const itemCount = template.items.length;
-
-  if (share.ownCourseId) return { status: "joined", courseId: share.ownCourseId, created: false, itemCount };
-  const existingId = await existingJoinedCourse(supabase, userId, share.shareId);
-  if (existingId) return { status: "joined", courseId: existingId, created: false, itemCount };
-
-  const { data: course, error: courseError } = await supabase
-    .from("courses")
-    .insert({
-      user_id: userId,
-      name: template.course.name,
-      code: template.course.code,
-      term: template.course.term,
-      joined_from_share_id: share.shareId,
-    })
-    .select("id")
-    .single();
-  if (courseError?.code === UNIQUE_VIOLATION) {
-    // A double tap: the (user_id, joined_from_share_id) index let the first insert win.
-    const racedId = await existingJoinedCourse(supabase, userId, share.shareId);
-    if (racedId) return { status: "joined", courseId: racedId, created: false, itemCount };
-  }
-  if (courseError || !course) throw new Error(`Unable to add course: ${courseError?.message ?? "no row returned"}`);
-  const courseId = (course as { id: string }).id;
-
-  try {
-    const categoryIds: string[] = [];
-    if (template.categories.length > 0) {
-      const { data: categories, error } = await supabase
-        .from("course_categories")
-        .insert(template.categories.map((category, position) => ({
-          user_id: userId, course_id: courseId, name: category.name, weight: category.weight, position,
-        })))
-        .select("id, position");
-      if (error) throw new Error(error.message);
-      for (const row of (categories ?? []) as Array<{ id: string; position: number }>) categoryIds[row.position] = row.id;
-    }
-
-    if (itemCount > 0) {
-      const { error } = await supabase.from("course_items").insert(template.items.map((item) => ({
-        user_id: userId,
-        course_id: courseId,
-        category_id: item.categoryIndex === null ? null : categoryIds[item.categoryIndex] ?? null,
-        kind: item.kind,
-        title: item.title,
-        due_at: item.dueAt,
-        end_at: item.endAt,
-        score_max: item.scoreMax,
-        estimated_effort_hours: item.estimatedEffortHours,
-      })));
-      if (error) throw new Error(error.message);
-    }
-  } catch (error) {
-    // Don't leave a half-copied course behind; a retry starts clean.
-    await supabase.from("courses").delete().eq("id", courseId).eq("user_id", userId);
-    throw new Error(`Unable to add course: ${error instanceof Error ? error.message : "unknown error"}`);
-  }
-
-  return { status: "joined", courseId, created: true, itemCount };
+export async function joinCourseShare(supabase: SupabaseClient, token: unknown): Promise<JoinShareResult> {
+  if (!isShareToken(token)) return { status: "not_found" };
+  const { data, error } = await supabase.rpc("join_course_share", { share_token: token });
+  if (error) throw new Error(`Unable to add course: ${error.message}`);
+  const result = data as { courseId?: unknown; created?: unknown; itemCount?: unknown } | null;
+  if (!result || typeof result.courseId !== "string") return { status: "not_found" };
+  return {
+    status: "joined",
+    courseId: result.courseId,
+    created: result.created === true,
+    itemCount: typeof result.itemCount === "number" ? result.itemCount : 0,
+  };
 }

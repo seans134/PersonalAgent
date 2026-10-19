@@ -4,6 +4,7 @@ import type { CalendarEvent } from "@personal-agent/core/calendar";
 import {
   analyticsEvents,
   hasCoursesReady,
+  redactShareTokens,
   type CourseSharePreview,
   type CourseStudyPlans,
   type NeededScore,
@@ -580,6 +581,8 @@ async function fetchJson<T>(
   fallbackError = "Request failed.",
 ): Promise<T> {
   const { apiBaseUrl } = requireMobileEnv();
+  // Paths like /join/<token> carry a working share link; analytics and error reports get /join/:token.
+  const reportedPath = redactShareTokens(path);
   const response = await fetch(`${apiBaseUrl.replace(/\/$/, "")}${path}`, {
     ...init,
     headers: {
@@ -603,14 +606,14 @@ async function fetchJson<T>(
     const statusMessage =
       response.status === 413 ? SYLLABUS_TOO_LARGE_MESSAGE : `${fallbackError} (status ${response.status})`;
     const error = new Error(errorBody?.error ?? statusMessage);
-    captureEvent("api_request_failed", { path, status: response.status });
-    if (response.status >= 500) captureException(error, { path, status: response.status });
+    captureEvent("api_request_failed", { path: reportedPath, status: response.status });
+    if (response.status >= 500) captureException(error, { path: reportedPath, status: response.status });
     throw error;
   }
 
   if (body === null) {
     const error = new Error(fallbackError);
-    captureException(error, { path, status: response.status, reason: "non_json_success_body" });
+    captureException(error, { path: reportedPath, status: response.status, reason: "non_json_success_body" });
     throw error;
   }
 

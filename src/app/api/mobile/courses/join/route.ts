@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const result = await joinCourseShare(auth.supabase, auth.user.id, token);
+    const result = await joinCourseShare(auth.supabase, token);
     // One generic answer for unknown, malformed and stopped links.
     if (result.status === "not_found") return NextResponse.json({ error: "This course link isn't active." }, { status: 404 });
     if (result.created) {
@@ -30,7 +30,8 @@ export async function POST(request: NextRequest) {
       { status: result.created ? 201 : 200 },
     );
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unable to add course.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    // Logged server-side only; the client gets a generic message.
+    console.error("[course join] Unable to add course.", error);
+    return NextResponse.json({ error: "Unable to add course." }, { status: 500 });
   }
 }

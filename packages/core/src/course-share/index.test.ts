@@ -5,6 +5,8 @@ import {
   courseTemplateFromSnapshot,
   isShareToken,
   parseJoinLink,
+  redactShareLinksInEvent,
+  redactShareTokens,
   shareCountsLabel,
   shareTokenFromBytes,
 } from "./index";
@@ -132,5 +134,27 @@ describe("join links", () => {
     expect(parseJoinLink("atlas://join/short")).toBeNull();
     expect(parseJoinLink(`https://atlas.example/courses/join/${token}`)).toBeNull();
     expect(parseJoinLink("not a url")).toBeNull();
+  });
+});
+
+describe("redactShareTokens", () => {
+  it("hides tokens in paths and URLs", () => {
+    expect(redactShareTokens("/api/mobile/courses/join/AbC_def-1234567890xyzQ")).toBe("/api/mobile/courses/join/:token");
+    expect(redactShareTokens("https://atlas.example/join/AbC_def-1234567890xyzQ?x=1#y")).toBe("https://atlas.example/join/:token?x=1#y");
+    expect(redactShareTokens("atlas://join/AbC_def-1234567890xyzQ")).toBe("atlas://join/:token");
+    expect(redactShareTokens("/courses/abc")).toBe("/courses/abc");
+  });
+});
+
+describe("redactShareLinksInEvent", () => {
+  it("strips share tokens from event and person properties", () => {
+    const event = redactShareLinksInEvent({
+      event: "$pageview",
+      properties: { $current_url: "https://atlas.example/join/AbC_def-1234567890xyzQ", token: "phc_project", count: 2 },
+      $set_once: { $initial_current_url: "https://atlas.example/join/AbC_def-1234567890xyzQ?x=1" },
+    });
+    expect(event.properties).toEqual({ $current_url: "https://atlas.example/join/:token", token: "phc_project", count: 2 });
+    expect(event.$set_once).toEqual({ $initial_current_url: "https://atlas.example/join/:token?x=1" });
+    expect(JSON.stringify(event)).not.toContain("AbC_def");
   });
 });

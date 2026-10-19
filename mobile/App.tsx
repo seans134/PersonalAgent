@@ -134,6 +134,7 @@ function App() {
       if (event === "PASSWORD_RECOVERY") setIsRecoveringPassword(true);
       if (event === "SIGNED_OUT") {
         setActiveScreen("dashboard");
+        setPendingJoinToken(null);
         setSemesterTerm(null);
         // Exam reminders belong to the signed-out student's courses; stop in-flight course loads rescheduling them.
         endExamReminderSession();
@@ -184,6 +185,7 @@ function App() {
   }, []);
 
   async function signOut() {
+    setPendingJoinToken(null);
     endExamReminderSession();
     await supabase.auth.signOut();
     resetAnalyticsUser();
@@ -202,6 +204,12 @@ function App() {
   }
 
   function handleSelectTab(tab: MobileTab) {
+    // A tab press while the join screen is up dismisses it and goes to that tab.
+    if (pendingJoinToken) {
+      setPendingJoinToken(null);
+      setActiveScreen(tabDefaultScreen[tab]);
+      return;
+    }
     // Re-tapping the current tab keeps its sub-screen; switching tabs lands on the default.
     if (screenToTab[activeScreen] === tab) return;
     setActiveScreen(tabDefaultScreen[tab]);
@@ -286,7 +294,10 @@ function App() {
 
     if (activeScreen === "profile") {
       return (
-        <MoreMenuScreen accessToken={token} onAccountDeleted={() => setSession(null)} onNavigate={setActiveScreen} onSignOut={signOut} />
+        <MoreMenuScreen accessToken={token} onAccountDeleted={() => {
+            setPendingJoinToken(null);
+            setSession(null);
+          }} onNavigate={setActiveScreen} onSignOut={signOut} />
       );
     }
 
@@ -461,7 +472,7 @@ function App() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <MobileAppShell activeTab={screenToTab[activeScreen]} onSelectTab={handleSelectTab}>
+      <MobileAppShell activeTab={pendingJoinToken ? "courses" : screenToTab[activeScreen]} onSelectTab={handleSelectTab}>
         {renderSignedInScreen()}
       </MobileAppShell>
       <StatusBar style="dark" />

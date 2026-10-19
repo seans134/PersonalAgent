@@ -14,7 +14,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     if (!share) return NextResponse.json({ error: "This course link isn't active." }, { status: 404 });
     return NextResponse.json({ preview: courseSharePreview(share.template), ownCourseId: share.ownCourseId });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unable to load shared course.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    // Logged server-side only (never the token); the client gets a generic message.
+    console.error("[course join] Unable to load shared course.", error);
+    return NextResponse.json({ error: "Unable to load shared course." }, { status: 500 });
   }
 }

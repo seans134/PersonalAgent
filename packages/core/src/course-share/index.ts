@@ -173,3 +173,37 @@ export function parseJoinLink(url: string): string | null {
   const match = /^(?:atlas:\/\/\/?|https?:\/\/[^/?#]+\/)join\/([^/?#]+)\/?(?:[?#].*)?$/i.exec(url.trim());
   return match && isShareToken(match[1]) ? match[1] : null;
 }
+
+/**
+ * Replaces share tokens in a path or URL ("/join/<token>" -> "/join/:token") so analytics,
+ * error reports and logs never carry a working link.
+ */
+export function redactShareTokens(value: string): string {
+  return value.replace(/(\/join\/)[^/?#\s]+/gi, "$1:token");
+}
+
+type EventProperties = Record<string, unknown> | undefined;
+
+function redactProperties(properties: EventProperties): EventProperties {
+  if (!properties) return properties;
+  const redacted: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(properties)) {
+    redacted[key] = typeof value === "string" ? redactShareTokens(value) : value;
+  }
+  return redacted;
+}
+
+/**
+ * For PostHog's before_send on web and mobile: pageview URLs, referrers and the mobile
+ * "Application Opened" deep-link url never carry a /join/<token> link.
+ */
+export function redactShareLinksInEvent<
+  T extends { properties?: EventProperties; $set?: EventProperties; $set_once?: EventProperties },
+>(event: T): T {
+  return {
+    ...event,
+    ...(event.properties ? { properties: redactProperties(event.properties) } : {}),
+    ...(event.$set ? { $set: redactProperties(event.$set) } : {}),
+    ...(event.$set_once ? { $set_once: redactProperties(event.$set_once) } : {}),
+  };
+}
