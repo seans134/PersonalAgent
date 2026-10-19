@@ -176,7 +176,7 @@ export function CalendarEventModal({
                 onPress={onDelete}
                 style={[styles.deleteButton, busy && styles.disabled]}
               >
-                <Text style={styles.deleteText}>{deleting ? "Deleting..." : "Delete"}</Text>
+                <Text style={styles.deleteText}>{deleting ? "Removing..." : "Remove event"}</Text>
               </Pressable>
             ) : null}
             <Pressable

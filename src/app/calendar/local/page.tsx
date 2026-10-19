@@ -546,23 +546,29 @@ function DayCalendar({
 }
 
 function EventModal({
+  deleteLabel,
   error,
   form,
+  isDeleting,
   isEditing,
   onChange,
   onClose,
+  onDelete,
   onSubmit,
 }: {
+  deleteLabel: string;
   error: string;
   form: EventFormState;
+  isDeleting: boolean;
   isEditing: boolean;
   onChange: (patch: Partial<EventFormState>) => void;
   onClose: () => void;
+  onDelete: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-teal/50 px-4">
-      <div className="w-full max-w-lg rounded-lg border border-line bg-surface p-6 shadow-xl">
+      <div className="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-lg border border-line bg-surface p-6 shadow-xl">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
             <p className="text-sm font-medium uppercase tracking-wide text-ink-muted">{isEditing ? "Edit event" : "New event"}</p>
@@ -645,11 +651,21 @@ function EventModal({
 
           {error ? <p className="rounded-lg border border-danger bg-surface px-3 py-2 text-sm text-danger">{error}</p> : null}
 
-          <div className="flex justify-end gap-3 pt-2">
+          <div className="flex flex-wrap justify-end gap-3 pt-2">
+            {isEditing ? (
+              <button
+                className="mr-auto rounded-lg border border-danger px-4 py-2 text-sm font-medium text-danger disabled:opacity-60"
+                disabled={isDeleting}
+                onClick={onDelete}
+                type="button"
+              >
+                {isDeleting ? "Deleting..." : deleteLabel}
+              </button>
+            ) : null}
             <button className="rounded-lg border border-line px-4 py-2 text-sm font-medium text-ink-muted" onClick={onClose} type="button">
               Cancel
             </button>
-            <button className="rounded-lg bg-teal px-4 py-2 text-sm font-medium text-on-teal" type="submit">
+            <button className="rounded-lg bg-teal px-4 py-2 text-sm font-medium text-on-teal disabled:opacity-60" disabled={isDeleting} type="submit">
               {isEditing ? "Save changes" : "Add event"}
             </button>
           </div>
@@ -672,6 +688,7 @@ export default function LocalCalendarPage() {
   const [manualEvents, setManualEvents] = useState<CalendarEvent[]>([]);
   const [recurringBlocks, setRecurringBlocks] = useState<ScheduleBlock[]>([]);
   const [modalError, setModalError] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
   const [eventForm, setEventForm] = useState<EventFormState | null>(null);
   const [editingTarget, setEditingTarget] = useState<EditingTarget | null>(null);
 
@@ -796,6 +813,39 @@ export default function LocalCalendarPage() {
 
   function updateEventForm(patch: Partial<EventFormState>) {
     setEventForm((current) => (current ? { ...current, ...patch } : current));
+  }
+
+  async function handleDeleteEvent() {
+    if (!editingTarget || !userId || isDeleting) return;
+
+    const isRecurring = editingTarget.type === "recurring";
+    const confirmMessage = isRecurring ? "Delete this weekly event? Every occurrence will be removed." : "Delete this event?";
+    if (!window.confirm(confirmMessage)) return;
+
+    setIsDeleting(true);
+    setModalError("");
+    try {
+      const { error } = await supabase
+        .from(isRecurring ? "schedule_blocks" : "calendar_events")
+        .delete()
+        .eq("id", editingTarget.id)
+        .eq("user_id", userId)
+        .select("id")
+        .single();
+
+      if (error) throw error;
+
+      if (isRecurring) {
+        setRecurringBlocks((current) => current.filter((block) => block.id !== editingTarget.id));
+      } else {
+        setManualEvents((current) => current.filter((manualEvent) => manualEvent.id !== editingTarget.id));
+      }
+      closeEventModal();
+    } catch (error) {
+      setModalError(error instanceof Error ? error.message : "Unable to remove event. Please try again.");
+    } finally {
+      setIsDeleting(false);
+    }
   }
 
   async function handleSubmitEvent(event: FormEvent<HTMLFormElement>) {
@@ -1053,11 +1103,14 @@ export default function LocalCalendarPage() {
 
       {eventForm ? (
         <EventModal
+          deleteLabel={editingTarget?.type === "recurring" ? "Remove weekly event" : "Remove event"}
           error={modalError}
           form={eventForm}
+          isDeleting={isDeleting}
           isEditing={editingTarget !== null}
           onChange={updateEventForm}
           onClose={closeEventModal}
+          onDelete={handleDeleteEvent}
           onSubmit={handleSubmitEvent}
         />
       ) : null}
