@@ -4,6 +4,7 @@ import { useReducer, useRef, useState } from "react";
 import {
   analyticsEvents,
   applyPlanItemStatus,
+  checkoffMinutesFor,
   features,
   isCheckoffForToday,
   nextPlanItemStatus,
@@ -148,7 +149,7 @@ export function TodayPlanPanel() {
       await sendPlanRequest<PlanItemStatusResponse>(
         "/api/mobile/plan/status",
         "PUT",
-        { planDate: checkoff.planDate, itemKey: key, itemType: item.type, status },
+        { planDate: checkoff.planDate, itemKey: key, itemType: item.type, status, minutes: checkoffMinutesFor(item, status) },
         "Unable to save check-off.",
       );
       if (status) {

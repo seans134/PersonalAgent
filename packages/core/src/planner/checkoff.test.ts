@@ -8,8 +8,12 @@ import {
   mergePlanItemStatuses,
   nextPlanItemStatus,
   parsePlanAcceptRequest,
+  checkoffMinutesFor,
   parsePlanItemStatusRequest,
   planCheckoffCounts,
+  planItemMinutes,
+  studyDoneMinutesByItem,
+  studyItemIdFromKey,
   planItemKey,
   planItemTitleSlug,
   withPlanItemKeys,
@@ -143,8 +147,17 @@ describe("check-off helpers", () => {
 describe("request parsing", () => {
   it("accepts a status write and an undo", () => {
     const body = { planDate: "2026-10-19", itemKey: "study:a", itemType: "study", status: "done" };
-    expect(parsePlanItemStatusRequest(body)).toEqual({ ok: true, value: body });
-    expect(parsePlanItemStatusRequest({ ...body, status: null })).toEqual({ ok: true, value: { ...body, status: null } });
+    expect(parsePlanItemStatusRequest(body)).toEqual({ ok: true, value: { ...body, minutes: null } });
+    expect(parsePlanItemStatusRequest({ ...body, status: null })).toEqual({ ok: true, value: { ...body, status: null, minutes: null } });
+    expect(parsePlanItemStatusRequest({ ...body, minutes: 45 })).toEqual({ ok: true, value: { ...body, minutes: 45 } });
+  });
+
+  it("rejects bad minutes", () => {
+    const body = { planDate: "2026-10-19", itemKey: "study:a", itemType: "study", status: "done" };
+    expect(parsePlanItemStatusRequest({ ...body, minutes: 0 }).ok).toBe(false);
+    expect(parsePlanItemStatusRequest({ ...body, minutes: 12.5 }).ok).toBe(false);
+    expect(parsePlanItemStatusRequest({ ...body, minutes: 24 * 60 + 1 }).ok).toBe(false);
+    expect(parsePlanItemStatusRequest({ ...body, minutes: "30" }).ok).toBe(false);
   });
 
   it("rejects bad status writes", () => {
@@ -166,5 +179,40 @@ describe("request parsing", () => {
     expect(parsePlanAcceptRequest({ planDate: "2026-10-19", itemCount: -1 }).ok).toBe(false);
     expect(parsePlanAcceptRequest({ planDate: "2026-10-19", itemCount: 1.5 }).ok).toBe(false);
     expect(parsePlanAcceptRequest({ itemCount: 1 }).ok).toBe(false);
+  });
+});
+
+describe("study minutes from check-offs", () => {
+  it("records a done study block's scheduled length and nothing else", () => {
+    expect(planItemMinutes({ startTime: "09:15", endTime: "10:00" })).toBe(45);
+    expect(planItemMinutes({ startTime: "bad", endTime: "10:00" })).toBe(0);
+    const study = item({ type: "study", startTime: "13:00", endTime: "13:40" });
+    expect(checkoffMinutesFor(study, "done")).toBe(40);
+    expect(checkoffMinutesFor(study, "skipped")).toBeNull();
+    expect(checkoffMinutesFor(study, null)).toBeNull();
+    expect(checkoffMinutesFor(item({ type: "goal" }), "done")).toBeNull();
+  });
+
+  it("reads the course item id from study keys", () => {
+    expect(studyItemIdFromKey("study:item-1")).toBe("item-1");
+    expect(studyItemIdFromKey("study:item-1#2")).toBe("item-1");
+    expect(studyItemIdFromKey("goal:read")).toBeNull();
+    expect(studyItemIdFromKey("study:")).toBeNull();
+  });
+
+  it("sums done minutes per item from earlier days only", () => {
+    const totals = studyDoneMinutesByItem(
+      [
+        { item_key: "study:exam", plan_date: "2026-10-17", status: "done", minutes: 30 },
+        { item_key: "study:exam", plan_date: "2026-10-18", status: "done", minutes: 45 },
+        { item_key: "study:exam#2", plan_date: "2026-10-18", status: "done", minutes: 15 },
+        { item_key: "study:exam", plan_date: "2026-10-19", status: "done", minutes: 60 },
+        { item_key: "study:quiz", plan_date: "2026-10-18", status: "skipped", minutes: null },
+        { item_key: "study:quiz", plan_date: "2026-10-17", status: "done", minutes: null },
+        { item_key: "goal:read", plan_date: "2026-10-18", status: "done", minutes: 30 },
+      ],
+      "2026-10-19",
+    );
+    expect(totals).toEqual({ exam: 90 });
   });
 });

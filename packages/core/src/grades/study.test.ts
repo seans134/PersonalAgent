@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_EFFORT_HOURS, deriveStudyTasks, effortHoursFor, type StudyItem } from "./study";
+import {
+  DEFAULT_EFFORT_HOURS,
+  deriveStudyTasks,
+  effortHoursFor,
+  formatStudyMinutes,
+  studyRamp,
+  studyRampDayLabel,
+  todayRampMinutes,
+  upcomingStudyRamps,
+  type StudyItem,
+} from "./study";
 
 const base: Omit<StudyItem, "id" | "focusMode" | "dueLocalDate"> = {
   title: "Essay",
@@ -40,14 +50,14 @@ describe("deriveStudyTasks", () => {
   it("sizes items with no effort estimate by their kind default", () => {
     const items: StudyItem[] = [
       { ...base, id: "exam", kind: "exam", estimatedEffortHours: null, focusMode: "continuous", dueLocalDate: "2026-08-13" },
-      { ...base, id: "quiz", kind: "quiz", estimatedEffortHours: null, focusMode: "continuous", dueLocalDate: "2026-08-13" },
+      { ...base, id: "quiz", kind: "quiz", estimatedEffortHours: null, focusMode: "continuous", dueLocalDate: "2026-08-10" },
       { ...base, id: "hw", kind: "assignment", estimatedEffortHours: null, focusMode: "continuous", dueLocalDate: "2026-08-13" },
     ];
-    const tasks = deriveStudyTasks(items, "2026-08-07"); // 6 days out
+    const tasks = deriveStudyTasks(items, "2026-08-07");
     const byId = new Map(tasks.map((t) => [t.id, t.durationMinutes]));
-    expect(byId.get("exam")).toBe(60); // 6h*60/6
-    expect(byId.get("quiz")).toBe(20); // 2h*60/6
-    expect(byId.get("hw")).toBe(30); // 3h*60/6
+    expect(byId.get("exam")).toBe(35); // 6h on day 2 of a 7-day ramp (weight 4/3 of 13)
+    expect(byId.get("quiz")).toBe(20); // 2h on day 1 of a 3-day ramp (1/6)
+    expect(byId.get("hw")).toBe(30); // 3h even over 6 days
   });
 
   it("uses the student's own estimate over the kind default", () => {
@@ -55,7 +65,7 @@ describe("deriveStudyTasks", () => {
       { ...base, id: "exam", kind: "exam", estimatedEffortHours: 12, focusMode: "continuous", dueLocalDate: "2026-08-13" },
     ];
     const tasks = deriveStudyTasks(items, "2026-08-07"); // 6 days out
-    expect(tasks[0].durationMinutes).toBe(120); // 12h*60/6
+    expect(tasks[0].durationMinutes).toBe(120); // 12h over 6 days fills every day to the cap
   });
 
   it("still excludes items with an explicit estimate of 0", () => {
@@ -120,6 +130,166 @@ describe("deriveStudyTasks", () => {
     const tasks = deriveStudyTasks(items, "2026-08-07");
     expect(tasks[0].id).toBe("cont-earlier");
     expect(tasks[1].id).toBe("cont-later");
+  });
+});
+
+describe("study ramp in deriveStudyTasks", () => {
+  const exam: StudyItem = {
+    ...base, id: "exam", title: "Midterm", courseName: "Chemistry", kind: "exam",
+    estimatedEffortHours: null, focusMode: "continuous", dueLocalDate: "2026-08-14",
+  };
+
+  it("grows the exam block toward the exam day when earlier days were done", () => {
+    const minutes = [
+      ["2026-08-07", 0],
+      ["2026-08-10", 25 + 35 + 45],
+      ["2026-08-13", 25 + 35 + 45 + 50 + 60 + 70],
+    ].map(([today, done]) => deriveStudyTasks([exam], today as string, 7, { exam: done as number })[0].durationMinutes);
+    expect(minutes).toEqual([25, 50, 75]);
+  });
+
+  it("moves the whole estimate onto the days left when nothing was checked off", () => {
+    expect(deriveStudyTasks([exam], "2026-08-10")[0].durationMinutes).toBe(70); // 360 over days 4-7
+    expect(deriveStudyTasks([exam], "2026-08-13")[0].durationMinutes).toBe(120); // capped
+  });
+
+  it("names the ramp day in the reason", () => {
+    const [task] = deriveStudyTasks([exam], "2026-08-11");
+    expect(task.reason).toBe("Chemistry · Exam in 3 days · day 5 of 7 of your study ramp.");
+    const [quiz] = deriveStudyTasks([{ ...exam, kind: "quiz" }], "2026-08-13");
+    expect(quiz.reason).toBe("Chemistry · Quiz tomorrow · day 3 of 3 of your study ramp.");
+  });
+
+  it("keeps assignment reasons plain", () => {
+    const [task] = deriveStudyTasks([{ ...exam, kind: "assignment" }], "2026-08-11");
+    expect(task.reason).toBe("Chemistry · Due in 3 days · reserving study time.");
+  });
+
+  it("waits for a quiz's ramp to start unless it is finish_first", () => {
+    const quiz: StudyItem = { ...exam, kind: "quiz", dueLocalDate: "2026-08-12" };
+    expect(deriveStudyTasks([quiz], "2026-08-07")).toHaveLength(0);
+    const [task] = deriveStudyTasks([{ ...quiz, focusMode: "finish_first" }], "2026-08-07");
+    expect(task.priority).toBe(1);
+    expect(task.durationMinutes).toBe(50); // even share 24 min, doubled and rounded to 5
+    expect(task.reason).toBe("Chemistry · Quiz in 5 days · reserving study time.");
+  });
+
+  it("redistributes what's left after study done on earlier days", () => {
+    const fresh = deriveStudyTasks([exam], "2026-08-11")[0].durationMinutes;
+    const after = deriveStudyTasks([exam], "2026-08-11", 7, { exam: 160 })[0].durationMinutes;
+    expect(fresh).toBe(120); // 360 min over days 5-7 fills each to the cap
+    expect(after).toBe(60); // 200 min left: 200 * (7/3) / 8 = 58.3
+  });
+
+  it("drops an item once its effort is fully studied", () => {
+    expect(deriveStudyTasks([exam], "2026-08-11", 7, { exam: 360 })).toHaveLength(0);
+    expect(deriveStudyTasks([{ ...exam, focusMode: "finish_first" }], "2026-08-11", 7, { exam: 400 })).toHaveLength(0);
+  });
+
+  it("caps a finish_first block at what's left to study", () => {
+    const [task] = deriveStudyTasks([{ ...exam, focusMode: "finish_first" }], "2026-08-11", 7, { exam: 340 });
+    expect(task.durationMinutes).toBe(20);
+  });
+});
+
+describe("studyRamp", () => {
+  const exam = { id: "exam", kind: "exam" as const, estimatedEffortHours: null, dueLocalDate: "2026-08-14" };
+
+  it("spreads an exam over the 7 days before it, largest the day before", () => {
+    const ramp = studyRamp(exam, "2026-08-07");
+    expect(ramp.leadDays).toBe(7);
+    expect(ramp.days.map((day) => day.localDate)).toEqual([
+      "2026-08-07", "2026-08-08", "2026-08-09", "2026-08-10", "2026-08-11", "2026-08-12", "2026-08-13",
+    ]);
+    expect(ramp.days.map((day) => day.minutes)).toEqual([25, 35, 45, 50, 60, 70, 75]);
+    expect(ramp.days.reduce((sum, day) => sum + day.minutes, 0)).toBe(360);
+    expect(ramp.days[0].isToday).toBe(true);
+    expect(todayRampMinutes(ramp)).toBe(25);
+  });
+
+  it("starts the ramp at its first day when the exam is further out", () => {
+    const ramp = studyRamp({ ...exam, dueLocalDate: "2026-08-20" }, "2026-08-07");
+    expect(ramp.days[0]).toMatchObject({ localDate: "2026-08-13", dayNumber: 1, isToday: false });
+    expect(todayRampMinutes(ramp)).toBe(0);
+  });
+
+  it("gives a quiz a 3-day ramp", () => {
+    const ramp = studyRamp({ ...exam, kind: "quiz" }, "2026-08-07");
+    expect(ramp.days.map((day) => [day.localDate, day.dayNumber, day.minutes])).toEqual([
+      ["2026-08-11", 1, 20],
+      ["2026-08-12", 2, 40],
+      ["2026-08-13", 3, 60],
+    ]);
+  });
+
+  it("keeps assignments even", () => {
+    const ramp = studyRamp({ ...exam, kind: "assignment", estimatedEffortHours: 3.5 }, "2026-08-07");
+    expect(ramp.days.map((day) => day.minutes)).toEqual([30, 30, 30, 30, 30, 30, 30]);
+  });
+
+  it("keeps every day within 15-120 minutes in 5-minute steps", () => {
+    for (const hours of [0.5, 1, 2.5, 6, 9, 14, 30]) {
+      for (const kind of ["exam", "quiz", "assignment"] as const) {
+        const ramp = studyRamp({ ...exam, kind, estimatedEffortHours: hours }, "2026-08-07");
+        for (const day of ramp.days) {
+          expect(day.minutes % 5).toBe(0);
+          expect(day.minutes).toBeGreaterThanOrEqual(15);
+          expect(day.minutes).toBeLessThanOrEqual(120);
+        }
+        const total = ramp.days.reduce((sum, day) => sum + day.minutes, 0);
+        const cap = ramp.days.length * 120;
+        expect(Math.abs(total - Math.min(hours * 60, cap))).toBeLessThanOrEqual(Math.max(15, ramp.days.length * 2.5));
+      }
+    }
+  });
+
+  it("drops the earliest days when too little is left to give each 15 minutes", () => {
+    const ramp = studyRamp(exam, "2026-08-07", 320);
+    expect(ramp.remainingMinutes).toBe(40);
+    expect(ramp.days.map((day) => [day.dayNumber, day.minutes])).toEqual([[6, 20], [7, 20]]);
+  });
+
+  it("puts what's left into one block on the due date and nothing after", () => {
+    expect(studyRamp(exam, "2026-08-14").days).toEqual([
+      { localDate: "2026-08-14", dayNumber: 7, minutes: 120, isToday: true },
+    ]);
+    expect(studyRamp(exam, "2026-08-15").days).toEqual([]);
+    expect(studyRamp(exam, "2026-08-10", 360).days).toEqual([]);
+  });
+});
+
+describe("upcomingStudyRamps", () => {
+  const item = (overrides: Partial<StudyItem>): StudyItem => ({
+    ...base, id: "x", kind: "exam", estimatedEffortHours: null, focusMode: "continuous", dueLocalDate: "2026-08-12", ...overrides,
+  });
+
+  it("returns ramps for unscored upcoming exams and quizzes only", () => {
+    const ramps = upcomingStudyRamps(
+      [
+        item({ id: "exam" }),
+        item({ id: "quiz", kind: "quiz" }),
+        item({ id: "hw", kind: "assignment" }),
+        item({ id: "graded", scoreEarned: 80 }),
+        item({ id: "past", dueLocalDate: "2026-08-01" }),
+        item({ id: "none", estimatedEffortHours: 0 }),
+        item({ id: "studied" }),
+      ],
+      "2026-08-07",
+      { studied: 360 },
+    );
+    expect(Object.keys(ramps).sort()).toEqual(["exam", "quiz"]);
+    expect(ramps.exam.days.map((day) => day.dayNumber)).toEqual([3, 4, 5, 6, 7]);
+  });
+});
+
+describe("study ramp labels", () => {
+  it("names nearby days and formats minutes", () => {
+    expect(studyRampDayLabel("2026-10-19", "2026-10-19")).toBe("Today");
+    expect(studyRampDayLabel("2026-10-20", "2026-10-19")).toBe("Tomorrow");
+    expect(studyRampDayLabel("2026-10-21", "2026-10-19")).toBe("Wed Oct 21");
+    expect(formatStudyMinutes(45)).toBe("45 min");
+    expect(formatStudyMinutes(120)).toBe("2 h");
+    expect(formatStudyMinutes(95)).toBe("1 h 35 min");
   });
 });
 

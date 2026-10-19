@@ -61,6 +61,8 @@ type MockState = {
   courses?: Array<{ id: string; name: string }>;
   coursesError?: string;
   planItemStatuses?: Array<{ item_key: string; status: "done" | "skipped" }>;
+  /** Rows the earlier-days study query returns (plan_date before today). */
+  studyDoneRows?: Array<{ item_key: string; plan_date: string; status: "done"; minutes: number | null }>;
   acceptedAt?: string;
 };
 
@@ -158,7 +160,18 @@ function createSupabaseMock(state: MockState) {
       }
 
       if (table === "plan_item_statuses") {
-        const query = { select: () => query, eq: () => query, then: (resolve: (value: unknown) => void) => resolve({ data: state.planItemStatuses ?? [], error: null }) };
+        let earlierDays = false;
+        const query = {
+          select: () => query,
+          eq: () => query,
+          gte: () => query,
+          lt: () => {
+            earlierDays = true;
+            return query;
+          },
+          then: (resolve: (value: unknown) => void) =>
+            resolve({ data: earlierDays ? state.studyDoneRows ?? [] : state.planItemStatuses ?? [], error: null }),
+        };
         return query;
       }
 
@@ -433,4 +446,49 @@ it("blocks yesterday's overnight tail using the profile timezone", async () => {
     expect(result.body.contextEvents[0]).toMatchObject({ title: "Overnight work", startTime: "00:00", endTime: "06:00" });
     expect(result.body.plan.items.every((item) => item.startTime >= "06:00")).toBe(true);
   } finally { vi.useRealTimers(); }
+});
+
+describe("generateTodayPlanForUser study ramp", () => {
+  const profile = {
+    work_start_time: "08:00",
+    work_end_time: "20:00",
+    no_meeting_start: null,
+    no_meeting_end: null,
+    focus_block_minutes: 60,
+    workout_preference: "none" as const,
+    timezone: "UTC",
+  };
+  const todayUtc = new Date().toISOString().slice(0, 10);
+  const shift = (days: number) => new Date(Date.parse(`${todayUtc}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
+  const exam = {
+    id: "item-1", course_id: "course-1", category_id: null, user_id: "user-1", kind: "exam" as const,
+    title: "Midterm", due_at: `${shift(3)}T15:00:00.000Z`, end_at: null, location: null, score_earned: null,
+    score_max: 100, estimated_effort_hours: null, focus_mode: "continuous" as const, created_at: `${shift(-10)}T00:00:00.000Z`,
+  };
+
+  async function studyBlock(studyDoneRows: MockState["studyDoneRows"]) {
+    const result = await generateTodayPlanForUser({
+      supabase: createSupabaseMock({ goals: [], profile, courses: [{ id: "course-1", name: "Biology" }], courseItems: [exam], studyDoneRows }) as never,
+      userId: "user-1",
+      enhancePlan: async ({ plan }) => ({ plan }),
+    });
+    if ("error" in result.body) throw new Error("Expected successful plan body.");
+    expect(result.body.meta.warnings).toEqual([]);
+    const item = result.body.plan.items.find((entry) => entry.type === "study");
+    if (!item) throw new Error("Expected a study block.");
+    const minutes = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5));
+    return { reason: item.reason, minutes: minutes(item.endTime) - minutes(item.startTime) };
+  }
+
+  it("names the ramp day and shrinks today's block by study done on earlier days", async () => {
+    const fresh = await studyBlock([]);
+    expect(fresh.reason).toBe("Biology · Exam in 3 days · day 5 of 7 of your study ramp.");
+    expect(fresh.minutes).toBe(120);
+
+    const afterProgress = await studyBlock([
+      { item_key: "study:item-1", plan_date: shift(-2), status: "done", minutes: 150 },
+      { item_key: "study:item-1", plan_date: shift(-1), status: "done", minutes: 120 },
+    ]);
+    expect(afterProgress.minutes).toBe(25); // 90 min left over days 5-7
+  });
 });

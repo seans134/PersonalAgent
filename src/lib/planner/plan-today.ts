@@ -11,7 +11,7 @@ import {
 import { generateDailyPlan } from "./planner";
 import type { CalendarEvent } from "./types";
 import type { TodayPlanCheckoff, TodayPlanContextEvent } from "./client-types";
-import { readPlanCheckoff } from "./checkoff-store";
+import { readPlanCheckoff, readStudyDoneMinutes } from "./checkoff-store";
 import { fetchAllCourseItems, fetchCoursesById } from "@/lib/courses/queries";
 import { courseItemsToStudyItems, courseItemsToTodayBusyEvents } from "@/lib/courses/projection";
 import { localDateOnly } from "@/lib/courses/local-time";
@@ -185,7 +185,15 @@ export async function generateTodayPlanForUser(input: {
     ]);
     const todayLocalDate = localDateOnly(new Date().toISOString(), timezone);
     const studyItems = courseItemsToStudyItems(items, courseNames, timezone);
-    studyTasks = deriveStudyTasks(studyItems, todayLocalDate);
+    // Study checked off on earlier days shrinks each item's remaining ramp; without it, plan from the full estimate.
+    let doneMinutes: Record<string, number> = {};
+    try {
+      doneMinutes = await readStudyDoneMinutes(supabase, userId, todayLocalDate);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to load study check-offs.";
+      warnings.push(`Study progress read failed: ${message}`);
+    }
+    studyTasks = deriveStudyTasks(studyItems, todayLocalDate, undefined, doneMinutes);
     const examBusy = courseItemsToTodayBusyEvents(items, timezone, todayLocalDate);
     calendarEvents = [...calendarEvents, ...examBusy];
   } catch (error) {

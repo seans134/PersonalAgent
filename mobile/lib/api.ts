@@ -4,6 +4,7 @@ import type { CalendarEvent } from "@personal-agent/core/calendar";
 import {
   analyticsEvents,
   hasCoursesReady,
+  type CourseStudyPlans,
   type NeededScore,
   type PlanAcceptResponse,
   type PlanItemStatus,
@@ -524,10 +525,13 @@ export async function fetchMobilePlanStatus(accessToken: string, planDate: strin
   );
 }
 
-/** Marks one plan item done or skipped (null undoes). counts are the plan's check-off counts after this change. */
+/**
+ * Marks one plan item done or skipped (null undoes). counts are the plan's check-off counts after this change.
+ * minutes: a done study block's scheduled length (checkoffMinutesFor), so later plans shrink its study ramp.
+ */
 export async function setMobilePlanItemStatus(
   accessToken: string,
-  input: { planDate: string; itemKey: string; itemType: PlannedItemType; status: PlanItemStatus | null },
+  input: { planDate: string; itemKey: string; itemType: PlannedItemType; status: PlanItemStatus | null; minutes?: number | null },
   counts: { item_count: number; done_count: number; skipped_count: number },
 ): Promise<PlanItemStatusResponse> {
   const body = await fetchJson<PlanItemStatusResponse>(
@@ -979,6 +983,8 @@ export type MobileCourseDetail = {
     categories: Array<{ id: string; name: string; weight: number; score: number | null; gradedCount: number; itemCount: number }>;
   };
   needed: NeededScore;
+  // Study ramp for each upcoming unscored exam/quiz (null when the server could not build it).
+  studyPlans?: CourseStudyPlans | null;
 };
 
 export type MobileCourseInput = {

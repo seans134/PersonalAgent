@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
+import { formatStudyMinutes, studyRampDayLabel, type StudyRamp } from "@personal-agent/core";
 import type { CourseCategoryRow, CourseItemRow } from "@/lib/courses/types";
 import { deleteItem, setItemGrade } from "../actions";
 import { ItemForm } from "./item-form";
@@ -44,12 +45,42 @@ function DeleteButton() {
   );
 }
 
+/** The upcoming days of an exam or quiz's study ramp, from the same core function as the Today plan. */
+function StudyPlanList({ ramp, todayLocalDate }: { ramp: StudyRamp; todayLocalDate: string }) {
+  return (
+    <div className="basis-full border-t border-line pt-2">
+      <p className="text-xs font-medium text-ink-muted">
+        Study plan
+        {ramp.doneMinutes > 0 ? (
+          <span className="font-normal"> · {formatStudyMinutes(ramp.doneMinutes)} done, {formatStudyMinutes(ramp.remainingMinutes)} to go</span>
+        ) : null}
+      </p>
+      <ol className="mt-1 flex flex-wrap gap-1.5" aria-label={`Study plan for ${ramp.kind === "exam" ? "this exam" : "this quiz"}`}>
+        {ramp.days.map((day) => (
+          <li
+            className={`rounded-md border px-2 py-1 font-mono text-xs ${
+              day.isToday ? "border-teal bg-surface2 text-ink" : "border-line text-ink-muted"
+            }`}
+            key={day.localDate}
+          >
+            {studyRampDayLabel(day.localDate, todayLocalDate)} · {formatStudyMinutes(day.minutes)}
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
 export function ItemRow({
   item,
   categories,
+  studyPlan = null,
+  todayLocalDate = null,
 }: {
   item: CourseItemRow;
   categories: CourseCategoryRow[];
+  studyPlan?: StudyRamp | null;
+  todayLocalDate?: string | null;
 }) {
   const [editing, setEditing] = useState(false);
 
@@ -114,6 +145,8 @@ export function ItemRow({
         <input name="course_id" type="hidden" value={item.course_id} />
         <DeleteButton />
       </form>
+
+      {studyPlan && todayLocalDate ? <StudyPlanList ramp={studyPlan} todayLocalDate={todayLocalDate} /> : null}
     </div>
   );
 }

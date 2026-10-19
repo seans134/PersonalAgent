@@ -1,5 +1,6 @@
 import { dateInTimezone } from "../calendar";
 import type { TodayPlanCheckoff } from "./client-types";
+import { toMinutes } from "./time";
 import type { PlannedItem, PlannedItemType, PlanItemStatus } from "./types";
 
 // Plan check-off: students mark today's plan items done or skipped, and the marks
@@ -15,6 +16,8 @@ import type { PlannedItem, PlannedItemType, PlanItemStatus } from "./types";
 export const PLAN_ITEM_STATUSES = ["done", "skipped"] as const satisfies readonly PlanItemStatus[];
 export const PLAN_ITEM_TYPES = ["goal", "focus", "fitness", "wellness", "study", "fallback"] as const satisfies readonly PlannedItemType[];
 export const PLAN_ITEM_KEY_MAX_LENGTH = 200;
+/** Upper bound for the minutes a single check-off can record (one plan block). */
+export const PLAN_ITEM_MINUTES_MAX = 24 * 60;
 
 export type PlanItemKeySource = "study" | "goal" | "fallback";
 
@@ -67,6 +70,51 @@ export function applyPlanItemStatus<T extends PlannedItem>(items: T[], key: stri
 /** Tapping the status an item already has undoes it; tapping another status switches to it. */
 export function nextPlanItemStatus(current: PlanItemStatus | null | undefined, tapped: PlanItemStatus): PlanItemStatus | null {
   return current === tapped ? null : tapped;
+}
+
+/** A plan item's scheduled length in minutes (0 for malformed times). */
+export function planItemMinutes(item: Pick<PlannedItem, "startTime" | "endTime">): number {
+  try {
+    return Math.max(0, toMinutes(item.endTime) - toMinutes(item.startTime));
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Minutes recorded with a check-off: a study block marked done records its scheduled length,
+ * so later plans can subtract it from the item's study ramp. Anything else records none.
+ */
+export function checkoffMinutesFor(item: Pick<PlannedItem, "type" | "startTime" | "endTime">, status: PlanItemStatus | null): number | null {
+  if (item.type !== "study" || status !== "done") return null;
+  const minutes = planItemMinutes(item);
+  return minutes > 0 ? Math.min(minutes, PLAN_ITEM_MINUTES_MAX) : null;
+}
+
+/** The course item id a study key belongs to ("study:<id>" or "study:<id>#2"), or null for other keys. */
+export function studyItemIdFromKey(itemKey: string): string | null {
+  if (!itemKey.startsWith("study:")) return null;
+  const id = itemKey.slice("study:".length).replace(/#\d+$/, "");
+  return id || null;
+}
+
+/**
+ * Study minutes already done per course item id, from saved check-offs of plan dates before today.
+ * Today's own marks are left out: today's block stays what the ramp planned, done or not.
+ */
+export function studyDoneMinutesByItem(
+  rows: Array<{ item_key: string; plan_date: string; status: PlanItemStatus; minutes: number | null }>,
+  todayPlanDate: string,
+): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const row of rows) {
+    if (row.status !== "done" || row.plan_date >= todayPlanDate) continue;
+    const id = studyItemIdFromKey(row.item_key);
+    const minutes = Number(row.minutes);
+    if (!id || !Number.isFinite(minutes) || minutes <= 0) continue;
+    totals[id] = (totals[id] ?? 0) + minutes;
+  }
+  return totals;
 }
 
 /** Counts for analytics (counts only, never titles). */
@@ -136,12 +184,16 @@ export type PlanStatusResponse = {
   acceptedAt: string | null;
 };
 
-/** PUT /api/mobile/plan/status. status null clears the mark (undo). */
+/**
+ * PUT /api/mobile/plan/status. status null clears the mark (undo).
+ * minutes: the block's scheduled length, sent when a study block is marked done (see checkoffMinutesFor).
+ */
 export type PlanItemStatusRequest = {
   planDate: string;
   itemKey: string;
   itemType: PlannedItemType;
   status: PlanItemStatus | null;
+  minutes?: number | null;
 };
 
 export type PlanItemStatusResponse = {
@@ -178,9 +230,13 @@ export function parsePlanItemStatusRequest(body: unknown): ParseResult<PlanItemS
   if (record.status !== null && !isPlanItemStatus(record.status)) {
     return { ok: false, error: "status must be \"done\", \"skipped\", or null." };
   }
+  const minutes = record.minutes ?? null;
+  if (minutes !== null && (typeof minutes !== "number" || !Number.isInteger(minutes) || minutes < 1 || minutes > PLAN_ITEM_MINUTES_MAX)) {
+    return { ok: false, error: `minutes must be a whole number from 1 to ${PLAN_ITEM_MINUTES_MAX}, or null.` };
+  }
   return {
     ok: true,
-    value: { planDate: record.planDate, itemKey: record.itemKey, itemType: record.itemType, status: record.status },
+    value: { planDate: record.planDate, itemKey: record.itemKey, itemType: record.itemType, status: record.status, minutes },
   };
 }
 
