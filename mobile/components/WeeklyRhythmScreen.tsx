@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { features } from "@personal-agent/core";
 import {
   ActivityIndicator,
@@ -16,6 +16,7 @@ import { NaturalLanguageOnboardingPanel } from "./NaturalLanguageOnboardingPanel
 import { WeeklyScheduleGrid } from "./WeeklyScheduleGrid";
 import {
   fetchMobileCalendar,
+  fetchMobilePlannerProfile,
   saveMobileOnboarding,
   type MobileOnboardingInput,
   type MobileScheduleBlock,
@@ -25,7 +26,7 @@ type WeeklyRhythmScreenProps = {
   accessToken: string;
 };
 
-const workoutOptions: MobileOnboardingInput["workoutPreference"][] = [
+const workoutOptions: NonNullable<MobileOnboardingInput["workoutPreference"]>[] = [
   "none",
   "light",
   "moderate",
@@ -49,9 +50,13 @@ export function WeeklyRhythmScreen({ accessToken }: WeeklyRhythmScreenProps) {
   const [workEndTime, setWorkEndTime] = useState("17:00");
   const [focusBlockMinutes, setFocusBlockMinutes] = useState("60");
   const [workoutPreference, setWorkoutPreference] =
-    useState<MobileOnboardingInput["workoutPreference"]>("light");
+    useState<NonNullable<MobileOnboardingInput["workoutPreference"]>>("none");
   const [message, setMessage] = useState<{ text: string; tone: "info" | "error" } | null>(null);
   const [saving, setSaving] = useState(false);
+  // Saving is held until the saved profile loads, so defaults never overwrite it.
+  const [profileLoaded, setProfileLoaded] = useState(false);
+  // Load the profile once; a token refresh must not wipe in-progress edits.
+  const profileRequestedRef = useRef(false);
 
   const loadBlocks = useCallback(async () => {
     try {
@@ -65,6 +70,24 @@ export function WeeklyRhythmScreen({ accessToken }: WeeklyRhythmScreenProps) {
     }
   }, [accessToken]);
 
+  const loadProfile = useCallback(async () => {
+    try {
+      const { profile } = await fetchMobilePlannerProfile(accessToken);
+      if (profile) {
+        setWorkStartTime(profile.workStartTime);
+        setWorkEndTime(profile.workEndTime);
+        setFocusBlockMinutes(String(profile.focusBlockMinutes));
+        setWorkoutPreference(profile.workoutPreference);
+      }
+      setProfileLoaded(true);
+    } catch (error) {
+      setMessage({
+        text: error instanceof Error ? error.message : "Unable to load planner preferences.",
+        tone: "error",
+      });
+    }
+  }, [accessToken]);
+
   useEffect(() => {
     const timeout = setTimeout(() => {
       void loadBlocks();
@@ -73,9 +96,19 @@ export function WeeklyRhythmScreen({ accessToken }: WeeklyRhythmScreenProps) {
     return () => clearTimeout(timeout);
   }, [loadBlocks]);
 
+  useEffect(() => {
+    if (profileRequestedRef.current) return;
+    const timeout = setTimeout(() => {
+      profileRequestedRef.current = true;
+      void loadProfile();
+    }, 0);
+
+    return () => clearTimeout(timeout);
+  }, [loadProfile]);
+
   async function handleRefresh() {
     setRefreshing(true);
-    await loadBlocks();
+    await Promise.all([loadBlocks(), profileLoaded ? Promise.resolve() : loadProfile()]);
     setRefreshing(false);
   }
 
@@ -88,7 +121,8 @@ export function WeeklyRhythmScreen({ accessToken }: WeeklyRhythmScreenProps) {
         workStartTime,
         workEndTime,
         focusBlockMinutes: Number(focusBlockMinutes),
-        workoutPreference,
+        // Only send it when the field is shown; otherwise keep what's saved.
+        ...(features.wellnessTracking ? { workoutPreference } : {}),
         goalTitle: "",
         goalPriority: 1,
         goalTaskType: "focus",
@@ -192,9 +226,12 @@ export function WeeklyRhythmScreen({ accessToken }: WeeklyRhythmScreenProps) {
         ) : null}
 
         <Pressable
-          disabled={saving}
+          disabled={saving || !profileLoaded}
           onPress={savePreferences}
-          style={({ pressed }) => [styles.primaryButton, (pressed || saving) && styles.buttonPressed]}
+          style={({ pressed }) => [
+            styles.primaryButton,
+            (pressed || saving || !profileLoaded) && styles.buttonPressed,
+          ]}
         >
           {saving ? (
             <ActivityIndicator color={theme.colors.surface} />

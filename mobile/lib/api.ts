@@ -21,7 +21,8 @@ export type MobileOnboardingInput = {
   workStartTime: string;
   workEndTime: string;
   focusBlockMinutes: number;
-  workoutPreference: "none" | "light" | "moderate" | "intense";
+  /** Omit to leave the saved preference unchanged (wellness tracking is off). */
+  workoutPreference?: "none" | "light" | "moderate" | "intense";
   goalTitle: string;
   goalDescription?: string;
   goalPriority: 1 | 2 | 3;
@@ -375,6 +376,22 @@ export async function saveMobileOnboarding(accessToken: string, input: MobileOnb
   // onboarding_completed now fires from completeMobileOnboarding when a student reaches Done.
   captureEvent("planner_profile_saved", { goals_created: body.goalsCreated ?? 0 });
   return body;
+}
+
+export type MobilePlannerProfile = {
+  workStartTime: string;
+  workEndTime: string;
+  focusBlockMinutes: number;
+  workoutPreference: NonNullable<MobileOnboardingInput["workoutPreference"]>;
+};
+
+export async function fetchMobilePlannerProfile(accessToken: string) {
+  return fetchJson<{ profile: MobilePlannerProfile | null }>(
+    "/api/mobile/onboarding",
+    accessToken,
+    { method: "GET" },
+    "Unable to load planner preferences.",
+  );
 }
 
 export type MobileOnboardingStatus = {

@@ -5,7 +5,12 @@ import { OnboardingProgress } from "@/components/onboarding-progress";
 import { isOnboardingComplete } from "@/lib/onboarding/status";
 import { createClient } from "@/lib/supabase/server";
 
-export default async function OnboardingDonePage() {
+export default async function OnboardingDonePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const params = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -17,7 +22,19 @@ export default async function OnboardingDonePage() {
 
   // Step 2's Continue / Skip mark onboarding complete on the way here. A student
   // who opens Done directly (e.g. from the progress bar) finishes with the button below.
-  const onboarded = await isOnboardingComplete(supabase, user.id);
+  const [onboarded, { count: courseCount }, { count: classTimeCount }] = await Promise.all([
+    isOnboardingComplete(supabase, user.id),
+    supabase
+      .from("courses")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .is("archived_at", null),
+    supabase
+      .from("schedule_blocks")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("category", "school"),
+  ]);
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-3xl px-6 py-12">
@@ -30,7 +47,12 @@ export default async function OnboardingDonePage() {
         </p>
       </div>
 
-      <OnboardingProgress currentStep="done" />
+      {params.error ? <p className="mb-4 text-sm text-danger">{params.error}</p> : null}
+
+      <OnboardingProgress
+        currentStep="done"
+        progress={{ courseCount: courseCount ?? 0, classTimeCount: classTimeCount ?? 0 }}
+      />
 
       <section className="rounded-2xl border border-line bg-surface p-6 shadow-sm">
         <p className="text-sm text-ink-muted">
@@ -43,6 +65,7 @@ export default async function OnboardingDonePage() {
           </Link>
         ) : (
           <form action={completeOnboarding} className="mt-4">
+            <input name="from" type="hidden" value="done" />
             <button className="rounded-lg bg-teal px-5 py-2 text-sm font-medium text-on-teal" type="submit">
               Finish setup
             </button>

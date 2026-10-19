@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   countClassTimeBlocks,
   nextOnboardingStep,
@@ -70,6 +70,9 @@ export function OnboardingScreen({ accessToken, onComplete }: OnboardingScreenPr
   const [savingCourse, setSavingCourse] = useState(false);
   const [courseError, setCourseError] = useState("");
 
+  // Resume only once per visit; a token refresh recreates loadData but must not move the student.
+  const resumedRef = useRef(false);
+
   const [completing, setCompleting] = useState(false);
   const [completeError, setCompleteError] = useState("");
 
@@ -112,7 +115,9 @@ export function OnboardingScreen({ accessToken, onComplete }: OnboardingScreenPr
   );
 
   useEffect(() => {
+    if (resumedRef.current) return;
     const timeout = setTimeout(() => {
+      resumedRef.current = true;
       void (async () => {
         const loaded = await loadData();
         // Resume at the first step still missing its data.

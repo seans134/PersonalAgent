@@ -58,7 +58,7 @@ export async function saveOnboarding(formData: FormData) {
  * Reaching Done (by finishing step 2 or skipping it) marks onboarding complete,
  * whether or not a course and class times were added.
  */
-export async function completeOnboarding() {
+export async function completeOnboarding(formData?: FormData) {
   const supabase = await createClient();
 
   const {
@@ -73,7 +73,9 @@ export async function completeOnboarding() {
     await markOnboardingComplete(supabase, user.id);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to finish onboarding.";
-    redirect(`/onboarding/schedule?error=${encodeURIComponent(message)}`);
+    // Errors go back to the page the student submitted from (class times or Done).
+    const from = formData?.get("from") === "done" ? "/onboarding/done" : "/onboarding/schedule";
+    redirect(`${from}?error=${encodeURIComponent(message)}`);
   }
 
   revalidatePath("/");

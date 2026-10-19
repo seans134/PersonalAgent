@@ -4,7 +4,7 @@ import { useFonts } from "expo-font";
 import { SpaceGrotesk_500Medium, SpaceGrotesk_700Bold } from "@expo-google-fonts/space-grotesk";
 import { InstrumentSans_400Regular, InstrumentSans_600SemiBold } from "@expo-google-fonts/instrument-sans";
 import { SpaceMono_400Regular, SpaceMono_700Bold } from "@expo-google-fonts/space-mono";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Linking,
@@ -50,7 +50,7 @@ import { captureEvent, identifyAnalyticsUser, resetAnalyticsUser, Sentry } from 
 import { fetchMobileOnboardingStatus } from "./lib/api";
 import { supabase } from "./lib/supabase";
 
-// After a fresh sign-in (or sign-up), students who haven't finished onboarding
+// After a sign-in the user made (or sign-up), students who haven't finished onboarding
 // start at step 1; everyone else lands on Today. Restored sessions are left alone.
 async function screenAfterSignIn(accessToken: string): Promise<MobileScreen> {
   try {
@@ -68,6 +68,10 @@ function App() {
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [isRecoveringPassword, setIsRecoveringPassword] = useState(false);
   const [authLinkMessage, setAuthLinkMessage] = useState<string | undefined>();
+  // Set by AuthScreen and the auth deep-link handler. supabase-js also emits
+  // SIGNED_IN for restored sessions, setSession and (on web) tab refocus, so
+  // only a flagged SIGNED_IN counts as the user signing in.
+  const userSignInRef = useRef(false);
   const env = getMobileEnv();
   const theme = useTheme();
   const [fontsLoaded] = useFonts({
@@ -82,7 +86,10 @@ function App() {
   useEffect(() => {
     async function processLink(url: string | null) {
       if (!url) return;
-      const result = await handleAuthDeepLink(url);
+      const result = await handleAuthDeepLink(url, () => {
+        userSignInRef.current = true;
+      });
+      if (result.error) userSignInRef.current = false;
       if (result.error) setAuthLinkMessage(result.error);
       if (result.recovery && !result.error) setIsRecoveringPassword(true);
     }
@@ -108,10 +115,11 @@ function App() {
       if (nextSession) identifyAnalyticsUser(nextSession.user.id);
       else resetAnalyticsUser();
       if (event === "PASSWORD_RECOVERY") setIsRecoveringPassword(true);
-      if (nextSession) {
+      if (event === "SIGNED_OUT") setActiveScreen("dashboard");
+      // Token refreshes and restored sessions keep the student on their current screen.
+      if (event === "SIGNED_IN" && nextSession && userSignInRef.current) {
+        userSignInRef.current = false;
         setActiveScreen("dashboard");
-      }
-      if (event === "SIGNED_IN" && nextSession) {
         // Defer the API call out of the auth callback, as Supabase recommends.
         setTimeout(() => {
           void screenAfterSignIn(nextSession.access_token).then((screen) => {
@@ -363,7 +371,12 @@ function App() {
   if (!session) {
     return (
       <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.paper }]}>
-        <AuthScreen initialMessage={authLinkMessage} />
+        <AuthScreen
+          initialMessage={authLinkMessage}
+          onSignInAttempt={(pending) => {
+            userSignInRef.current = pending;
+          }}
+        />
         <StatusBar style={theme.isDark ? "light" : "dark"} />
       </SafeAreaView>
     );
