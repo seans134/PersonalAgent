@@ -143,6 +143,8 @@ describe("redactShareTokens", () => {
     expect(redactShareTokens("https://atlas.example/join/AbC_def-1234567890xyzQ?x=1#y")).toBe("https://atlas.example/join/:token?x=1#y");
     expect(redactShareTokens("atlas://join/AbC_def-1234567890xyzQ")).toBe("atlas://join/:token");
     expect(redactShareTokens("/courses/abc")).toBe("/courses/abc");
+    expect(redactShareTokens("https://atlas.app/auth?next=%2Fjoin%2FAbC_def-1234567890xyzQ&x=1")).toBe("https://atlas.app/auth?next=%2Fjoin%2F:token&x=1");
+    expect(redactShareTokens("/auth?next=%252Fjoin%252FAbC_def-1234567890xyzQ")).toBe("/auth?next=%252Fjoin%252F:token");
   });
 });
 

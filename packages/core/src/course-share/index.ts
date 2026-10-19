@@ -179,7 +179,8 @@ export function parseJoinLink(url: string): string | null {
  * error reports and logs never carry a working link.
  */
 export function redactShareTokens(value: string): string {
-  return value.replace(/(\/join\/)[^/?#\s]+/gi, "$1:token");
+  // Also the URL-encoded form, e.g. /auth?next=%2Fjoin%2F<token> (and %252F when encoded twice).
+  return value.replace(/((?:\/|%2F|%252F)join(?:\/|%2F|%252F))[^/?#&%\s]+/gi, "$1:token");
 }
 
 type EventProperties = Record<string, unknown> | undefined;
