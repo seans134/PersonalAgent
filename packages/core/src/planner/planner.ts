@@ -1,5 +1,6 @@
 import type { CalendarEvent, DailyPlan, Goal, PlannerPreferences, PlannedItem, PlannedItemType, StudyTask } from "./types";
 import { subtractRanges, toMinutes, toTimeString, type TimeRange } from "./time";
+import { planItemKey, withPlanItemKeys } from "./checkoff";
 
 type TaskBlueprint = {
   type: Exclude<PlannedItemType, "fallback">;
@@ -8,6 +9,7 @@ type TaskBlueprint = {
   reason: string;
   priority: 1 | 2 | 3;
   source: "system" | "goal" | "study";
+  key: string;
 };
 
 type SlotCandidate = {
@@ -157,6 +159,7 @@ function createTaskBlueprints(goals: Goal[]): TaskBlueprint[] {
       reason: reasonForGoal(topGoal),
       priority: normalizePriority(topGoal.priority),
       source: "goal",
+      key: planItemKey({ source: "goal", title: topGoal.title }),
     });
   }
 
@@ -172,6 +175,7 @@ function createTaskBlueprints(goals: Goal[]): TaskBlueprint[] {
       reason: reasonForGoal(goal),
       priority: normalizePriority(goal.priority),
       source: "goal",
+      key: planItemKey({ source: "goal", title: goal.title }),
     });
   }
 
@@ -186,6 +190,7 @@ function studyTasksToBlueprints(studyTasks: StudyTask[]): { finishFirst: TaskBlu
     reason: task.reason,
     priority: task.priority,
     source: "study",
+    key: planItemKey({ source: "study", id: task.id, title: task.title }),
   });
   return {
     finishFirst: studyTasks.filter((t) => t.focusMode === "finish_first").map(toBlueprint),
@@ -726,6 +731,7 @@ function scheduleTasks(
       startTime: toTimeString(start),
       endTime: toTimeString(end),
       source: task.source,
+      key: task.key,
     });
 
     remainingFreeRanges = placeCandidate(remainingFreeRanges, slot);
@@ -804,7 +810,7 @@ export function generateDailyPlan(input: {
     return {
       constrained: true,
       explanation: "Work window is invalid. Update your onboarding time range.",
-      items: [
+      items: withPlanItemKeys([
         {
           type: "fallback",
           title: "Fix schedule constraints",
@@ -812,7 +818,7 @@ export function generateDailyPlan(input: {
           startTime: preferences.workStartTime,
           endTime: preferences.workEndTime,
         },
-      ],
+      ]),
     };
   }
 
@@ -830,21 +836,22 @@ export function generateDailyPlan(input: {
     reason: item.reason,
     startTime: item.startTime,
     endTime: item.endTime,
+    key: item.key,
   }));
 
   if (needsFallback(scheduledItems)) {
     return {
       constrained: true,
       explanation: "Time is constrained today, so Atlas returned a minimal plan.",
-      items: [
+      items: withPlanItemKeys([
         ...items,
         createConstrainedFallbackItem(scheduleResult.remainingFreeRanges, preferences),
-      ],
+      ]),
     };
   }
 
   return {
     constrained: false,
-    items,
+    items: withPlanItemKeys(items),
   };
 }

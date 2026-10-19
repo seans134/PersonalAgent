@@ -1,3 +1,4 @@
+import { applyPlanItemStatus, isPlanDate, isPlanItemStatus, withPlanItemKeys, type PlanItemStatus } from "@personal-agent/core/planner";
 import type { TodayPlanResponse } from "@/lib/planner/client-types";
 
 type RecordValue = Record<string, unknown>;
@@ -11,7 +12,9 @@ export type TodayPlanPanelState =
 export type TodayPlanPanelAction =
   | { type: "start" }
   | { type: "failed"; message: string }
-  | { type: "succeeded"; payload: TodayPlanResponse };
+  | { type: "succeeded"; payload: TodayPlanResponse }
+  | { type: "itemStatus"; key: string; status: PlanItemStatus | null }
+  | { type: "accepted"; acceptedAt: string };
 
 export const initialTodayPlanState: TodayPlanPanelState = {
   status: "idle",
@@ -30,6 +33,15 @@ export function reduceTodayPlanState(
       return { status: "error", data: null, error: action.message };
     case "succeeded":
       return { status: "success", data: action.payload, error: null };
+    case "itemStatus":
+      if (state.status !== "success") return state;
+      return {
+        ...state,
+        data: { ...state.data, plan: { ...state.data.plan, items: applyPlanItemStatus(state.data.plan.items, action.key, action.status) } },
+      };
+    case "accepted":
+      if (state.status !== "success" || !state.data.checkoff) return state;
+      return { ...state, data: { ...state.data, checkoff: { ...state.data.checkoff, acceptedAt: action.acceptedAt } } };
     default:
       return state;
   }
@@ -112,17 +124,27 @@ export function parseTodayPlanResponse(payload: unknown): TodayPlanResponse {
       reason: asString(item.reason, "item.reason"),
       startTime: asString(item.startTime, "item.startTime"),
       endTime: asString(item.endTime, "item.endTime"),
+      ...(typeof item.key === "string" ? { key: item.key } : {}),
+      status: isPlanItemStatus(item.status) ? item.status : null,
     };
   });
 
+  const checkoff = isRecord(payload.checkoff) && isPlanDate(payload.checkoff.planDate)
+    ? {
+        planDate: payload.checkoff.planDate,
+        acceptedAt: typeof payload.checkoff.acceptedAt === "string" ? payload.checkoff.acceptedAt : null,
+      }
+    : undefined;
+
   return {
     plan: {
-      items,
+      items: withPlanItemKeys(items),
       constrained: Boolean(plan.constrained),
       explanation: typeof plan.explanation === "string" ? plan.explanation : undefined,
     },
     contextEvents: parseContextEvents(payload.contextEvents),
     summary: typeof payload.summary === "string" ? payload.summary : undefined,
+    checkoff,
     meta: {
       goalsCount: asNumber(meta.goalsCount, "meta.goalsCount"),
       eventsCount: asNumber(meta.eventsCount, "meta.eventsCount"),

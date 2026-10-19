@@ -1,7 +1,17 @@
 import type { TodayPlanResponse } from "@personal-agent/core/planner/client-types";
 import type { HabitDigest, HabitMetrics, HabitPeriod, Nudge } from "@personal-agent/core/habits";
 import type { CalendarEvent } from "@personal-agent/core/calendar";
-import { analyticsEvents, hasCoursesReady, type NeededScore, type SyllabusImportSource } from "@personal-agent/core";
+import {
+  analyticsEvents,
+  hasCoursesReady,
+  type NeededScore,
+  type PlanAcceptResponse,
+  type PlanItemStatus,
+  type PlanItemStatusResponse,
+  type PlannedItemType,
+  type PlanStatusResponse,
+  type SyllabusImportSource,
+} from "@personal-agent/core";
 import { captureEvent, captureException } from "./analytics";
 import { requireMobileEnv } from "./env";
 import { currentExamReminderSession, syncExamReminders } from "./notifications";
@@ -502,6 +512,48 @@ export async function generateMobileTodayPlan(accessToken: string): Promise<Mobi
     "Unable to generate today plan.",
   );
   captureEvent(analyticsEvents.planGenerated);
+  return body;
+}
+
+export async function fetchMobilePlanStatus(accessToken: string, planDate: string): Promise<PlanStatusResponse> {
+  return fetchJson<PlanStatusResponse>(
+    `/api/mobile/plan/status?date=${encodeURIComponent(planDate)}`,
+    accessToken,
+    { method: "GET" },
+    "Unable to load check-offs.",
+  );
+}
+
+/** Marks one plan item done or skipped (null undoes). counts are the plan's check-off counts after this change. */
+export async function setMobilePlanItemStatus(
+  accessToken: string,
+  input: { planDate: string; itemKey: string; itemType: PlannedItemType; status: PlanItemStatus | null },
+  counts: { item_count: number; done_count: number; skipped_count: number },
+): Promise<PlanItemStatusResponse> {
+  const body = await fetchJson<PlanItemStatusResponse>(
+    "/api/mobile/plan/status",
+    accessToken,
+    { method: "PUT", body: JSON.stringify(input) },
+    "Unable to save check-off.",
+  );
+  if (input.status) {
+    captureEvent(analyticsEvents.planItemCompleted, { item_type: input.itemType, status: input.status, ...counts });
+  }
+  return body;
+}
+
+export async function acceptMobilePlan(
+  accessToken: string,
+  planDate: string,
+  counts: { item_count: number; done_count: number; skipped_count: number },
+): Promise<PlanAcceptResponse> {
+  const body = await fetchJson<PlanAcceptResponse>(
+    "/api/mobile/plan/accept",
+    accessToken,
+    { method: "POST", body: JSON.stringify({ planDate, itemCount: counts.item_count }) },
+    "Unable to accept plan.",
+  );
+  captureEvent(analyticsEvents.planAccepted, counts);
   return body;
 }
 

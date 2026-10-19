@@ -8,15 +8,29 @@ import {
   Text,
   View,
 } from "react-native";
-import { examLabel, examsWithinDays, features, formatDaysAway } from "@personal-agent/core";
 import {
+  applyPlanItemStatus,
+  examLabel,
+  examsWithinDays,
+  features,
+  formatDaysAway,
+  mergePlanItemStatuses,
+  nextPlanItemStatus,
+  planCheckoffCounts,
+  type PlannedItem,
+  type PlanItemStatus,
+} from "@personal-agent/core";
+import {
+  acceptMobilePlan,
   fetchMobileCourses,
+  fetchMobilePlanStatus,
   generateMobileTodayPlan,
+  setMobilePlanItemStatus,
   type MobileCourseSummary,
   type MobileTodayPlanResponse,
 } from "../lib/api";
 import { readCachedTodayPlan, writeCachedTodayPlan } from "../lib/cache";
-import { errorHaptic, successHaptic } from "../lib/haptics";
+import { errorHaptic, successHaptic, tapHaptic } from "../lib/haptics";
 import { readNotificationPreferences, scheduleTodayPlanReminders } from "../lib/notifications";
 import { useTheme } from "../lib/theme";
 import type { Theme } from "../lib/theme";
@@ -52,6 +66,15 @@ function formatShortDate(iso: string): string {
 
 const UPCOMING_EXAM_DAYS = 14;
 
+function withItems(plan: MobileTodayPlanResponse, items: PlannedItem[]): MobileTodayPlanResponse {
+  return { ...plan, plan: { ...plan.plan, items } };
+}
+
+function formatAcceptedAt(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+
 function greetingFor(date: Date) {
   const hour = date.getHours();
   if (hour < 12) return "Good morning";
@@ -73,6 +96,8 @@ export function DashboardScreen({ accessToken, onOpenCourse, onOpenCourses }: Da
   const [refreshing, setRefreshing] = useState(false);
   const [schedulingReminder, setSchedulingReminder] = useState(false);
   const [courses, setCourses] = useState<MobileCourseSummary[] | null>(null);
+  const [pendingKey, setPendingKey] = useState<string | null>(null);
+  const [accepting, setAccepting] = useState(false);
 
   const now = new Date();
   const greeting = greetingFor(now);
@@ -92,7 +117,22 @@ export function DashboardScreen({ accessToken, onOpenCourse, onOpenCourses }: Da
         ? `Saved plan from ${savedAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}.`
         : `This plan is from ${savedAt.toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" })}. Pull down to generate a fresh plan for today.`,
     );
-  }, []);
+
+    // Pick up check-offs made elsewhere (e.g. on the web) since this plan was cached.
+    const checkoff = cachedPlan.value.checkoff;
+    if (!isFromToday || !checkoff) return;
+    try {
+      const saved = await fetchMobilePlanStatus(accessToken, checkoff.planDate);
+      const synced: MobileTodayPlanResponse = {
+        ...withItems(cachedPlan.value, mergePlanItemStatuses(cachedPlan.value.plan.items, saved.statuses)),
+        checkoff: { planDate: checkoff.planDate, acceptedAt: saved.acceptedAt },
+      };
+      setPlan(synced);
+      await writeCachedTodayPlan(synced);
+    } catch {
+      // Offline: keep the cached marks.
+    }
+  }, [accessToken]);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -148,6 +188,50 @@ export function DashboardScreen({ accessToken, onOpenCourse, onOpenCourses }: Da
     setRefreshing(false);
   }
 
+  async function updatePlan(next: MobileTodayPlanResponse) {
+    setPlan(next);
+    await writeCachedTodayPlan(next);
+  }
+
+  async function handleCheckoff(item: PlannedItem, tapped: PlanItemStatus) {
+    if (!plan?.checkoff || !item.key || planIsStale) return;
+    const key = item.key;
+    const status = nextPlanItemStatus(item.status, tapped);
+    const nextItems = applyPlanItemStatus(plan.plan.items, key, status);
+    setError(undefined);
+    setPendingKey(key);
+    tapHaptic();
+    setPlan(withItems(plan, nextItems));
+    try {
+      await setMobilePlanItemStatus(
+        accessToken,
+        { planDate: plan.checkoff.planDate, itemKey: key, itemType: item.type, status },
+        planCheckoffCounts(nextItems),
+      );
+      await writeCachedTodayPlan(withItems(plan, nextItems));
+    } catch (checkoffError) {
+      errorHaptic();
+      setPlan(plan);
+      setError(checkoffError instanceof Error ? checkoffError.message : "Unable to save check-off.");
+    }
+    setPendingKey(null);
+  }
+
+  async function handleAccept() {
+    if (!plan?.checkoff || planIsStale) return;
+    setError(undefined);
+    setAccepting(true);
+    try {
+      const result = await acceptMobilePlan(accessToken, plan.checkoff.planDate, planCheckoffCounts(plan.plan.items));
+      successHaptic();
+      await updatePlan({ ...plan, checkoff: { ...plan.checkoff, acceptedAt: result.acceptedAt } });
+    } catch (acceptError) {
+      errorHaptic();
+      setError(acceptError instanceof Error ? acceptError.message : "Unable to accept plan.");
+    }
+    setAccepting(false);
+  }
+
   async function scheduleReminders() {
     setError(undefined);
     setNotice(undefined);
@@ -161,7 +245,10 @@ export function DashboardScreen({ accessToken, onOpenCourse, onOpenCourses }: Da
 
     try {
       const preferences = await readNotificationPreferences();
-      const count = await scheduleTodayPlanReminders(plan?.plan.items ?? [], preferences.planLeadMinutes);
+      const count = await scheduleTodayPlanReminders(
+        (plan?.plan.items ?? []).filter((item) => !item.status),
+        preferences.planLeadMinutes,
+      );
       setNotice(
         count > 0
           ? `${count} reminder${count === 1 ? "" : "s"} scheduled for today's remaining plan.`
@@ -185,6 +272,9 @@ export function DashboardScreen({ accessToken, onOpenCourse, onOpenCourses }: Da
 
   const hasPlanContent =
     plan !== null && (plan.plan.items.length > 0 || plan.contextEvents.length > 0);
+  // Check-off needs a plan dated today by the server; older or stale cached plans show read-only.
+  const checkoff = plan && !planIsStale ? plan.checkoff : undefined;
+  const counts = plan ? planCheckoffCounts(plan.plan.items) : null;
 
   return (
     <ScrollView
@@ -295,8 +385,37 @@ export function DashboardScreen({ accessToken, onOpenCourse, onOpenCourses }: Da
             </View>
           </View>
 
+          {checkoff && counts && counts.item_count > 0 ? (
+            <View style={styles.checkoffCard}>
+              <Text style={theme.text("label", "ink")}>
+                {`${counts.done_count} of ${counts.item_count} done`}
+                {counts.skipped_count > 0 ? ` · ${counts.skipped_count} skipped` : ""}
+              </Text>
+              {checkoff.acceptedAt ? (
+                <Text style={theme.text("monoLabel", "teal")}>{`Committed at ${formatAcceptedAt(checkoff.acceptedAt)}`}</Text>
+              ) : (
+                <Pressable
+                  disabled={accepting}
+                  onPress={handleAccept}
+                  style={({ pressed }) => [styles.commitButton, (pressed || accepting) && styles.pressed]}
+                >
+                  {accepting ? (
+                    <ActivityIndicator color={colors.teal} />
+                  ) : (
+                    <Text style={theme.text("heading", "teal")}>Commit to this plan</Text>
+                  )}
+                </Pressable>
+              )}
+            </View>
+          ) : null}
+
           {hasPlanContent ? (
-            <TodayPlanTimeline contextEvents={plan.contextEvents} items={plan.plan.items} />
+            <TodayPlanTimeline
+              contextEvents={plan.contextEvents}
+              items={plan.plan.items}
+              onCheckoff={checkoff ? handleCheckoff : undefined}
+              pendingKey={pendingKey}
+            />
           ) : (
             <View style={[styles.card, styles.emptyDay]}>
               <Text style={theme.text("body", "inkMuted")}>Nothing planned for today yet. Plan your day to see when to study.</Text>
@@ -576,6 +695,27 @@ function makeStyles(theme: Theme) {
     },
     actionFlex: {
       flex: 1,
+    },
+    checkoffCard: {
+      alignItems: "center",
+      backgroundColor: colors.surface2,
+      borderColor: colors.line,
+      borderRadius: radius.card,
+      borderWidth: 1,
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: space.sm,
+      justifyContent: "space-between",
+      padding: space.md,
+    },
+    commitButton: {
+      alignItems: "center",
+      borderColor: colors.teal,
+      borderRadius: radius.control,
+      borderWidth: 1,
+      justifyContent: "center",
+      minHeight: 40,
+      paddingHorizontal: space.base,
     },
   });
 }

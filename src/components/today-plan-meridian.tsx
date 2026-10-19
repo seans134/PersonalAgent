@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import type { PlannedItem } from "@/lib/planner";
+import type { PlannedItem, PlanItemStatus } from "@/lib/planner";
 import type { TodayPlanContextEvent } from "@/lib/planner/client-types";
 
 type EntryCategory = PlannedItem["type"] | "commit";
@@ -13,7 +13,10 @@ type Entry = {
   subtitle: string;
   category: EntryCategory;
   fixed: boolean;
+  item?: PlannedItem;
 };
+
+export type PlanItemCheckoffHandler = (item: PlannedItem, tapped: PlanItemStatus) => void;
 
 function toMinutes(value: string) {
   const [h, m] = value.split(":").map(Number);
@@ -48,8 +51,49 @@ function accentVar(category: EntryCategory): string {
   }
 }
 
-function MeridianRow({ entry, isFirst, isLast, index }: { entry: Entry; isFirst: boolean; isLast: boolean; index: number }) {
-  const accent = accentVar(entry.category);
+function CheckoffButton({
+  label,
+  active,
+  disabled,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      aria-pressed={active}
+      className={`rounded-[8px] border px-2.5 py-1 font-mono text-[11px] transition disabled:cursor-not-allowed disabled:opacity-60 ${
+        active ? "border-teal bg-teal text-on-teal" : "border-line bg-surface text-ink-muted hover:border-teal hover:text-teal"
+      }`}
+      disabled={disabled}
+      onClick={onClick}
+      type="button"
+    >
+      {label}
+    </button>
+  );
+}
+
+function MeridianRow({
+  entry,
+  isFirst,
+  isLast,
+  index,
+  onCheckoff,
+  pending,
+}: {
+  entry: Entry;
+  isFirst: boolean;
+  isLast: boolean;
+  index: number;
+  onCheckoff?: PlanItemCheckoffHandler;
+  pending: boolean;
+}) {
+  const status = entry.item?.status ?? null;
+  const accent = status === "skipped" ? "var(--color-ink-muted)" : accentVar(entry.category);
   const lineStyle: CSSProperties = {
     background: "var(--color-line-strong)",
     top: isFirst ? 16 : 0,
@@ -62,7 +106,9 @@ function MeridianRow({ entry, isFirst, isLast, index }: { entry: Entry; isFirst:
     background: entry.fixed ? "transparent" : "var(--color-surface2)",
     borderStyle: entry.fixed ? "dashed" : "solid",
     animationDelay: `${index * 60}ms`,
+    opacity: status ? 0.7 : undefined,
   };
+  const item = entry.item;
 
   return (
     <div className="meridian-row grid grid-cols-[46px_26px_minmax(0,1fr)]">
@@ -71,15 +117,40 @@ function MeridianRow({ entry, isFirst, isLast, index }: { entry: Entry; isFirst:
         <span className="absolute left-1/2 w-0.5 -translate-x-1/2" style={lineStyle} />
         <span
           className="absolute left-1/2 top-2.5 h-3 w-3 -translate-x-1/2 rotate-45 rounded-[3px] border-2"
-          style={{ background: entry.fixed ? "var(--color-surface)" : accent, borderColor: accent }}
+          style={{ background: entry.fixed || status === "skipped" ? "var(--color-surface)" : accent, borderColor: accent }}
         />
+        {status === "done" ? (
+          <span aria-hidden className="absolute left-1/2 top-[7px] -translate-x-1/2 text-[11px] font-bold leading-none text-on-teal">
+            ✓
+          </span>
+        ) : null}
       </div>
       <div className="ml-0.5 mb-3.5 rounded-[12px] border border-line px-3 py-2" style={cardStyle}>
         <div className="flex items-center justify-between gap-2">
-          <span className="truncate text-[13px] font-semibold text-ink">{entry.title}</span>
-          <span className="shrink-0 font-mono text-[12px] tabular-nums text-ink-muted">{durationLabel(entry.startTime, entry.endTime)}</span>
+          <span className={`truncate text-[13px] font-semibold text-ink ${status ? "line-through decoration-2" : ""}`}>{entry.title}</span>
+          <span className="shrink-0 font-mono text-[12px] tabular-nums text-ink-muted">
+            {status === "done" ? <span className="mr-2 font-bold text-teal">Done</span> : null}
+            {status === "skipped" ? <span className="mr-2">Skipped</span> : null}
+            {durationLabel(entry.startTime, entry.endTime)}
+          </span>
         </div>
         {entry.subtitle ? <p className="mt-0.5 line-clamp-2 text-[13px] text-ink-muted">{entry.subtitle}</p> : null}
+        {item && onCheckoff && item.key ? (
+          <div className="mt-2 flex gap-2">
+            <CheckoffButton
+              active={status === "done"}
+              disabled={pending}
+              label={status === "done" ? "Undo done" : "Done"}
+              onClick={() => onCheckoff(item, "done")}
+            />
+            <CheckoffButton
+              active={status === "skipped"}
+              disabled={pending}
+              label={status === "skipped" ? "Undo skip" : "Skip"}
+              onClick={() => onCheckoff(item, "skipped")}
+            />
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -105,10 +176,15 @@ function NowMarker({ label }: { label: string }) {
 export function TodayPlanMeridian({
   contextEvents,
   items,
+  onCheckoff,
+  pendingKey,
 }: {
   contextEvents: TodayPlanContextEvent[];
   generatedAt?: string;
   items: PlannedItem[];
+  /** Omit to show the plan read-only (e.g. a plan with no check-off date). */
+  onCheckoff?: PlanItemCheckoffHandler;
+  pendingKey?: string | null;
 }) {
   const planEntries: Entry[] = items.map((item, index) => ({
     key: `plan-${index}-${item.startTime}`,
@@ -119,6 +195,7 @@ export function TodayPlanMeridian({
     subtitle: item.reason,
     category: item.type,
     fixed: false,
+    item,
   }));
   const eventEntries: Entry[] = contextEvents.map((event) => ({
     key: `event-${event.id}`,
@@ -143,7 +220,17 @@ export function TodayPlanMeridian({
       rows.push(<NowMarker key="now" label={nowLabel} />);
       nowPlaced = true;
     }
-    rows.push(<MeridianRow entry={entry} index={index} isFirst={index === 0} isLast={index === entries.length - 1} key={entry.key} />);
+    rows.push(
+      <MeridianRow
+        entry={entry}
+        index={index}
+        isFirst={index === 0}
+        isLast={index === entries.length - 1}
+        key={entry.key}
+        onCheckoff={onCheckoff}
+        pending={Boolean(entry.item?.key) && entry.item?.key === pendingKey}
+      />,
+    );
   });
   if (!nowPlaced && entries.length > 0) {
     rows.push(<NowMarker key="now" label={nowLabel} />);
