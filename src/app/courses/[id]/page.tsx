@@ -15,10 +15,15 @@ export default async function CourseDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; from?: string; term?: string }>;
 }) {
   const { id } = await params;
-  const { error } = await searchParams;
+  const { error, from, term } = await searchParams;
+  // Opened from the Semester view: the back link returns there, to the same term.
+  const back =
+    from === "semester"
+      ? { href: term ? `/courses/semester?term=${encodeURIComponent(term)}` : "/courses/semester", label: "Back to semester" }
+      : { href: "/courses", label: "Back to courses" };
   const supabase = await createClient();
   const {
     data: { user },
@@ -59,8 +64,8 @@ export default async function CourseDetailPage({
   return (
     <main className="mx-auto min-h-screen w-full max-w-6xl px-6 py-12">
       <div className="mb-8">
-        <Link className="text-sm text-ink-muted underline" href="/courses">
-          Back to courses
+        <Link className="text-sm text-ink-muted underline" href={back.href}>
+          {back.label}
         </Link>
         <div className="mt-4">
           <h1 className="font-display text-3xl font-semibold tracking-tight text-ink">{course.name}</h1>

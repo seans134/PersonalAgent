@@ -27,7 +27,7 @@ describe("loadSemesterTimeline", () => {
       course_items: [{
         // 01:00 UTC on Oct 26 is still Sunday Oct 25 in Toronto, so it stays in the current week.
         id: "mid", course_id: "c1", category_id: "ex", kind: "exam", title: "Midterm",
-        due_at: "2026-10-26T01:00:00.000Z", score_earned: null, estimated_effort_hours: "4",
+        due_at: "2026-10-26T01:00:00.000Z", score_earned: null, score_max: "50", estimated_effort_hours: "4",
       }],
     });
     const timeline = await loadSemesterTimeline(supabase, "u1", null, new Date("2026-10-21T16:00:00.000Z"));

@@ -29,7 +29,7 @@ export async function loadSemesterTimeline(
 
   const { data: items, error: itemsError } = await supabase
     .from("course_items")
-    .select("id, course_id, category_id, kind, title, due_at, score_earned, estimated_effort_hours")
+    .select("id, course_id, category_id, kind, title, due_at, score_earned, score_max, estimated_effort_hours")
     .eq("user_id", userId)
     .order("due_at", { ascending: true });
   if (itemsError) throw new Error(`Unable to load course items: ${itemsError.message}`);
@@ -38,7 +38,8 @@ export async function loadSemesterTimeline(
   type CategoryCols = Pick<CourseCategoryRow, "id" | "course_id" | "weight">;
   type ItemCols = Pick<
     CourseItemRow,
-    "id" | "course_id" | "category_id" | "kind" | "title" | "due_at" | "score_earned" | "estimated_effort_hours"
+    | "id" | "course_id" | "category_id" | "kind" | "title" | "due_at" | "score_earned" | "score_max"
+    | "estimated_effort_hours"
   >;
 
   return buildSemesterTimeline({
@@ -55,6 +56,7 @@ export async function loadSemesterTimeline(
       dueAt: item.due_at,
       dueLocalDate: localDateOnly(item.due_at, timezone),
       scoreEarned: item.score_earned === null ? null : Number(item.score_earned),
+      scoreMax: Number(item.score_max),
       estimatedEffortHours: item.estimated_effort_hours === null ? null : Number(item.estimated_effort_hours),
     })),
     todayLocalDate: dateInTimezone(now, timezone),

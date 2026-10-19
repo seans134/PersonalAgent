@@ -9,6 +9,7 @@ import {
   semesterItemMeta,
   type SemesterTimeline,
   type SemesterWeek,
+  type SemesterWeekItem,
 } from "@personal-agent/core";
 import { captureEvent } from "../lib/analytics";
 import { fetchMobileSemester } from "../lib/api";
@@ -20,24 +21,30 @@ type SemesterScreenProps = {
   accessToken: string;
   onBack: () => void;
   onOpenCourse: (courseId: string) => void;
+  /** The picked term, kept by App.tsx so it survives opening a course and coming back. Null = default. */
+  term: string | null;
+  onTermChange: (term: string) => void;
 };
 
-export function SemesterScreen({ accessToken, onBack, onOpenCourse }: SemesterScreenProps) {
+export function SemesterScreen({ accessToken, onBack, onOpenCourse, term, onTermChange }: SemesterScreenProps) {
   const theme = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const [timeline, setTimeline] = useState<SemesterTimeline | null>(null);
-  const [term, setTerm] = useState<string | null>(null);
   const [showPast, setShowPast] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // One semester_viewed per term shown on this visit.
   const viewedTerms = useRef(new Set<string>());
+  // Only the latest request may update the screen, so a slow earlier term can't overwrite a newer pick.
+  const requestId = useRef(0);
 
   const load = useCallback(async () => {
+    const id = ++requestId.current;
     setError(null);
     try {
       const result = await fetchMobileSemester(accessToken, term);
+      if (id !== requestId.current) return;
       setTimeline(result);
       const key = result.term ?? "";
       if (!viewedTerms.current.has(key)) {
@@ -48,10 +55,13 @@ export function SemesterScreen({ accessToken, onBack, onOpenCourse }: SemesterSc
         });
       }
     } catch (loadError) {
+      if (id !== requestId.current) return;
       setError(loadError instanceof Error ? loadError.message : "Unable to load semester.");
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (id === requestId.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, [accessToken, term]);
 
@@ -60,13 +70,19 @@ export function SemesterScreen({ accessToken, onBack, onOpenCourse }: SemesterSc
   }, [load]);
 
   function selectTerm(next: string) {
-    if (next === timeline?.term) return;
+    if (next === (term ?? timeline?.term)) return;
     setLoading(true);
     setShowPast(false);
-    setTerm(next);
+    // Drop the old term's weeks so a failed load shows the retry panel, not stale weeks.
+    setTimeline((current) => (current ? { ...current, weeks: [], pastWeeks: [], laterItems: [] } : current));
+    onTermChange(next);
   }
 
-  const hasItems = timeline ? timeline.weeks.length > 0 || timeline.pastWeeks.length > 0 : false;
+  // The chip follows the pick right away; the timeline below waits for its response.
+  const selectedTerm = term ?? timeline?.term ?? null;
+  const hasItems = timeline
+    ? timeline.weeks.length > 0 || timeline.pastWeeks.length > 0 || timeline.laterItems.length > 0
+    : false;
 
   return (
     <View style={styles.screen}>
@@ -108,7 +124,7 @@ export function SemesterScreen({ accessToken, onBack, onOpenCourse }: SemesterSc
         {timeline && timeline.terms.length > 1 ? (
           <ScrollView contentContainerStyle={styles.termRow} horizontal showsHorizontalScrollIndicator={false}>
             {timeline.terms.map((option) => {
-              const active = option === timeline.term;
+              const active = option === selectedTerm;
               return (
                 <Pressable
                   accessibilityRole="button"
@@ -124,12 +140,12 @@ export function SemesterScreen({ accessToken, onBack, onOpenCourse }: SemesterSc
           </ScrollView>
         ) : null}
 
-        {loading && !timeline ? (
+        {loading && !refreshing ? (
           <View style={styles.loadingRow}>
             <ActivityIndicator color={theme.colors.teal} />
             <Text style={styles.body}>Loading semester...</Text>
           </View>
-        ) : error && !timeline ? (
+        ) : error && (!timeline || !hasItems) ? (
           <View style={styles.panel}>
             <Text style={styles.body}>{error}</Text>
             <Pressable
@@ -164,9 +180,20 @@ export function SemesterScreen({ accessToken, onBack, onOpenCourse }: SemesterSc
               timeline.weeks.map((week) => (
                 <WeekCard key={week.weekStart} onOpenCourse={onOpenCourse} styles={styles} week={week} />
               ))
-            ) : (
+            ) : timeline.laterItems.length === 0 ? (
               <Text style={styles.body}>Nothing left this term. Everything due is behind you.</Text>
-            )}
+            ) : null}
+            {timeline.laterItems.length > 0 ? (
+              <View style={styles.weekCard}>
+                <Text style={styles.weekRange}>Later</Text>
+                <Text style={styles.itemMeta}>
+                  Due more than six months out. If a date looks wrong, fix its year on the course page.
+                </Text>
+                {timeline.laterItems.map((item) => (
+                  <ItemRow item={item} key={item.id} onOpenCourse={onOpenCourse} styles={styles} />
+                ))}
+              </View>
+            ) : null}
           </>
         ) : null}
       </ScrollView>
@@ -199,23 +226,36 @@ function WeekCard({
         </View>
       ) : null}
       {week.items.map((item) => (
-        <Pressable
-          accessibilityLabel={`${item.courseLabel} ${item.title}${item.isDone ? ", done" : ""}. Open course.`}
-          accessibilityRole="button"
-          key={item.id}
-          onPress={() => onOpenCourse(item.courseId)}
-          style={({ pressed }) => [styles.itemRow, pressed && styles.pressed]}
-        >
-          <Text style={[styles.itemTitle, item.isDone && styles.itemDone]}>
-            {item.courseLabel} {item.title}
-          </Text>
-          <Text style={styles.itemMeta}>
-            {formatSemesterDueDay(item.dueLocalDate)} · {semesterItemMeta(item)}
-            {item.isDone ? " · Done" : ""}
-          </Text>
-        </Pressable>
+        <ItemRow item={item} key={item.id} onOpenCourse={onOpenCourse} styles={styles} />
       ))}
     </View>
+  );
+}
+
+function ItemRow({
+  item,
+  onOpenCourse,
+  styles,
+}: {
+  item: SemesterWeekItem;
+  onOpenCourse: (courseId: string) => void;
+  styles: ReturnType<typeof makeStyles>;
+}) {
+  return (
+    <Pressable
+      accessibilityLabel={`${item.courseLabel} ${item.title}${item.isDone ? ", done" : ""}. Open course.`}
+      accessibilityRole="button"
+      onPress={() => onOpenCourse(item.courseId)}
+      style={({ pressed }) => [styles.itemRow, pressed && styles.pressed]}
+    >
+      <Text style={[styles.itemTitle, item.isDone && styles.itemDone]}>
+        {item.courseLabel} {item.title}
+      </Text>
+      <Text style={styles.itemMeta}>
+        {formatSemesterDueDay(item.dueLocalDate)} · {semesterItemMeta(item)}
+        {item.isDone ? " · Done" : ""}
+      </Text>
+    </Pressable>
   );
 }
 

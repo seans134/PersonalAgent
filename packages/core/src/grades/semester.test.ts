@@ -8,6 +8,7 @@ import {
   itemWeightPercents,
   semesterCrunchLabel,
   semesterItemMeta,
+  SEMESTER_MAX_WEEKS_AHEAD,
   semesterTerms,
   weekStartOf,
   type SemesterCourse,
@@ -22,7 +23,7 @@ const course = (id: string, term: string | null, code: string | null = null): Se
 });
 const item = (id: string, courseId: string, dueLocalDate: string, overrides: Partial<SemesterItemInput> = {}): SemesterItemInput => ({
   id, courseId, categoryId: null, kind: "assignment", title: id,
-  dueAt: `${dueLocalDate}T15:00:00.000Z`, dueLocalDate, scoreEarned: null, estimatedEffortHours: null,
+  dueAt: `${dueLocalDate}T15:00:00.000Z`, dueLocalDate, scoreEarned: null, scoreMax: 100, estimatedEffortHours: null,
   ...overrides,
 });
 
@@ -45,33 +46,54 @@ describe("semesterTerms and defaultSemesterTerm", () => {
     expect(semesterTerms([course("x", "Spring"), course("y", "Autumn")], [])).toEqual(["Autumn", "Spring"]);
   });
 
-  it("picks the term with items closest to today", () => {
-    const items = [item("f", "a", "2026-10-30"), item("w", "c", "2027-01-15")];
-    expect(defaultSemesterTerm(courses, items, today)).toBe("Fall 2026");
-    expect(defaultSemesterTerm(courses, items, "2027-01-01")).toBe("Winter 2027");
+  it("prefers the term whose items span today, then the next upcoming term, then the latest past one", () => {
+    const terms = [course("s", "Spring 2026"), course("f", "Fall 2026"), course("w", "Winter 2027")];
+    const spring = [item("s1", "s", "2026-01-20"), item("s2", "s", "2026-04-25")];
+    const fall = [item("f1", "f", "2026-09-10"), item("f2", "f", "2026-12-15")];
+    const winter = [item("w1", "w", "2027-01-15"), item("w2", "w", "2027-04-20")];
+    // Fall spans today; Spring is over and Winter has not started.
+    expect(defaultSemesterTerm(terms, [...spring, ...fall, ...winter], today)).toBe("Fall 2026");
+    // A past item close to today doesn't beat a term in progress.
+    expect(defaultSemesterTerm(terms, [item("s3", "s", "2026-10-20"), item("s0", "s", "2026-01-01"), ...winter, item("f3", "f", "2026-10-01"), item("f4", "f", "2026-11-30")], "2026-10-21")).toBe("Fall 2026");
+    // Between terms: the next upcoming one, even when the last term ended more recently.
+    expect(defaultSemesterTerm(terms, [...spring, ...fall, ...winter], "2026-12-30")).toBe("Winter 2027");
+    // Everything over: the most recent past term.
+    expect(defaultSemesterTerm(terms, [...spring, ...fall], "2027-06-01")).toBe("Fall 2026");
   });
 
-  it("prefers an upcoming item on a tie and any term with items over one without", () => {
-    const items = [item("past", "a", "2026-10-18"), item("next", "c", "2026-10-24")];
-    expect(defaultSemesterTerm(courses, items, today)).toBe("Winter 2027");
+  it("picks any term with items over one without, and null without terms", () => {
     expect(defaultSemesterTerm([course("x", "Alpha"), course("y", "Beta")], [item("b", "y", "2020-01-01")], today)).toBe("Beta");
     expect(defaultSemesterTerm([course("d", null)], [item("x", "d", today)], today)).toBeNull();
+  });
+
+  it("ignores impossible dates instead of sorting on NaN", () => {
+    const items = [item("bad", "a", "2026-02-30"), item("junk", "c", "not-a-date"), item("w", "c", "2027-01-15")];
+    expect(semesterTerms([course("a", "Fall 2026"), course("c", "Winter 2027")], items)).toEqual(["Winter 2027", "Fall 2026"]);
+    expect(defaultSemesterTerm([course("a", "Fall 2026"), course("c", "Winter 2027")], items, today)).toBe("Winter 2027");
   });
 });
 
 describe("itemWeightPercents", () => {
-  it("splits a category's weight across its items", () => {
+  it("splits a category's weight by points possible, as the grade engine does", () => {
     const weights = itemWeightPercents(
       [{ id: "hw", courseId: "a", weight: 30 }, { id: "ex", courseId: "a", weight: 40 }],
       [
-        { id: "h1", categoryId: "hw" }, { id: "h2", categoryId: "hw" }, { id: "h3", categoryId: "hw" },
-        { id: "mid", categoryId: "ex" }, { id: "loose", categoryId: null }, { id: "gone", categoryId: "missing" },
+        { id: "h1", categoryId: "hw", scoreMax: 10 }, { id: "h2", categoryId: "hw", scoreMax: 10 },
+        { id: "h3", categoryId: "hw", scoreMax: 40 },
+        { id: "mid", categoryId: "ex", scoreMax: 100 }, { id: "loose", categoryId: null, scoreMax: 10 },
+        { id: "gone", categoryId: "missing", scoreMax: 10 },
       ],
     );
-    expect(weights.get("h1")).toBe(10);
+    expect(weights.get("h1")).toBe(5);
+    expect(weights.get("h3")).toBe(20);
     expect(weights.get("mid")).toBe(40);
     expect(weights.get("loose")).toBeNull();
     expect(weights.get("gone")).toBeNull();
+  });
+
+  it("returns null for items with no points", () => {
+    const weights = itemWeightPercents([{ id: "hw", courseId: "a", weight: 30 }], [{ id: "h", categoryId: "hw", scoreMax: 0 }]);
+    expect(weights.get("h")).toBeNull();
   });
 });
 
@@ -113,6 +135,37 @@ describe("buildSemesterTimeline", () => {
     expect(timeline.pastWeeks[0].items[0].isDone).toBe(true);
     expect(timeline.weeks[0].items.map((i) => [i.id, i.isDone])).toEqual([["monday", true]]);
     expect(timeline.weeks[1].loadHours).toBe(5);
+  });
+
+  it("caps weeks and moves far-off (likely mistyped) dates to laterItems", () => {
+    const timeline = buildSemesterTimeline({
+      courses: [course("a", null)],
+      categories: [],
+      items: [
+        item("soon", "a", "2026-10-23"),
+        item("edge", "a", "2027-04-25"), // Sunday of the last shown week.
+        item("typo", "a", "2206-10-23", { kind: "exam" }),
+        item("far", "a", "9999-12-31"),
+      ],
+      todayLocalDate: today,
+    });
+    expect(timeline.weeks).toHaveLength(SEMESTER_MAX_WEEKS_AHEAD + 1);
+    expect(timeline.weeks[timeline.weeks.length - 1].weekStart).toBe("2027-04-19");
+    expect(timeline.weeks[timeline.weeks.length - 1].items.map((i) => i.id)).toEqual(["edge"]);
+    expect(timeline.laterItems.map((i) => i.id)).toEqual(["typo", "far"]);
+    // Later items don't skew the median or create crunch weeks.
+    expect(timeline.medianLoadHours).toBe(3);
+  });
+
+  it("generates no weeks when every item is far off", () => {
+    const timeline = buildSemesterTimeline({
+      courses: [course("a", null)],
+      categories: [],
+      items: [item("typo", "a", "9999-01-01")],
+      todayLocalDate: today,
+    });
+    expect(timeline.weeks).toEqual([]);
+    expect(timeline.laterItems).toHaveLength(1);
   });
 
   it("returns no upcoming weeks when the term is over", () => {

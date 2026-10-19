@@ -71,6 +71,8 @@ function App() {
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   // Where the course detail's back button goes: Courses, or Semester when opened from there.
   const [courseBackScreen, setCourseBackScreen] = useState<"courses" | "semester">("courses");
+  // The term picked on Semester; kept here so it survives Semester -> course -> back. Null = default.
+  const [semesterTerm, setSemesterTerm] = useState<string | null>(null);
   const [isRecoveringPassword, setIsRecoveringPassword] = useState(false);
   const [authLinkMessage, setAuthLinkMessage] = useState<string | undefined>();
   // Set by AuthScreen and the auth deep-link handler. supabase-js also emits
@@ -122,6 +124,7 @@ function App() {
       if (event === "PASSWORD_RECOVERY") setIsRecoveringPassword(true);
       if (event === "SIGNED_OUT") {
         setActiveScreen("dashboard");
+        setSemesterTerm(null);
         // Exam reminders belong to the signed-out student's courses; stop in-flight course loads rescheduling them.
         endExamReminderSession();
         void cancelExamReminders().catch(() => undefined);
@@ -298,6 +301,8 @@ function App() {
             accessToken={token}
             onBack={() => setActiveScreen("courses")}
             onOpenCourse={openCourseFromSemester}
+            onTermChange={setSemesterTerm}
+            term={semesterTerm}
           />
         </View>
       );

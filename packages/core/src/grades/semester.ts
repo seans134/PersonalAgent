@@ -13,6 +13,8 @@ export type SemesterItemInput = {
   /** Due date in the student's profile timezone (YYYY-MM-DD). */
   dueLocalDate: string;
   scoreEarned: number | null;
+  /** Points possible; within a category the grade engine weights items by it. */
+  scoreMax: number;
   estimatedEffortHours: number | null;
 };
 
@@ -25,7 +27,10 @@ export type SemesterWeekItem = {
   title: string;
   dueAt: string;
   dueLocalDate: string;
-  /** Share of the course grade: the category weight split evenly across its items. Null without a category. */
+  /**
+   * Share of the course grade: the category weight split across its items by points possible, as
+   * computeCourseGrade does. Null without a category or points.
+   */
   weightPercent: number | null;
   effortHours: number;
   /** Scored items count as done. */
@@ -55,6 +60,11 @@ export type SemesterTimeline = {
   weeks: SemesterWeek[];
   /** Earlier weeks that had items, oldest first. Clients collapse these by default. */
   pastWeeks: SemesterWeek[];
+  /**
+   * Items due after the last week shown (more than SEMESTER_MAX_WEEKS_AHEAD weeks past this week),
+   * soonest first. Usually a mistyped year; clients list them under "Later" instead of as weeks.
+   */
+  laterItems: SemesterWeekItem[];
   /** Median load of the term's weeks that have items, the bar a crunch week is judged against. */
   medianLoadHours: number;
   crunchWeekCount: number;
@@ -67,10 +77,20 @@ export const CRUNCH_MIN_EXTRA_HOURS = 3;
 /** Or when this many exams fall in it. */
 export const CRUNCH_EXAM_COUNT = 2;
 
+/** Weeks shown after the current week; anything later goes in laterItems instead of generating weeks. */
+export const SEMESTER_MAX_WEEKS_AHEAD = 26;
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function dayIndex(localDate: string): number {
   return Math.round(Date.parse(`${localDate}T00:00:00Z`) / DAY_MS);
+}
+
+/** A real YYYY-MM-DD calendar date (rejects "2026-02-30" and unparsable text). */
+export function isValidLocalDate(localDate: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(localDate)) return false;
+  const ms = Date.parse(`${localDate}T00:00:00Z`);
+  return Number.isFinite(ms) && new Date(ms).toISOString().slice(0, 10) === localDate;
 }
 
 /** Monday of the week containing `localDate`. */
@@ -116,18 +136,19 @@ export function semesterTerms(courses: SemesterCourse[], items: SemesterItemInpu
   }
   for (const item of items) {
     const key = termOfCourse.get(item.courseId);
-    if (!key) continue;
+    if (!key || !isValidLocalDate(item.dueLocalDate)) continue;
     const entry = byKey.get(key)!;
     entry.first = Math.min(entry.first, dayIndex(item.dueLocalDate));
   }
   return [...byKey.values()]
-    .sort((a, b) => (a.first === b.first ? a.term.localeCompare(b.term) : a.first - b.first))
+    .sort((a, b) => (a.first === b.first ? a.term.localeCompare(b.term) : a.first < b.first ? -1 : 1))
     .map((entry) => entry.term);
 }
 
 /**
- * The term whose items sit closest to today (an upcoming item wins a tie with a past one).
- * Terms without items lose to any term with them; null when no course has a term.
+ * The term the student is most likely in: one whose items span today (the latest-starting when
+ * several do), else the next upcoming term, else the most recent past one. Terms without dated
+ * items come last; null when no course has a term.
  */
 export function defaultSemesterTerm(
   courses: SemesterCourse[],
@@ -137,45 +158,60 @@ export function defaultSemesterTerm(
   const terms = semesterTerms(courses, items);
   if (terms.length === 0) return null;
   const today = dayIndex(todayLocalDate);
-  const termOfCourse = new Map(courses.map((course) => [course.id, normalizeTerm(course.term)]));
-  let best: { term: string; distance: number; upcoming: boolean } | null = null;
-  for (const term of terms) {
-    let distance = Infinity;
-    let upcoming = false;
-    for (const item of items) {
-      const courseTerm = termOfCourse.get(item.courseId);
-      if (!courseTerm || termKey(courseTerm) !== termKey(term)) continue;
-      const offset = dayIndex(item.dueLocalDate) - today;
-      const itemDistance = Math.abs(offset);
-      if (itemDistance < distance || (itemDistance === distance && offset >= 0)) {
-        distance = itemDistance;
-        upcoming = offset >= 0;
-      }
-    }
-    if (!best || distance < best.distance || (distance === best.distance && upcoming && !best.upcoming)) {
-      best = { term, distance, upcoming };
-    }
+  const keyOfCourse = new Map<string, string>();
+  for (const course of courses) {
+    const term = normalizeTerm(course.term);
+    if (term) keyOfCourse.set(course.id, termKey(term));
   }
-  return best!.term;
+  const spans = new Map<string, { first: number; last: number }>();
+  for (const item of items) {
+    const key = keyOfCourse.get(item.courseId);
+    if (!key || !isValidLocalDate(item.dueLocalDate)) continue;
+    const day = dayIndex(item.dueLocalDate);
+    const span = spans.get(key);
+    spans.set(key, span ? { first: Math.min(span.first, day), last: Math.max(span.last, day) } : { first: day, last: day });
+  }
+  const withSpans = terms.flatMap((term) => {
+    const span = spans.get(termKey(term));
+    return span ? [{ term, ...span }] : [];
+  });
+  const current = withSpans.filter((t) => t.first <= today && today <= t.last).sort((a, b) => b.first - a.first)[0];
+  if (current) return current.term;
+  const upcoming = withSpans.filter((t) => t.first > today).sort((a, b) => a.first - b.first)[0];
+  if (upcoming) return upcoming.term;
+  const past = withSpans.sort((a, b) => b.last - a.last)[0];
+  return past ? past.term : terms[0];
 }
 
-/** Each item's share of its course grade: its category's weight split evenly across that category's items. */
+/**
+ * Each item's share of its course grade. computeCourseGrade scores a category as total points
+ * earned over total points possible, so an item's share is the category weight times its points
+ * over the category's points.
+ */
 export function itemWeightPercents(
   categories: SemesterCategory[],
-  items: Array<Pick<SemesterItemInput, "id" | "categoryId">>,
+  items: Array<Pick<SemesterItemInput, "id" | "categoryId" | "scoreMax">>,
 ): Map<string, number | null> {
   const weightById = new Map(categories.map((category) => [category.id, Number(category.weight)]));
-  const countByCategory = new Map<string, number>();
+  const pointsOf = (item: Pick<SemesterItemInput, "scoreMax">) => {
+    const points = Number(item.scoreMax);
+    return Number.isFinite(points) && points > 0 ? points : 0;
+  };
+  const pointsByCategory = new Map<string, number>();
   for (const item of items) {
     if (item.categoryId && weightById.has(item.categoryId)) {
-      countByCategory.set(item.categoryId, (countByCategory.get(item.categoryId) ?? 0) + 1);
+      pointsByCategory.set(item.categoryId, (pointsByCategory.get(item.categoryId) ?? 0) + pointsOf(item));
     }
   }
   const result = new Map<string, number | null>();
   for (const item of items) {
     const weight = item.categoryId ? weightById.get(item.categoryId) : undefined;
-    const count = item.categoryId ? countByCategory.get(item.categoryId) : undefined;
-    result.set(item.id, weight === undefined || !count || !Number.isFinite(weight) ? null : round1(weight / count));
+    const total = item.categoryId ? pointsByCategory.get(item.categoryId) : undefined;
+    const points = pointsOf(item);
+    result.set(
+      item.id,
+      weight === undefined || !Number.isFinite(weight) || !total || !points ? null : round1((weight * points) / total),
+    );
   }
   return result;
 }
@@ -192,10 +228,11 @@ function isCrunchWeek(loadHours: number, examCount: number, medianLoadHours: num
 /**
  * Week-by-week view of a term's exams, quizzes and assignments (weeks start Monday, in the
  * student's local dates). The term is `requestedTerm` when it matches one of the student's
- * terms, else the term with items closest to today; courses with no term are grouped under that
- * default. A week's load is the estimated study hours of its items, scored ones included, so a
- * week's weight doesn't change as work is graded; it's a crunch week when the load is well above
- * the term's median or it holds two or more exams.
+ * terms, else defaultSemesterTerm; courses with no term are grouped under that default. Weeks
+ * stop SEMESTER_MAX_WEEKS_AHEAD weeks past the current one; items beyond go in laterItems and
+ * don't count toward the median. A week's load is the estimated study hours of its items, scored
+ * ones included, so a week's weight doesn't change as work is graded; it's a crunch week when the
+ * load is well above the term's median or it holds two or more exams.
  */
 export function buildSemesterTimeline(input: {
   courses: SemesterCourse[];
@@ -219,7 +256,7 @@ export function buildSemesterTimeline(input: {
 
   const weights = itemWeightPercents(categories, items);
   const termItems: SemesterWeekItem[] = items
-    .filter((item) => includedCourses.has(item.courseId) && /^\d{4}-\d{2}-\d{2}$/.test(item.dueLocalDate))
+    .filter((item) => includedCourses.has(item.courseId) && isValidLocalDate(item.dueLocalDate))
     .map((item) => {
       const course = includedCourses.get(item.courseId)!;
       return {
@@ -237,8 +274,12 @@ export function buildSemesterTimeline(input: {
     })
     .sort((a, b) => a.dueLocalDate.localeCompare(b.dueLocalDate) || Date.parse(a.dueAt) - Date.parse(b.dueAt) || a.title.localeCompare(b.title));
 
+  const currentWeek = weekStartOf(todayLocalDate);
+  const lastShownWeek = shiftDate(currentWeek, SEMESTER_MAX_WEEKS_AHEAD * 7);
+  const laterItems = termItems.filter((item) => item.dueLocalDate > shiftDate(lastShownWeek, 6));
   const itemsByWeek = new Map<string, SemesterWeekItem[]>();
   for (const item of termItems) {
+    if (item.dueLocalDate > shiftDate(lastShownWeek, 6)) continue;
     const start = weekStartOf(item.dueLocalDate);
     const list = itemsByWeek.get(start) ?? [];
     list.push(item);
@@ -247,7 +288,6 @@ export function buildSemesterTimeline(input: {
 
   const loadOf = (weekItems: SemesterWeekItem[]) => round1(weekItems.reduce((sum, item) => sum + item.effortHours, 0));
   const medianLoadHours = round1(median([...itemsByWeek.values()].map(loadOf)));
-  const currentWeek = weekStartOf(todayLocalDate);
 
   const makeWeek = (weekStart: string): SemesterWeek => {
     const weekItems = itemsByWeek.get(weekStart) ?? [];
@@ -266,9 +306,9 @@ export function buildSemesterTimeline(input: {
 
   const pastWeeks = [...itemsByWeek.keys()].filter((start) => start < currentWeek).sort().map(makeWeek);
   const weeks: SemesterWeek[] = [];
-  const lastItem = termItems[termItems.length - 1];
-  if (lastItem && lastItem.dueLocalDate >= currentWeek) {
-    const lastWeek = weekStartOf(lastItem.dueLocalDate);
+  const lastWeek = [...itemsByWeek.keys()].sort().pop();
+  if (lastWeek && lastWeek >= currentWeek) {
+    // Bounded: lastWeek is at most SEMESTER_MAX_WEEKS_AHEAD weeks past currentWeek.
     for (let start = currentWeek; start <= lastWeek; start = shiftDate(start, 7)) weeks.push(makeWeek(start));
   }
 
@@ -278,6 +318,7 @@ export function buildSemesterTimeline(input: {
     terms,
     weeks,
     pastWeeks,
+    laterItems,
     medianLoadHours,
     crunchWeekCount: weeks.filter((week) => week.isCrunch).length,
   };

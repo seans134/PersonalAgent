@@ -21,6 +21,7 @@ const timeline = {
     }],
   }],
   pastWeeks: [],
+  laterItems: [],
   medianLoadHours: 6,
   crunchWeekCount: 0,
 };
@@ -50,7 +51,7 @@ describe("GET /api/mobile/semester", () => {
     expect(loadTimelineMock).toHaveBeenCalledWith({}, "u1", null);
     const body = await response.json();
     expect(Object.keys(body).sort()).toEqual(
-      ["crunchWeekCount", "medianLoadHours", "pastWeeks", "term", "terms", "todayLocalDate", "weeks"],
+      ["crunchWeekCount", "laterItems", "medianLoadHours", "pastWeeks", "term", "terms", "todayLocalDate", "weeks"],
     );
     expect(body.weeks[0].items[0]).toMatchObject({ id: "mid", courseId: "c1", weightPercent: 25 });
   });
