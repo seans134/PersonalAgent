@@ -38,6 +38,11 @@ function request(method: string, url: string, body?: unknown) {
 }
 
 const statusUrl = "http://localhost/api/mobile/plan/status";
+// The profile timezone is UTC in these mocks, so "today" is the UTC date.
+const today = new Date().toISOString().slice(0, 10);
+const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+const threeDaysAgo = new Date(Date.now() - 3 * 86_400_000).toISOString().slice(0, 10);
+const profile = { user_profiles: { data: { timezone: "UTC" }, error: null } };
 
 describe("GET /api/mobile/plan/status", () => {
   beforeEach(() => vi.clearAllMocks());
@@ -56,6 +61,7 @@ describe("GET /api/mobile/plan/status", () => {
 
   it("returns statuses keyed by item and the acceptance for the date", async () => {
     const { client, calls } = supabaseMock({
+      ...profile,
       plan_item_statuses: {
         data: [
           { item_key: "study:item-1", status: "done" },
@@ -67,15 +73,15 @@ describe("GET /api/mobile/plan/status", () => {
     });
     getAuthMock.mockResolvedValue({ supabase: client, user: { id: "user-1" } });
     const { GET } = await import("./route");
-    const response = await GET(request("GET", `${statusUrl}?date=2026-10-19`));
+    const response = await GET(request("GET", `${statusUrl}?date=${today}`));
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
-      planDate: "2026-10-19",
+      planDate: today,
       statuses: { "study:item-1": "done", "goal:read": "skipped" },
       acceptedAt: "2026-10-19T13:00:00.000Z",
     });
     expect(calls).toContainEqual({ table: "plan_item_statuses", method: "eq", args: ["user_id", "user-1"] });
-    expect(calls).toContainEqual({ table: "plan_item_statuses", method: "eq", args: ["plan_date", "2026-10-19"] });
+    expect(calls).toContainEqual({ table: "plan_item_statuses", method: "eq", args: ["plan_date", today] });
   });
 
   it("defaults to the student's local today", async () => {
@@ -87,14 +93,20 @@ describe("GET /api/mobile/plan/status", () => {
     getAuthMock.mockResolvedValue({ supabase: client, user: { id: "user-1" } });
     const { GET } = await import("./route");
     const body = await (await GET(request("GET", statusUrl))).json();
-    expect(body).toEqual({ planDate: new Date().toISOString().slice(0, 10), statuses: {}, acceptedAt: null });
+    expect(body).toEqual({ planDate: today, statuses: {}, acceptedAt: null });
+  });
+
+  it("rejects a date more than a day from the student's today", async () => {
+    getAuthMock.mockResolvedValue({ supabase: supabaseMock(profile).client, user: { id: "user-1" } });
+    const { GET } = await import("./route");
+    expect((await GET(request("GET", `${statusUrl}?date=${threeDaysAgo}`))).status).toBe(400);
   });
 });
 
 describe("PUT /api/mobile/plan/status", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  const valid = { planDate: "2026-10-19", itemKey: "study:item-1", itemType: "study", status: "done" };
+  const valid = { planDate: today, itemKey: "study:item-1", itemType: "study", status: "done" };
 
   it("returns 401 when unauthenticated", async () => {
     getAuthMock.mockResolvedValue(null);
@@ -110,16 +122,16 @@ describe("PUT /api/mobile/plan/status", () => {
   });
 
   it("upserts a mark for the signed-in student", async () => {
-    const { client, calls } = supabaseMock({ plan_item_statuses: { data: null, error: null } });
+    const { client, calls } = supabaseMock({ ...profile, plan_item_statuses: { data: null, error: null } });
     getAuthMock.mockResolvedValue({ supabase: client, user: { id: "user-1" } });
     const { PUT } = await import("./route");
     const response = await PUT(request("PUT", statusUrl, valid));
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ planDate: "2026-10-19", itemKey: "study:item-1", status: "done" });
+    expect(await response.json()).toEqual({ planDate: today, itemKey: "study:item-1", status: "done" });
     const upsert = calls.find((call) => call.method === "upsert");
     expect(upsert?.args[0]).toMatchObject({
       user_id: "user-1",
-      plan_date: "2026-10-19",
+      plan_date: today,
       item_key: "study:item-1",
       item_type: "study",
       status: "done",
@@ -127,18 +139,26 @@ describe("PUT /api/mobile/plan/status", () => {
     expect(upsert?.args[1]).toEqual({ onConflict: "user_id,plan_date,item_key" });
   });
 
+  it("accepts tomorrow but rejects dates outside today ±1 day", async () => {
+    const { client } = supabaseMock({ ...profile, plan_item_statuses: { data: null, error: null } });
+    getAuthMock.mockResolvedValue({ supabase: client, user: { id: "user-1" } });
+    const { PUT } = await import("./route");
+    expect((await PUT(request("PUT", statusUrl, { ...valid, planDate: tomorrow }))).status).toBe(200);
+    expect((await PUT(request("PUT", statusUrl, { ...valid, planDate: threeDaysAgo }))).status).toBe(400);
+  });
+
   it("deletes the mark on undo", async () => {
-    const { client, calls } = supabaseMock({ plan_item_statuses: { data: null, error: null } });
+    const { client, calls } = supabaseMock({ ...profile, plan_item_statuses: { data: null, error: null } });
     getAuthMock.mockResolvedValue({ supabase: client, user: { id: "user-1" } });
     const { PUT } = await import("./route");
     const response = await PUT(request("PUT", statusUrl, { ...valid, status: null }));
-    expect(await response.json()).toEqual({ planDate: "2026-10-19", itemKey: "study:item-1", status: null });
+    expect(await response.json()).toEqual({ planDate: today, itemKey: "study:item-1", status: null });
     expect(calls.some((call) => call.method === "delete")).toBe(true);
     expect(calls).toContainEqual({ table: "plan_item_statuses", method: "eq", args: ["item_key", "study:item-1"] });
   });
 
   it("returns 500 when the write fails", async () => {
-    const { client } = supabaseMock({ plan_item_statuses: { data: null, error: { message: "boom" } } });
+    const { client } = supabaseMock({ ...profile, plan_item_statuses: { data: null, error: { message: "boom" } } });
     getAuthMock.mockResolvedValue({ supabase: client, user: { id: "user-1" } });
     const { PUT } = await import("./route");
     expect((await PUT(request("PUT", statusUrl, valid))).status).toBe(500);

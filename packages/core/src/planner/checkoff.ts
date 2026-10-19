@@ -5,8 +5,7 @@ import type { PlannedItem, PlannedItemType, PlanItemStatus } from "./types";
 // per item key. The key is built from where the item came from, never from copy
 // the AI enhancement may rewrite:
 //   study items     -> "study:<course item id>"  (one study block per course item per day)
-//   goal items      -> "goal:<goal title slug>"   (goals have no id in the planner input;
-//                                                  titles are the student's own and stable)
+//   goal items      -> "goal:<goal id>"           ("goal:<title slug>" when a goal has no id)
 //   fallback items  -> "fallback:<title slug>"
 // Two items that would share a key (e.g. duplicate goal titles) get "#2", "#3", ...
 // in plan order, so regenerating the same plan maps each mark back to the same block.
@@ -96,6 +95,21 @@ export function isPlanDate(value: unknown): value is string {
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
 }
 
+/** The device's local calendar date (YYYY-MM-DD), to compare with a plan's planDate. */
+export function localPlanDate(now: Date = new Date()): string {
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
+/** Check-offs are accepted for the student's local today ±1 day (covers clock and timezone edges). */
+export const PLAN_DATE_WINDOW_DAYS = 1;
+
+export function isPlanDateInWindow(planDate: string, todayPlanDate: string, windowDays = PLAN_DATE_WINDOW_DAYS): boolean {
+  if (!isPlanDate(planDate) || !isPlanDate(todayPlanDate)) return false;
+  const diffDays = (Date.parse(`${planDate}T00:00:00Z`) - Date.parse(`${todayPlanDate}T00:00:00Z`)) / 86_400_000;
+  return Math.abs(diffDays) <= windowDays;
+}
+
 // ---- /api/mobile/plan/* contract (shared by web and mobile) ----
 
 /** GET /api/mobile/plan/status?date=YYYY-MM-DD (date defaults to the student's local today). */
@@ -128,6 +142,8 @@ export type PlanAcceptRequest = {
 export type PlanAcceptResponse = {
   planDate: string;
   acceptedAt: string;
+  /** True only for the request that recorded the acceptance; clients fire plan_accepted on true. */
+  created: boolean;
 };
 
 type ParseResult<T> = { ok: true; value: T } | { ok: false; error: string };

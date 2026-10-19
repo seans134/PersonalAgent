@@ -12,7 +12,7 @@ type TimelineProps = {
   items: PlannedItem[];
   /** Omit to show the plan read-only (a stale or pre-check-off cached plan). */
   onCheckoff?: PlanItemCheckoffHandler;
-  pendingKey?: string | null;
+  pendingKeys?: ReadonlySet<string>;
 };
 
 // How an entry maps onto the category color system. Plan items carry their own
@@ -202,7 +202,7 @@ function NowMarker({ label }: { label: string }) {
   );
 }
 
-export function TodayPlanTimeline({ contextEvents, items, onCheckoff, pendingKey }: TimelineProps) {
+export function TodayPlanTimeline({ contextEvents, items, onCheckoff, pendingKeys }: TimelineProps) {
   const theme = useTheme();
   const { colors } = theme;
 
@@ -249,7 +249,7 @@ export function TodayPlanTimeline({ contextEvents, items, onCheckoff, pendingKey
         isLast={index === entries.length - 1}
         key={entry.key}
         onCheckoff={onCheckoff}
-        pending={Boolean(entry.item?.key) && entry.item?.key === pendingKey}
+        pending={entry.item?.key ? Boolean(pendingKeys?.has(entry.item.key)) : false}
       />,
     );
   });

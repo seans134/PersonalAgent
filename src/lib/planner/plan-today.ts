@@ -125,7 +125,7 @@ export async function generateTodayPlanForUser(input: {
 
   const { data: goalsRows, error: goalsError } = await supabase
     .from("goals")
-    .select("title, description, priority, task_type, minimum_daily_minutes")
+    .select("id, title, description, priority, task_type, minimum_daily_minutes")
     .eq("user_id", userId)
     .is("completed_at", null)
     .order("priority", { ascending: true });

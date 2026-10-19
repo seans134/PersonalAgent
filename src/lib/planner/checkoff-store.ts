@@ -1,4 +1,5 @@
 import { dateInTimezone } from "@personal-agent/core/calendar";
+import { isPlanDateInWindow } from "@personal-agent/core/planner";
 import type {
   PlanAcceptRequest,
   PlanAcceptResponse,
@@ -19,6 +20,12 @@ export async function todayPlanDateForUser(supabase: SupabaseClient, userId: str
   if (error) throw new Error(`Unable to load profile: ${error.message}`);
   const timezone = (data as { timezone?: string | null } | null)?.timezone ?? "America/Toronto";
   return dateInTimezone(new Date(), timezone);
+}
+
+/** Rejects plan dates outside the student's local today ±1 day. Returns an error message, or null when allowed. */
+export async function planDateWindowError(supabase: SupabaseClient, userId: string, planDate: string): Promise<string | null> {
+  const today = await todayPlanDateForUser(supabase, userId);
+  return isPlanDateInWindow(planDate, today) ? null : "planDate must be within a day of today.";
 }
 
 export async function readPlanCheckoff(supabase: SupabaseClient, userId: string, planDate: string): Promise<PlanStatusResponse> {
@@ -65,15 +72,20 @@ export async function writePlanItemStatus(
   return { planDate: input.planDate, itemKey: input.itemKey, status: input.status };
 }
 
-/** Records the commitment once per plan date; accepting again keeps the first time. */
+/** Records the commitment once per plan date; accepting again keeps the first time and returns created: false. */
 export async function acceptPlan(supabase: SupabaseClient, userId: string, input: PlanAcceptRequest): Promise<PlanAcceptResponse> {
-  const { error } = await supabase
+  // ON CONFLICT DO NOTHING ... RETURNING: a row comes back only when this request created it.
+  const { data: inserted, error } = await supabase
     .from("plan_acceptances")
     .upsert(
       { user_id: userId, plan_date: input.planDate, item_count: input.itemCount },
       { onConflict: "user_id,plan_date", ignoreDuplicates: true },
-    );
+    )
+    .select("accepted_at");
   if (error) throw new Error(`Unable to accept plan: ${error.message}`);
+
+  const insertedRow = ((inserted ?? []) as Array<{ accepted_at: string }>)[0];
+  if (insertedRow) return { planDate: input.planDate, acceptedAt: insertedRow.accepted_at, created: true };
 
   const { data, error: readError } = await supabase
     .from("plan_acceptances")
@@ -84,5 +96,5 @@ export async function acceptPlan(supabase: SupabaseClient, userId: string, input
   if (readError) throw new Error(`Unable to load plan acceptance: ${readError.message}`);
   const acceptedAt = (data as { accepted_at: string } | null)?.accepted_at;
   if (!acceptedAt) throw new Error("Unable to accept plan.");
-  return { planDate: input.planDate, acceptedAt };
+  return { planDate: input.planDate, acceptedAt, created: false };
 }

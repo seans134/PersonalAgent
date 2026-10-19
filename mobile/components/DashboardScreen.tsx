@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -14,6 +14,7 @@ import {
   examsWithinDays,
   features,
   formatDaysAway,
+  localPlanDate,
   mergePlanItemStatuses,
   nextPlanItemStatus,
   planCheckoffCounts,
@@ -66,6 +67,14 @@ function formatShortDate(iso: string): string {
 
 const UPCOMING_EXAM_DAYS = 14;
 
+const STALE_PLAN_NOTICE = "This plan is from a previous day. Pull down to generate a fresh plan first.";
+
+/** The plan's date: the server's planDate, or (for plans cached before check-off) the day it was generated. */
+function isPlanForToday(plan: MobileTodayPlanResponse): boolean {
+  const planDate = plan.checkoff?.planDate ?? localPlanDate(new Date(plan.meta.generatedAt));
+  return planDate === localPlanDate();
+}
+
 function withItems(plan: MobileTodayPlanResponse, items: PlannedItem[]): MobileTodayPlanResponse {
   return { ...plan, plan: { ...plan.plan, items } };
 }
@@ -88,7 +97,6 @@ export function DashboardScreen({ accessToken, onOpenCourse, onOpenCourses }: Da
   const { colors } = theme;
 
   const [plan, setPlan] = useState<MobileTodayPlanResponse | null>(null);
-  const [planIsStale, setPlanIsStale] = useState(false);
   const [planCacheMessage, setPlanCacheMessage] = useState<string | undefined>();
   const [error, setError] = useState<string | undefined>();
   const [notice, setNotice] = useState<string | undefined>();
@@ -96,8 +104,47 @@ export function DashboardScreen({ accessToken, onOpenCourse, onOpenCourses }: Da
   const [refreshing, setRefreshing] = useState(false);
   const [schedulingReminder, setSchedulingReminder] = useState(false);
   const [courses, setCourses] = useState<MobileCourseSummary[] | null>(null);
-  const [pendingKey, setPendingKey] = useState<string | null>(null);
+  const [pendingKeys, setPendingKeys] = useState<ReadonlySet<string>>(new Set());
   const [accepting, setAccepting] = useState(false);
+
+  // planRef is the latest plan, so concurrent check-offs update and cache from current
+  // state rather than from the snapshot their handler closed over.
+  const planRef = useRef<MobileTodayPlanResponse | null>(null);
+  const pendingKeysRef = useRef(new Set<string>());
+  const acceptingRef = useRef(false);
+
+  const replacePlan = useCallback((next: MobileTodayPlanResponse | null) => {
+    planRef.current = next;
+    setPlan(next);
+  }, []);
+
+  /** Applies update to the latest plan, only while it is still the plan generated at generatedAt. */
+  const updateCurrentPlan = useCallback(
+    (generatedAt: string, update: (current: MobileTodayPlanResponse) => MobileTodayPlanResponse) => {
+      const current = planRef.current;
+      if (!current || current.meta.generatedAt !== generatedAt) return false;
+      replacePlan(update(current));
+      return true;
+    },
+    [replacePlan],
+  );
+
+  /** The offline cache is best-effort: a failed write never undoes a saved check-off. */
+  const persistPlan = useCallback(async () => {
+    const current = planRef.current;
+    if (!current) return;
+    try {
+      await writeCachedTodayPlan(current);
+    } catch {
+      // Keep going; the server has the marks.
+    }
+  }, []);
+
+  function setKeyPending(key: string, pending: boolean) {
+    if (pending) pendingKeysRef.current.add(key);
+    else pendingKeysRef.current.delete(key);
+    setPendingKeys(new Set(pendingKeysRef.current));
+  }
 
   const now = new Date();
   const greeting = greetingFor(now);
@@ -107,32 +154,41 @@ export function DashboardScreen({ accessToken, onOpenCourse, onOpenCourses }: Da
     const cachedPlan = await readCachedTodayPlan();
     if (!cachedPlan) return;
 
-    const savedAt = new Date(cachedPlan.savedAt);
-    const isFromToday = savedAt.toDateString() === new Date().toDateString();
+    const cached = cachedPlan.value;
+    // The cache is rewritten on every check-off, so its savedAt is not when the plan was made.
+    const generatedAt = new Date(cached.meta.generatedAt);
+    const isFromToday = isPlanForToday(cached);
 
-    setPlan(cachedPlan.value);
-    setPlanIsStale(!isFromToday);
+    replacePlan(cached);
     setPlanCacheMessage(
       isFromToday
-        ? `Saved plan from ${savedAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}.`
-        : `This plan is from ${savedAt.toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" })}. Pull down to generate a fresh plan for today.`,
+        ? `Saved plan from ${generatedAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}.`
+        : `This plan is from ${generatedAt.toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" })}. Pull down to generate a fresh plan for today.`,
     );
 
     // Pick up check-offs made elsewhere (e.g. on the web) since this plan was cached.
-    const checkoff = cachedPlan.value.checkoff;
+    const checkoff = cached.checkoff;
     if (!isFromToday || !checkoff) return;
     try {
       const saved = await fetchMobilePlanStatus(accessToken, checkoff.planDate);
-      const synced: MobileTodayPlanResponse = {
-        ...withItems(cachedPlan.value, mergePlanItemStatuses(cachedPlan.value.plan.items, saved.statuses)),
-        checkoff: { planDate: checkoff.planDate, acceptedAt: saved.acceptedAt },
-      };
-      setPlan(synced);
-      await writeCachedTodayPlan(synced);
+      // Dropped if the plan was regenerated meanwhile; keys with a write in flight keep the local mark.
+      const synced = updateCurrentPlan(cached.meta.generatedAt, (current) => {
+        const statuses = { ...saved.statuses };
+        for (const item of current.plan.items) {
+          if (!item.key || !pendingKeysRef.current.has(item.key)) continue;
+          if (item.status) statuses[item.key] = item.status;
+          else delete statuses[item.key];
+        }
+        return {
+          ...withItems(current, mergePlanItemStatuses(current.plan.items, statuses)),
+          checkoff: { planDate: checkoff.planDate, acceptedAt: saved.acceptedAt ?? current.checkoff?.acceptedAt ?? null },
+        };
+      });
+      if (synced) await persistPlan();
     } catch {
       // Offline: keep the cached marks.
     }
-  }, [accessToken]);
+  }, [accessToken, persistPlan, replacePlan, updateCurrentPlan]);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -165,16 +221,15 @@ export function DashboardScreen({ accessToken, onOpenCourse, onOpenCourses }: Da
 
     try {
       const nextPlan = await generateMobileTodayPlan(accessToken);
-      setPlan(nextPlan);
-      setPlanIsStale(false);
+      replacePlan(nextPlan);
       setPlanCacheMessage("Saved for offline viewing.");
       successHaptic();
-      await writeCachedTodayPlan(nextPlan);
+      await persistPlan();
     } catch (generateError) {
       errorHaptic();
       setError(generateError instanceof Error ? generateError.message : "Unable to generate today plan.");
     }
-  }, [accessToken]);
+  }, [accessToken, persistPlan, replacePlan]);
 
   async function handleGeneratePress() {
     setGeneratingPlan(true);
@@ -188,56 +243,80 @@ export function DashboardScreen({ accessToken, onOpenCourse, onOpenCourses }: Da
     setRefreshing(false);
   }
 
-  async function updatePlan(next: MobileTodayPlanResponse) {
-    setPlan(next);
-    await writeCachedTodayPlan(next);
-  }
-
   async function handleCheckoff(item: PlannedItem, tapped: PlanItemStatus) {
-    if (!plan?.checkoff || !item.key || planIsStale) return;
+    const current = planRef.current;
+    if (!current?.checkoff || !item.key || pendingKeysRef.current.has(item.key)) return;
+    // Re-checked at tap time: the day may have rolled over since the plan was shown.
+    if (!isPlanForToday(current)) {
+      setNotice(STALE_PLAN_NOTICE);
+      return;
+    }
     const key = item.key;
-    const status = nextPlanItemStatus(item.status, tapped);
-    const nextItems = applyPlanItemStatus(plan.plan.items, key, status);
+    const generatedAt = current.meta.generatedAt;
+    const previous = current.plan.items.find((entry) => entry.key === key)?.status ?? null;
+    const status = nextPlanItemStatus(previous, tapped);
+    const setStatus = (value: PlanItemStatus | null) =>
+      updateCurrentPlan(generatedAt, (latest) => withItems(latest, applyPlanItemStatus(latest.plan.items, key, value)));
+
     setError(undefined);
-    setPendingKey(key);
+    setKeyPending(key, true);
     tapHaptic();
-    setPlan(withItems(plan, nextItems));
+    setStatus(status);
+    let saved = false;
     try {
       await setMobilePlanItemStatus(
         accessToken,
-        { planDate: plan.checkoff.planDate, itemKey: key, itemType: item.type, status },
-        planCheckoffCounts(nextItems),
+        { planDate: current.checkoff.planDate, itemKey: key, itemType: item.type, status },
+        planCheckoffCounts(planRef.current?.plan.items ?? []),
       );
-      await writeCachedTodayPlan(withItems(plan, nextItems));
+      saved = true;
     } catch (checkoffError) {
       errorHaptic();
-      setPlan(plan);
+      // Roll back only this item, on the plan it was made on.
+      setStatus(previous);
       setError(checkoffError instanceof Error ? checkoffError.message : "Unable to save check-off.");
     }
-    setPendingKey(null);
+    setKeyPending(key, false);
+    if (saved) await persistPlan();
   }
 
   async function handleAccept() {
-    if (!plan?.checkoff || planIsStale) return;
+    const current = planRef.current;
+    if (!current?.checkoff || acceptingRef.current) return;
+    if (!isPlanForToday(current)) {
+      setNotice(STALE_PLAN_NOTICE);
+      return;
+    }
+    const generatedAt = current.meta.generatedAt;
     setError(undefined);
+    acceptingRef.current = true;
     setAccepting(true);
+    let saved = false;
     try {
-      const result = await acceptMobilePlan(accessToken, plan.checkoff.planDate, planCheckoffCounts(plan.plan.items));
+      const result = await acceptMobilePlan(accessToken, current.checkoff.planDate, planCheckoffCounts(current.plan.items));
       successHaptic();
-      await updatePlan({ ...plan, checkoff: { ...plan.checkoff, acceptedAt: result.acceptedAt } });
+      updateCurrentPlan(generatedAt, (latest) => ({
+        ...latest,
+        checkoff: latest.checkoff ? { ...latest.checkoff, acceptedAt: result.acceptedAt } : latest.checkoff,
+      }));
+      saved = true;
     } catch (acceptError) {
       errorHaptic();
       setError(acceptError instanceof Error ? acceptError.message : "Unable to accept plan.");
     }
+    acceptingRef.current = false;
     setAccepting(false);
+    if (saved) await persistPlan();
   }
+
+  const planIsStale = plan ? !isPlanForToday(plan) : false;
 
   async function scheduleReminders() {
     setError(undefined);
     setNotice(undefined);
 
     if (planIsStale) {
-      setNotice("This plan is from a previous day. Pull down to generate a fresh plan first.");
+      setNotice(STALE_PLAN_NOTICE);
       return;
     }
 
@@ -272,7 +351,7 @@ export function DashboardScreen({ accessToken, onOpenCourse, onOpenCourses }: Da
 
   const hasPlanContent =
     plan !== null && (plan.plan.items.length > 0 || plan.contextEvents.length > 0);
-  // Check-off needs a plan dated today by the server; older or stale cached plans show read-only.
+  // Check-off needs a plan dated today; older or pre-check-off cached plans show read-only.
   const checkoff = plan && !planIsStale ? plan.checkoff : undefined;
   const counts = plan ? planCheckoffCounts(plan.plan.items) : null;
 
@@ -414,7 +493,7 @@ export function DashboardScreen({ accessToken, onOpenCourse, onOpenCourses }: Da
               contextEvents={plan.contextEvents}
               items={plan.plan.items}
               onCheckoff={checkoff ? handleCheckoff : undefined}
-              pendingKey={pendingKey}
+              pendingKeys={pendingKeys}
             />
           ) : (
             <View style={[styles.card, styles.emptyDay]}>

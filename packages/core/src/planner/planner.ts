@@ -159,7 +159,7 @@ function createTaskBlueprints(goals: Goal[]): TaskBlueprint[] {
       reason: reasonForGoal(topGoal),
       priority: normalizePriority(topGoal.priority),
       source: "goal",
-      key: planItemKey({ source: "goal", title: topGoal.title }),
+      key: planItemKey({ source: "goal", id: topGoal.id, title: topGoal.title }),
     });
   }
 
@@ -175,7 +175,7 @@ function createTaskBlueprints(goals: Goal[]): TaskBlueprint[] {
       reason: reasonForGoal(goal),
       priority: normalizePriority(goal.priority),
       source: "goal",
-      key: planItemKey({ source: "goal", title: goal.title }),
+      key: planItemKey({ source: "goal", id: goal.id, title: goal.title }),
     });
   }
 

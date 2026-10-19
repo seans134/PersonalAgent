@@ -1,6 +1,8 @@
 export type CalendarEventCategory = "school" | "work" | "study" | "personal" | "unavailable";
 
 export type Goal = {
+  /** The goals row id; keys the goal's plan item for check-off. */
+  id?: string;
   title: string;
   description?: string | null;
   priority: 1 | 2 | 3;

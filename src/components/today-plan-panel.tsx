@@ -1,10 +1,11 @@
 "use client";
 
-import { useReducer, useState } from "react";
+import { useReducer, useRef, useState } from "react";
 import {
   analyticsEvents,
   applyPlanItemStatus,
   features,
+  localPlanDate,
   nextPlanItemStatus,
   planCheckoffCounts,
   type PlanAcceptResponse,
@@ -99,11 +100,22 @@ export function TodayPlanPanel() {
   const isLoading = state.status === "loading";
   const planData = state.status === "success" ? state.data : null;
   const errorMessage = state.status === "error" ? state.error : null;
-  const [pendingKey, setPendingKey] = useState<string | null>(null);
+  // The ref guards against double-sends before React re-renders; the state drives the disabled buttons.
+  const pendingKeysRef = useRef(new Set<string>());
+  const [pendingKeys, setPendingKeys] = useState<ReadonlySet<string>>(new Set());
   const [accepting, setAccepting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
-  const checkoff = planData?.checkoff;
+  // Check-off only applies to a plan dated today on this device; an older plan shows read-only.
+  const planIsForToday = planData?.checkoff?.planDate === localPlanDate();
+  const checkoff = planIsForToday ? planData?.checkoff : undefined;
+  const staleCheckoffDate = planData?.checkoff && !planIsForToday ? planData.checkoff.planDate : null;
   const counts = planData ? planCheckoffCounts(planData.plan.items) : null;
+
+  function setKeyPending(key: string, pending: boolean) {
+    if (pending) pendingKeysRef.current.add(key);
+    else pendingKeysRef.current.delete(key);
+    setPendingKeys(new Set(pendingKeysRef.current));
+  }
 
   async function handleGeneratePlan() {
     dispatch({ type: "start" });
@@ -120,13 +132,18 @@ export function TodayPlanPanel() {
   }
 
   async function handleCheckoff(item: PlannedItem, tapped: PlanItemStatus) {
-    if (!planData || !checkoff || !item.key) return;
+    if (!planData || !checkoff || !item.key || pendingKeysRef.current.has(item.key)) return;
+    if (checkoff.planDate !== localPlanDate()) {
+      setActionError("This plan is from a previous day. Plan your day again to check off today's items.");
+      return;
+    }
     const key = item.key;
+    const generatedAt = planData.meta.generatedAt;
     const previous = item.status ?? null;
     const status = nextPlanItemStatus(previous, tapped);
     setActionError(null);
-    setPendingKey(key);
-    dispatch({ type: "itemStatus", key, status });
+    setKeyPending(key, true);
+    dispatch({ type: "itemStatus", key, status, generatedAt });
     try {
       await sendPlanRequest<PlanItemStatusResponse>(
         "/api/mobile/plan/status",
@@ -139,15 +156,19 @@ export function TodayPlanPanel() {
         captureEvent(analyticsEvents.planItemCompleted, { item_type: item.type, status, ...updated });
       }
     } catch (error) {
-      dispatch({ type: "itemStatus", key, status: previous });
+      dispatch({ type: "itemStatus", key, status: previous, generatedAt });
       setActionError(error instanceof Error ? error.message : "Unable to save check-off.");
     } finally {
-      setPendingKey(null);
+      setKeyPending(key, false);
     }
   }
 
   async function handleAccept() {
-    if (!planData || !checkoff) return;
+    if (!planData || !checkoff || accepting) return;
+    if (checkoff.planDate !== localPlanDate()) {
+      setActionError("This plan is from a previous day. Plan your day again first.");
+      return;
+    }
     setActionError(null);
     setAccepting(true);
     try {
@@ -158,7 +179,7 @@ export function TodayPlanPanel() {
         "Unable to accept plan.",
       );
       dispatch({ type: "accepted", acceptedAt: result.acceptedAt });
-      captureEvent(analyticsEvents.planAccepted, planCheckoffCounts(planData.plan.items));
+      if (result.created) captureEvent(analyticsEvents.planAccepted, planCheckoffCounts(planData.plan.items));
     } catch (error) {
       setActionError(error instanceof Error ? error.message : "Unable to accept plan.");
     } finally {
@@ -248,6 +269,11 @@ export function TodayPlanPanel() {
               )}
             </div>
           ) : null}
+          {staleCheckoffDate ? (
+            <p className="rounded-[11px] border border-warning border-l-[3px] bg-surface px-4 py-3 text-sm text-warning">
+              This plan is for {staleCheckoffDate}. Plan your day again to check off today&apos;s items.
+            </p>
+          ) : null}
           {actionError ? (
             <p className="rounded-[11px] border border-danger border-l-[3px] bg-surface px-4 py-3 text-sm text-danger">{actionError}</p>
           ) : null}
@@ -257,7 +283,7 @@ export function TodayPlanPanel() {
             generatedAt={planData.meta.generatedAt}
             items={planData.plan.items}
             onCheckoff={checkoff ? handleCheckoff : undefined}
-            pendingKey={pendingKey}
+            pendingKeys={pendingKeys}
           />
           <p className="text-right font-mono text-[11px] text-ink-muted">Planned {formatGeneratedAt(planData.meta.generatedAt)}</p>
         </div>

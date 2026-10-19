@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   applyPlanItemStatus,
   isPlanDate,
+  isPlanDateInWindow,
+  localPlanDate,
   mergePlanItemStatuses,
   nextPlanItemStatus,
   parsePlanAcceptRequest,
@@ -69,6 +71,11 @@ describe("generateDailyPlan keys", () => {
     expect(second.items.map((entry) => entry.key)).toEqual(first.items.map((entry) => entry.key));
   });
 
+  it("keys goals by id when the goal has one", () => {
+    const plan = generateDailyPlan({ goals: [{ id: "goal-1", title: "Read book", priority: 2 }], preferences, calendarEvents: [] });
+    expect(plan.items.map((entry) => entry.key)).toContain("goal:goal-1");
+  });
+
   it("keys the constrained fallback item too", () => {
     const plan = generateDailyPlan({ goals: [], preferences, calendarEvents: [] });
     expect(plan.items.every((entry) => typeof entry.key === "string" && entry.key.length > 0)).toBe(true);
@@ -99,6 +106,18 @@ describe("check-off helpers", () => {
     expect(updated[0].status).toBe("done");
     expect(items[0].status).toBeUndefined();
     expect(planCheckoffCounts(updated)).toEqual({ item_count: 2, done_count: 1, skipped_count: 1 });
+  });
+
+  it("limits plan dates to today ±1 day", () => {
+    expect(isPlanDateInWindow("2026-10-19", "2026-10-19")).toBe(true);
+    expect(isPlanDateInWindow("2026-10-18", "2026-10-19")).toBe(true);
+    expect(isPlanDateInWindow("2026-11-01", "2026-10-31")).toBe(true);
+    expect(isPlanDateInWindow("2026-10-17", "2026-10-19")).toBe(false);
+    expect(isPlanDateInWindow("bad", "2026-10-19")).toBe(false);
+  });
+
+  it("formats the device-local date", () => {
+    expect(localPlanDate(new Date(2026, 0, 5, 23, 59))).toBe("2026-01-05");
   });
 
   it("validates plan dates", () => {

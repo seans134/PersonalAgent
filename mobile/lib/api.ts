@@ -553,7 +553,8 @@ export async function acceptMobilePlan(
     { method: "POST", body: JSON.stringify({ planDate, itemCount: counts.item_count }) },
     "Unable to accept plan.",
   );
-  captureEvent(analyticsEvents.planAccepted, counts);
+  // Only the request that recorded the acceptance counts toward plan_accepted.
+  if (body.created) captureEvent(analyticsEvents.planAccepted, counts);
   return body;
 }
 

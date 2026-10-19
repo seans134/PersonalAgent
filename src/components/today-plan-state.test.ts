@@ -93,6 +93,8 @@ describe("today-plan-state", () => {
     let state = reduceTodayPlanState(initialTodayPlanState, { type: "succeeded", payload: parsed });
     state = reduceTodayPlanState(state, { type: "itemStatus", key: "goal:read", status: "skipped" });
     state = reduceTodayPlanState(state, { type: "itemStatus", key: "study:item-1", status: null });
+    // A late rollback for a different (replaced) plan is ignored.
+    state = reduceTodayPlanState(state, { type: "itemStatus", key: "goal:read", status: null, generatedAt: "older" });
     state = reduceTodayPlanState(state, { type: "accepted", acceptedAt: "2026-10-19T13:00:00.000Z" });
     if (state.status !== "success") throw new Error("Expected success state.");
     expect(state.data.plan.items.map((item) => item.status)).toEqual([null, "skipped"]);

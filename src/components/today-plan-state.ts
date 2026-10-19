@@ -13,7 +13,8 @@ export type TodayPlanPanelAction =
   | { type: "start" }
   | { type: "failed"; message: string }
   | { type: "succeeded"; payload: TodayPlanResponse }
-  | { type: "itemStatus"; key: string; status: PlanItemStatus | null }
+  /** generatedAt, when set, limits the update to that plan (so a late rollback can't touch a regenerated plan). */
+  | { type: "itemStatus"; key: string; status: PlanItemStatus | null; generatedAt?: string }
   | { type: "accepted"; acceptedAt: string };
 
 export const initialTodayPlanState: TodayPlanPanelState = {
@@ -35,6 +36,7 @@ export function reduceTodayPlanState(
       return { status: "success", data: action.payload, error: null };
     case "itemStatus":
       if (state.status !== "success") return state;
+      if (action.generatedAt && action.generatedAt !== state.data.meta.generatedAt) return state;
       return {
         ...state,
         data: { ...state.data, plan: { ...state.data.plan, items: applyPlanItemStatus(state.data.plan.items, action.key, action.status) } },

@@ -177,14 +177,14 @@ export function TodayPlanMeridian({
   contextEvents,
   items,
   onCheckoff,
-  pendingKey,
+  pendingKeys,
 }: {
   contextEvents: TodayPlanContextEvent[];
   generatedAt?: string;
   items: PlannedItem[];
   /** Omit to show the plan read-only (e.g. a plan with no check-off date). */
   onCheckoff?: PlanItemCheckoffHandler;
-  pendingKey?: string | null;
+  pendingKeys?: ReadonlySet<string>;
 }) {
   const planEntries: Entry[] = items.map((item, index) => ({
     key: `plan-${index}-${item.startTime}`,
@@ -228,7 +228,7 @@ export function TodayPlanMeridian({
         isLast={index === entries.length - 1}
         key={entry.key}
         onCheckoff={onCheckoff}
-        pending={Boolean(entry.item?.key) && entry.item?.key === pendingKey}
+        pending={entry.item?.key ? Boolean(pendingKeys?.has(entry.item.key)) : false}
       />,
     );
   });

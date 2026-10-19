@@ -23,16 +23,11 @@ create table if not exists public.plan_acceptances (
 alter table public.plan_item_statuses enable row level security;
 alter table public.plan_acceptances enable row level security;
 
-drop policy if exists "Users read own plan item statuses" on public.plan_item_statuses;
-create policy "Users read own plan item statuses" on public.plan_item_statuses
-for select using (auth.uid() = user_id);
-drop policy if exists "Users write own plan item statuses" on public.plan_item_statuses;
-create policy "Users write own plan item statuses" on public.plan_item_statuses
-for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+-- One "for all" policy per table covers reads and writes; (select auth.uid()) is evaluated once per query.
+drop policy if exists "Users manage own plan item statuses" on public.plan_item_statuses;
+create policy "Users manage own plan item statuses" on public.plan_item_statuses
+for all using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
 
-drop policy if exists "Users read own plan acceptances" on public.plan_acceptances;
-create policy "Users read own plan acceptances" on public.plan_acceptances
-for select using (auth.uid() = user_id);
-drop policy if exists "Users write own plan acceptances" on public.plan_acceptances;
-create policy "Users write own plan acceptances" on public.plan_acceptances
-for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+drop policy if exists "Users manage own plan acceptances" on public.plan_acceptances;
+create policy "Users manage own plan acceptances" on public.plan_acceptances
+for all using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
