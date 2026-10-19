@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { safeNextPath } from "@/lib/safe-next";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -12,8 +13,7 @@ export async function GET(request: NextRequest) {
   const errorDescription = searchParams.get("error_description");
 
   // Only allow same-origin relative paths to avoid open redirects.
-  const nextParam = searchParams.get("next") ?? "/";
-  const next = nextParam.startsWith("/") && !nextParam.startsWith("//") ? nextParam : "/";
+  const next = safeNextPath(searchParams.get("next")) ?? "/";
 
   if (errorDescription) {
     return NextResponse.redirect(`${origin}/auth?error=${encodeURIComponent(errorDescription)}`);

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { courseGradeFromRows, courseNeededFromRows, gradeInputsFromRows } from "@/lib/courses/grade";
 import { getCourseDetail } from "@/lib/courses/queries";
+import { getCourseShare } from "@/lib/courses/sharing";
 import { studyPlansForCourseItems } from "@/lib/courses/study-plans";
 import type { CourseItemRow } from "@/lib/courses/types";
 import { createClient } from "@/lib/supabase/server";
@@ -9,6 +10,7 @@ import { CategoryEditor } from "./category-editor";
 import { GradeSummary } from "./grade-summary";
 import { AddItemPanel } from "./item-form";
 import { ItemRow } from "./item-row";
+import { SharePanel } from "./share-panel";
 
 export default async function CourseDetailPage({
   params,
@@ -43,6 +45,8 @@ export default async function CourseDetailPage({
   const needed = courseNeededFromRows(categories, items, course.target_grade);
   const gradeInputs = gradeInputsFromRows(categories, items);
   const studyPlans = await studyPlansForCourseItems(supabase, user.id, items);
+  // Sharing is secondary; a failure here shouldn't take down the course page.
+  const share = await getCourseShare(supabase, user.id, course.id).catch(() => null);
   const meta = [course.code, course.term].filter(Boolean).join(" · ");
 
   const itemsByCategory = new Map<string, CourseItemRow[]>();
@@ -80,6 +84,7 @@ export default async function CourseDetailPage({
       <div className="grid gap-6 lg:grid-cols-[minmax(280px,360px)_1fr]">
         <aside className="lg:sticky lg:top-4 lg:self-start">
           <GradeSummary course={course} grade={grade} gradeInputs={gradeInputs} needed={needed} />
+          <SharePanel archived={Boolean(course.archived_at)} courseId={course.id} initialShare={share} />
         </aside>
 
         <section className="flex flex-col gap-6">

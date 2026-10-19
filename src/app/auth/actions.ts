@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { isOnboardingComplete } from "@/lib/onboarding/status";
+import { safeNextPath } from "@/lib/safe-next";
 import { siteUrl } from "@/lib/site-url";
 import { createClient } from "@/lib/supabase/server";
 
@@ -20,6 +21,12 @@ export async function signIn(_: AuthActionState, formData: FormData) {
 
   if (error) {
     return { error: error.message };
+  }
+
+  // Sent here from a page such as /join/<token>: go back there.
+  const next = safeNextPath(formData.get("next"));
+  if (next) {
+    redirect(next);
   }
 
   // Returning users who have already been through onboarding land on Today;
@@ -75,12 +82,18 @@ export async function signUp(_: AuthActionState, formData: FormData) {
     return { error: "Passwords must match." };
   }
 
+  // Sent here from a page such as /join/<token>: the confirmation link (or this redirect) goes back there.
+  const next = safeNextPath(formData.get("next"));
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
     // The confirmation link signs them in and starts the syllabus-first flow at step 1.
-    options: { emailRedirectTo: `${siteUrl()}/auth/callback?next=/onboarding/courses` },
+    options: {
+      emailRedirectTo: next
+        ? `${siteUrl()}/auth/callback?next=${encodeURIComponent(next)}`
+        : `${siteUrl()}/auth/callback?next=/onboarding/courses`,
+    },
   });
 
   if (error) {
@@ -88,9 +101,12 @@ export async function signUp(_: AuthActionState, formData: FormData) {
   }
 
   if (!data.session) {
-    redirect(`/auth?ok=${encodeURIComponent("Check your email to confirm your account. The link brings you back to set up your courses.")}`);
+    const message = next
+      ? "Check your email to confirm your account. The link brings you back to add the course."
+      : "Check your email to confirm your account. The link brings you back to set up your courses.";
+    redirect(`/auth?ok=${encodeURIComponent(message)}`);
   }
 
-  // New accounts start the syllabus-first flow at step 1.
-  redirect("/onboarding/courses");
+  // New accounts start the syllabus-first flow at step 1, unless they came to add a shared course.
+  redirect(next ?? "/onboarding/courses");
 }

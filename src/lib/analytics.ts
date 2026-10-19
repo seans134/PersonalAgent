@@ -1,7 +1,7 @@
 "use client";
 
 import posthog from "posthog-js";
-import type { AnalyticsEventName } from "@personal-agent/core";
+import { redactShareLinksInEvent, type AnalyticsEventName } from "@personal-agent/core";
 
 type AnalyticsProperties = Record<string, string | number | boolean | null>;
 
@@ -25,6 +25,8 @@ export function syncAnalyticsUser(userId: string | null) {
       capture_pageview: "history_change",
       autocapture: false,
       disable_session_recording: true,
+      // Pageviews of /join/<token> must not send the working link to analytics.
+      before_send: (event) => (event ? redactShareLinksInEvent(event) : event),
     });
     ready = true;
   }

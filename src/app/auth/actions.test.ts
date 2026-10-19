@@ -77,4 +77,30 @@ describe("auth actions", () => {
 
     await expect(signIn(undefined, form({ email: "a@b.co", password: "password1" }))).rejects.toThrow(/^REDIRECT:\/$/);
   });
+
+  it("signUp from a join link confirms back to the join page", async () => {
+    const signUpMock = vi.fn(async () => ({ data: { session: null }, error: null }));
+    createClientMock.mockResolvedValue({ auth: { signUp: signUpMock } });
+    const formData = signUpForm();
+    formData.set("next", "/join/AbC_def-1234567890xyzQ");
+
+    await expect(signUp(undefined, formData)).rejects.toThrow(/REDIRECT:\/auth\?ok=.*add%20the%20course/);
+    expect(signUpMock).toHaveBeenCalledWith(expect.objectContaining({
+      options: { emailRedirectTo: "https://atlas.example/auth/callback?next=%2Fjoin%2FAbC_def-1234567890xyzQ" },
+    }));
+  });
+
+  it("signIn returns to a same-origin next path and ignores others", async () => {
+    createClientMock.mockResolvedValue({
+      auth: { signInWithPassword: vi.fn(async () => ({ data: { user: { id: "user-1" } }, error: null })) },
+    });
+    isOnboardingCompleteMock.mockResolvedValue(true);
+
+    await expect(
+      signIn(undefined, form({ email: "a@b.co", password: "password1", next: "/join/AbC_def-1234567890xyzQ" })),
+    ).rejects.toThrow("REDIRECT:/join/AbC_def-1234567890xyzQ");
+    await expect(
+      signIn(undefined, form({ email: "a@b.co", password: "password1", next: "//evil.example" })),
+    ).rejects.toThrow(/^REDIRECT:\/$/);
+  });
 });

@@ -157,7 +157,7 @@ export function SegmentedTabs<T extends string>({
   );
 }
 
-export function DetailHeader({ onBack, title }: { onBack: () => void; title: string }) {
+export function DetailHeader({ onBack, title, backLabel = "More" }: { onBack: () => void; title: string; backLabel?: string }) {
   const theme = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
 
@@ -165,7 +165,7 @@ export function DetailHeader({ onBack, title }: { onBack: () => void; title: str
     <View style={styles.detailHeader}>
       <Pressable accessibilityLabel="Back" accessibilityRole="button" onPress={onBack} style={styles.backButton}>
         <Icon color={theme.colors.teal} name="back" size={20} strokeWidth={2.2} />
-        <Text style={theme.text("heading", "teal")}>More</Text>
+        <Text style={theme.text("heading", "teal")}>{backLabel}</Text>
       </Pressable>
       <Text style={theme.text("title", "ink")}>{title}</Text>
     </View>
