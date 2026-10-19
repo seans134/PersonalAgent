@@ -36,6 +36,9 @@ type MockState = {
     days_of_week: number[];
     start_time: string;
     end_time: string;
+    effective_from?: string | null;
+    effective_until?: string | null;
+    end_day_offset?: number;
   }>;
   scheduleBlocksError?: string;
   courseItems?: Array<{
