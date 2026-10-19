@@ -18,6 +18,8 @@ export type CourseSummaryDTO = {
   targetGrade: number | null; archivedAt: string | null;
   average: number | null; gradedWeight: number;
   nextItem: { id: string; title: string; kind: CourseItemRow["kind"]; dueAt: string } | null;
+  // Soonest ungraded exam due after now.
+  nextExam: { id: string; title: string; dueAt: string } | null;
   // Ungraded items due in the next 7 days.
   dueThisWeek: number;
   // Average needed on the remaining work to hit targetGrade.

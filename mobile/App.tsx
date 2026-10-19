@@ -48,6 +48,7 @@ import { ThemeProvider, useTheme } from "./lib/theme";
 import { handleAuthDeepLink } from "./lib/auth-deep-link";
 import { captureEvent, identifyAnalyticsUser, resetAnalyticsUser, Sentry } from "./lib/analytics";
 import { fetchMobileOnboardingStatus } from "./lib/api";
+import { cancelExamReminders } from "./lib/notifications";
 import { supabase } from "./lib/supabase";
 
 // After a sign-in the user made (or sign-up), students who haven't finished onboarding
@@ -115,7 +116,11 @@ function App() {
       if (nextSession) identifyAnalyticsUser(nextSession.user.id);
       else resetAnalyticsUser();
       if (event === "PASSWORD_RECOVERY") setIsRecoveringPassword(true);
-      if (event === "SIGNED_OUT") setActiveScreen("dashboard");
+      if (event === "SIGNED_OUT") {
+        setActiveScreen("dashboard");
+        // Exam reminders belong to the signed-out student's courses.
+        void cancelExamReminders().catch(() => undefined);
+      }
       // Token refreshes and restored sessions keep the student on their current screen.
       if (event === "SIGNED_IN" && nextSession && userSignInRef.current) {
         userSignInRef.current = false;
@@ -137,7 +142,14 @@ function App() {
 
   useEffect(() => {
     function openNotificationDestination(response: Notifications.NotificationResponse | null) {
-      const screen = response?.notification.request.content.data.screen;
+      const data = response?.notification.request.content.data;
+      const screen = data?.screen;
+      if (screen === "course" && typeof data?.courseId === "string") {
+        setSelectedCourseId(data.courseId);
+        setActiveScreen("courseDetail");
+        captureEvent("notification_opened", { destination: "course" });
+        return;
+      }
       if ((screen === "dashboard" || screen === "workouts") && isScreenEnabled(screen)) {
         setActiveScreen(screen);
         captureEvent("notification_opened", { destination: screen });

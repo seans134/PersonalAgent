@@ -1,13 +1,26 @@
 import Link from "next/link";
-import { features } from "@personal-agent/core";
+import { examLabel, examsWithinDays, features, formatDaysAway } from "@personal-agent/core";
 import { createClient } from "@/lib/supabase/server";
 import { TodayPlanPanel } from "@/components/today-plan-panel";
 import { formatGrade } from "@/components/grade-format";
 import { listCourseSummaries } from "@/lib/courses/queries";
 import type { CourseSummaryDTO } from "@/lib/courses/types";
 
-function formatShortDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+function formatShortDate(iso: string, timeZone?: string): string {
+  return new Date(iso).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", timeZone });
+}
+
+const UPCOMING_EXAM_DAYS = 14;
+
+// Falls back to the server's zone if the saved value isn't a valid IANA name.
+function validTimeZone(value: string | null | undefined): string | undefined {
+  if (!value) return undefined;
+  try {
+    new Intl.DateTimeFormat(undefined, { timeZone: value });
+    return value;
+  } catch {
+    return undefined;
+  }
 }
 
 async function loadCourses(
@@ -31,7 +44,7 @@ export default async function Home() {
   const { data: profile } = user
     ? await supabase
         .from("user_profiles")
-        .select("work_start_time, work_end_time, focus_block_minutes, workout_preference")
+        .select("work_start_time, work_end_time, focus_block_minutes, workout_preference, timezone")
         .eq("user_id", user.id)
         .maybeSingle()
     : { data: null };
@@ -54,6 +67,14 @@ export default async function Home() {
 
   const courses = user ? await loadCourses(supabase, user.id) : [];
   const dueThisWeekCount = courses.reduce((total, course) => total + course.dueThisWeek, 0);
+  // Day counts follow the student's saved timezone, not the server's.
+  const timeZone = validTimeZone(profile?.timezone);
+  const upcomingExams = examsWithinDays(
+    courses.flatMap((course) => (course.nextExam ? [{ ...course.nextExam, course }] : [])),
+    new Date(),
+    UPCOMING_EXAM_DAYS,
+    timeZone,
+  );
 
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
@@ -131,6 +152,31 @@ export default async function Home() {
               {features.wellnessTracking ? ` · Workout: ${profile?.workout_preference ?? "none"}` : null}
             </p>
           </section>
+          {upcomingExams.length > 0 ? (
+            <section className="space-y-3 rounded-[16px] border border-line bg-surface p-6 shadow-[var(--shadow-sm)]">
+              <h2 className="font-display text-lg font-semibold tracking-tight text-ink">Upcoming exams</h2>
+              <ul className="divide-y divide-line">
+                {upcomingExams.map((exam) => (
+                  <li key={exam.id}>
+                    <Link
+                      className="flex items-center justify-between gap-4 py-3 transition hover:text-teal"
+                      href={`/courses/${exam.course.id}`}
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-ink">{examLabel(exam.course, exam.title)}</p>
+                        <p className="truncate text-sm text-ink-muted">
+                          {exam.course.name} · {formatShortDate(exam.dueAt, timeZone)}
+                        </p>
+                      </div>
+                      <p className="shrink-0 font-mono text-[11px] uppercase tracking-[0.08em] text-teal">
+                        {formatDaysAway(exam.daysAway)}
+                      </p>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
           <TodayPlanPanel />
           <section className="space-y-4 rounded-[16px] border border-line bg-surface p-6 shadow-[var(--shadow-sm)]">
             <div className="flex items-baseline justify-between gap-3">

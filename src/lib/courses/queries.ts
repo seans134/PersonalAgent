@@ -1,4 +1,4 @@
-import { countDueWithin } from "@personal-agent/core";
+import { countDueWithin, nextUpcomingExam } from "@personal-agent/core";
 import type { createClient } from "@/lib/supabase/server";
 import { courseGradeFromRows, courseNeededFromRows } from "./grade";
 import type { CourseCategoryRow, CourseItemRow, CourseRow, CourseSummaryDTO } from "./types";
@@ -42,15 +42,17 @@ export async function listCourseSummaries(
     const nextItem = upcoming[0]
       ? { id: upcoming[0].id, title: upcoming[0].title, kind: upcoming[0].kind, dueAt: upcoming[0].due_at }
       : null;
+    const scored = courseItems.map((i) => ({
+      id: i.id, title: i.title, kind: i.kind, dueAt: i.due_at,
+      scoreEarned: i.score_earned === null ? null : Number(i.score_earned),
+    }));
     return {
       id: course.id, name: course.name, code: course.code, color: course.color, term: course.term,
       targetGrade,
       archivedAt: course.archived_at, average: grade.average, gradedWeight: grade.gradedWeight, nextItem,
+      nextExam: nextUpcomingExam(scored, now),
       needed: courseNeededFromRows(courseCategories, courseItems, targetGrade),
-      dueThisWeek: countDueWithin(
-        courseItems.map((i) => ({ dueAt: i.due_at, scoreEarned: i.score_earned === null ? null : Number(i.score_earned) })),
-        now,
-      ),
+      dueThisWeek: countDueWithin(scored, now),
     };
   });
 }

@@ -22,9 +22,11 @@ const course = {
   target_grade: 85, archived_at: null, created_at: "2026-09-01T00:00:00Z",
 };
 
-function item(id: string, dueAt: string, scoreEarned: number | null, categoryId: string | null = null) {
+function item(
+  id: string, dueAt: string, scoreEarned: number | null, categoryId: string | null = null, kind = "assignment",
+) {
   return {
-    id, course_id: "c1", category_id: categoryId, user_id: "u1", kind: "assignment", title: id, due_at: dueAt,
+    id, course_id: "c1", category_id: categoryId, user_id: "u1", kind, title: id, due_at: dueAt,
     end_at: null, location: null, score_earned: scoreEarned, score_max: 100, estimated_effort_hours: null,
     focus_mode: "continuous", created_at: "2026-09-01T00:00:00Z",
   };
@@ -57,6 +59,27 @@ describe("listCourseSummaries", () => {
 
     expect(summary.dueThisWeek).toBe(2);
     expect(summary.nextItem).toMatchObject({ id: "soon" });
+    expect(summary.nextExam).toBeNull();
+  });
+
+  it("reports the soonest ungraded upcoming exam as nextExam", async () => {
+    const supabase = makeSupabase({
+      courses: [course],
+      course_categories: [],
+      course_items: [
+        item("old-exam", "2026-10-01T12:00:00Z", null, null, "exam"),
+        item("graded-exam", "2026-10-11T12:00:00Z", 88, null, "exam"),
+        item("ps", "2026-10-12T12:00:00Z", null),
+        item("midterm", "2026-10-20T14:00:00Z", "0" as never, null, "exam"),
+        item("final", "2026-12-10T14:00:00Z", null, null, "exam"),
+      ],
+    });
+
+    const [summary] = await listCourseSummaries(supabase as never, "u1");
+
+    // A numeric-string zero from Postgres still counts as graded.
+    expect(summary.nextExam).toEqual({ id: "final", title: "final", dueAt: "2026-12-10T14:00:00Z" });
+    expect(summary.nextItem).toMatchObject({ id: "ps" });
   });
 
   it("includes the average needed on the rest to hit the target", async () => {

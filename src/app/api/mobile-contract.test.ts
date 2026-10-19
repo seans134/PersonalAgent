@@ -316,3 +316,36 @@ describe("mobile contract: /api/mobile/courses/import/*", () => {
     expect(apply.runtime).toBe((await import("./courses/apply/route")).runtime);
   });
 });
+
+describe("mobile contract: GET /api/mobile/courses", () => {
+  it("returns { courses } with nextExam on each summary", async () => {
+    const rows: Record<string, unknown[]> = {
+      courses: [{
+        id: "course-1", user_id: "user-1", name: "Organic Chemistry", code: "CHEM 201", color: null, term: null,
+        target_grade: null, archived_at: null, created_at: "2026-09-01T00:00:00Z",
+      }],
+      course_categories: [],
+      course_items: [{
+        id: "exam-1", course_id: "course-1", category_id: null, user_id: "user-1", kind: "exam", title: "Midterm",
+        due_at: "2999-10-20T14:00:00Z", end_at: null, location: null, score_earned: null, score_max: 100,
+        estimated_effort_hours: null, focus_mode: "continuous", created_at: "2026-09-01T00:00:00Z",
+      }],
+    };
+    const from = vi.fn((table: string) => {
+      const builder: Record<string, unknown> = {};
+      for (const method of ["select", "eq", "is", "order"]) builder[method] = vi.fn(() => builder);
+      builder.then = (resolve: (value: unknown) => unknown) => resolve({ data: rows[table] ?? [], error: null });
+      return builder;
+    });
+    mocks.getAuth.mockResolvedValue({ user: { id: "user-1" }, supabase: { from } });
+    const { GET } = await import("./mobile/courses/route");
+    const res = (await GET(new NextRequest("http://localhost/api/mobile/courses")))!;
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.courses[0]).toMatchObject({
+      id: "course-1",
+      nextItem: { id: "exam-1", kind: "exam" },
+      nextExam: { id: "exam-1", title: "Midterm", dueAt: "2999-10-20T14:00:00Z" },
+    });
+  });
+});

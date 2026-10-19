@@ -1,12 +1,20 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
-import type { MobileWorkoutScheduleItem } from "./api";
+import { buildExamReminders, examLabel } from "@personal-agent/core";
+import type { MobileCourseSummary, MobileWorkoutScheduleItem } from "./api";
 import { captureEvent } from "./analytics";
 
 const PREFERENCES_KEY = "atlas.notification-preferences.v1";
 const IDENTIFIERS_KEY = "atlas.notification-identifiers.v1";
 const CHANNEL_ID = "atlas-reminders";
+// Kept apart from IDENTIFIERS_KEY so exam syncs never race plan-reminder writes to the same record.
+const EXAM_IDENTIFIERS_KEY = "atlas.exam-notification-identifiers.v1";
+// Set once Atlas has asked for permission on its own for exam reminders, so it never asks again unprompted.
+const EXAM_PERMISSION_ASKED_KEY = "atlas.exam-reminder-permission-asked.v1";
+// Exam reminders carry this identifier prefix and data.kind so they can be replaced without touching plan reminders.
+const EXAM_IDENTIFIER_PREFIX = "atlas-exam-";
+const EXAM_REMINDER_KIND = "examReminder";
 
 type NotificationGroup = "dailyPlan" | "workouts" | "todayPlan";
 type StoredIdentifiers = Record<NotificationGroup, string[]>;
@@ -17,6 +25,7 @@ export type NotificationPreferences = {
   workoutEnabled: boolean;
   workoutTime: string;
   planLeadMinutes: number;
+  examRemindersEnabled: boolean;
 };
 
 export const defaultNotificationPreferences: NotificationPreferences = {
@@ -25,6 +34,7 @@ export const defaultNotificationPreferences: NotificationPreferences = {
   workoutEnabled: false,
   workoutTime: "17:00",
   planLeadMinutes: 10,
+  examRemindersEnabled: true,
 };
 
 Notifications.setNotificationHandler({
@@ -73,7 +83,7 @@ async function replaceGroup(group: NotificationGroup, identifiers: string[]) {
   await writeIdentifiers(stored);
 }
 
-export async function ensureNotificationPermissions() {
+async function ensureAndroidChannel() {
   if (Platform.OS === "android") {
     await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
       name: "Atlas reminders",
@@ -81,6 +91,10 @@ export async function ensureNotificationPermissions() {
       sound: "default",
     });
   }
+}
+
+export async function ensureNotificationPermissions() {
+  await ensureAndroidChannel();
 
   const existing = await Notifications.getPermissionsAsync();
   if (existing.status === "granted") return true;
@@ -112,6 +126,9 @@ export async function saveNotificationPreferences(
   if (preferences.dailyPlanEnabled || preferences.workoutEnabled) {
     const permitted = await ensureNotificationPermissions();
     if (!permitted) throw new Error("Notifications are disabled for Atlas in device settings.");
+  } else if (preferences.examRemindersEnabled) {
+    // Exam reminders are on by default, so a denial here shouldn't block saving other settings.
+    await ensureNotificationPermissions();
   }
 
   const dailyIds: string[] = [];
@@ -153,9 +170,12 @@ export async function saveNotificationPreferences(
   }
   await replaceGroup("workouts", workoutIds);
   await AsyncStorage.setItem(PREFERENCES_KEY, JSON.stringify(preferences));
+  // Turning exam reminders on is handled by the caller re-syncing from course summaries.
+  if (!preferences.examRemindersEnabled) await cancelExamReminders();
   captureEvent("notification_preferences_updated", {
     daily_plan_enabled: preferences.dailyPlanEnabled,
     workout_enabled: preferences.workoutEnabled,
+    exam_reminders_enabled: preferences.examRemindersEnabled,
   });
 
   return dailyIds.length + workoutIds.length;
@@ -193,15 +213,123 @@ export async function scheduleTodayPlanReminders(
   return identifiers.length;
 }
 
+export async function notificationsPermitted() {
+  return (await Notifications.getPermissionsAsync()).status === "granted";
+}
+
+// Defaults with every reminder off; exam reminders default on, so "disable all" must switch them off explicitly.
+export const disabledNotificationPreferences: NotificationPreferences = {
+  ...defaultNotificationPreferences,
+  examRemindersEnabled: false,
+};
+
 export async function cancelAllAtlasNotifications() {
+  await AsyncStorage.setItem(PREFERENCES_KEY, JSON.stringify(disabledNotificationPreferences));
+  await cancelExamReminders();
   const stored = await readIdentifiers();
   await Promise.all(Object.values(stored).flat().map((id) => Notifications.cancelScheduledNotificationAsync(id)));
   await writeIdentifiers({ dailyPlan: [], workouts: [], todayPlan: [] });
-  await AsyncStorage.setItem(PREFERENCES_KEY, JSON.stringify(defaultNotificationPreferences));
   captureEvent("notifications_disabled");
+  return disabledNotificationPreferences;
+}
+
+// Exam reminders are rebuilt from scratch on every sync. Syncs run one at a time so two overlapping
+// course loads can't each schedule a set and leave duplicates behind.
+let examQueue: Promise<unknown> = Promise.resolve();
+
+function enqueueExamTask<T>(task: () => Promise<T>): Promise<T> {
+  const run = examQueue.then(task);
+  examQueue = run.catch(() => undefined);
+  return run;
+}
+
+async function readExamIdentifiers(): Promise<string[]> {
+  try {
+    const parsed = JSON.parse((await AsyncStorage.getItem(EXAM_IDENTIFIERS_KEY)) ?? "[]") as unknown;
+    return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+async function cancelExamRemindersNow() {
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  const ids = new Set(await readExamIdentifiers());
+  for (const request of scheduled) {
+    if (request.identifier.startsWith(EXAM_IDENTIFIER_PREFIX) || request.content.data?.kind === EXAM_REMINDER_KIND) {
+      ids.add(request.identifier);
+    }
+  }
+  await Promise.all([...ids].map((id) => Notifications.cancelScheduledNotificationAsync(id)));
+  await AsyncStorage.setItem(EXAM_IDENTIFIERS_KEY, JSON.stringify([]));
+}
+
+export function cancelExamReminders() {
+  return enqueueExamTask(cancelExamRemindersNow);
+}
+
+// Granted already, or still undetermined and Atlas hasn't asked on its own before. A denial is never re-prompted
+// here; the student can re-enable notifications in device settings or by saving notification settings.
+async function examRemindersPermitted() {
+  const existing = await Notifications.getPermissionsAsync();
+  if (existing.status === "granted") {
+    await ensureAndroidChannel();
+    return true;
+  }
+  if (existing.status !== "undetermined" || !existing.canAskAgain) return false;
+  if (await AsyncStorage.getItem(EXAM_PERMISSION_ASKED_KEY)) return false;
+  await AsyncStorage.setItem(EXAM_PERMISSION_ASKED_KEY, "1");
+  return ensureNotificationPermissions();
+}
+
+// Replaces the scheduled exam reminders with ones for each active course's next exam:
+// 3 days and 1 day before, at 9:00 device-local time. Returns how many were scheduled.
+export function syncExamReminders(courses: MobileCourseSummary[]) {
+  return enqueueExamTask(async () => {
+    const preferences = await readNotificationPreferences();
+    if (!preferences.examRemindersEnabled) {
+      await cancelExamRemindersNow();
+      return 0;
+    }
+
+    const exams = courses.flatMap((course) =>
+      course.archivedAt === null && course.nextExam
+        ? [{ id: course.nextExam.id, courseId: course.id, label: examLabel(course, course.nextExam.title), dueAt: course.nextExam.dueAt }]
+        : [],
+    );
+    // No timeZone: reminder days and the 9:00 time use the device's local time.
+    const reminders = buildExamReminders(exams, new Date());
+    if (reminders.length === 0) {
+      await cancelExamRemindersNow();
+      return 0;
+    }
+    if (!(await examRemindersPermitted())) return 0;
+
+    await cancelExamRemindersNow();
+    const identifiers: string[] = [];
+    for (const reminder of reminders) {
+      identifiers.push(await Notifications.scheduleNotificationAsync({
+        identifier: `${EXAM_IDENTIFIER_PREFIX}${reminder.examId}-${reminder.daysBefore}d`,
+        content: {
+          title: reminder.title,
+          body: reminder.body,
+          data: { kind: EXAM_REMINDER_KIND, screen: "course", courseId: reminder.courseId, examId: reminder.examId },
+          sound: "default",
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DATE,
+          date: new Date(reminder.fireAt),
+          channelId: CHANNEL_ID,
+        },
+      }));
+    }
+    await AsyncStorage.setItem(EXAM_IDENTIFIERS_KEY, JSON.stringify(identifiers));
+    captureEvent("exam_reminders_scheduled", { count: identifiers.length });
+    return identifiers.length;
+  });
 }
 
 export async function getAtlasScheduledNotificationCount() {
-  const stored = await readIdentifiers();
-  return Object.values(stored).flat().length;
+  const [stored, exams] = await Promise.all([readIdentifiers(), readExamIdentifiers()]);
+  return Object.values(stored).flat().length + exams.length;
 }
