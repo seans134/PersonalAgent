@@ -163,11 +163,14 @@ export function defaultSemesterTerm(
     const term = normalizeTerm(course.term);
     if (term) keyOfCourse.set(course.id, termKey(term));
   }
+  // Dates past the timeline's cap are likely typos (they land in laterItems), so they don't stretch a term's span.
+  const horizon = today + (SEMESTER_MAX_WEEKS_AHEAD + 1) * 7;
   const spans = new Map<string, { first: number; last: number }>();
   for (const item of items) {
     const key = keyOfCourse.get(item.courseId);
     if (!key || !isValidLocalDate(item.dueLocalDate)) continue;
     const day = dayIndex(item.dueLocalDate);
+    if (day > horizon) continue;
     const span = spans.get(key);
     spans.set(key, span ? { first: Math.min(span.first, day), last: Math.max(span.last, day) } : { first: day, last: day });
   }

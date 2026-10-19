@@ -59,6 +59,8 @@ describe("semesterTerms and defaultSemesterTerm", () => {
     expect(defaultSemesterTerm(terms, [...spring, ...fall, ...winter], "2026-12-30")).toBe("Winter 2027");
     // Everything over: the most recent past term.
     expect(defaultSemesterTerm(terms, [...spring, ...fall], "2027-06-01")).toBe("Fall 2026");
+    // A mistyped far-future year doesn't keep a finished term "in progress".
+    expect(defaultSemesterTerm(terms, [...fall, item("typo", "f", "9999-12-31"), ...winter], "2027-01-05")).toBe("Winter 2027");
   });
 
   it("picks any term with items over one without, and null without terms", () => {
