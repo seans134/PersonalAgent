@@ -30,6 +30,7 @@ Web and mobile send the same event names, defined once in `packages/core/src/ana
 | `syllabus_imported` | A reviewed syllabus import is applied | `source` (`photo` / `pdf` / `docx` / `text`), `items`, `categories` |
 | `plan_generated` | Today's plan is generated | none |
 | `needed_score_viewed` | Course detail shows a needed-score status (once per course per session) | `status` |
+| `semester_viewed` | The Semester view loads a term (once per term per visit) | `week_count`, `crunch_week_count` |
 
 The web app uses `NEXT_PUBLIC_POSTHOG_KEY` and optional `NEXT_PUBLIC_POSTHOG_HOST`; with no key it makes no
 PostHog calls. Web `course_created` currently fires only for syllabus imports.

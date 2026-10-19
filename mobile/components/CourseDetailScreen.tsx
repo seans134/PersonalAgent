@@ -46,6 +46,8 @@ type CourseDetailScreenProps = {
   accessToken: string;
   courseId: string;
   onBack: () => void;
+  /** Label on the back button; the Semester screen returns to itself rather than Courses. */
+  backLabel?: string;
 };
 
 type CourseItemRow = MobileCourseDetail["items"][number];
@@ -86,7 +88,7 @@ type ItemModalState = { open: boolean; initial: CourseItemRow | null };
 
 const closedItemModal: ItemModalState = { open: false, initial: null };
 
-export function CourseDetailScreen({ accessToken, courseId, onBack }: CourseDetailScreenProps) {
+export function CourseDetailScreen({ accessToken, courseId, onBack, backLabel = "Courses" }: CourseDetailScreenProps) {
   const theme = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
 
@@ -220,14 +222,14 @@ export function CourseDetailScreen({ accessToken, courseId, onBack }: CourseDeta
     <View style={styles.screen}>
       <View style={styles.header}>
         <Pressable
-          accessibilityLabel="Back to courses"
+          accessibilityLabel={`Back to ${backLabel.toLowerCase()}`}
           accessibilityRole="button"
           hitSlop={8}
           onPress={onBack}
           style={styles.backButton}
         >
           <Icon color={theme.colors.teal} name="back" size={20} strokeWidth={2.2} />
-          <Text style={styles.backText}>Courses</Text>
+          <Text style={styles.backText}>{backLabel}</Text>
         </Pressable>
         <Text numberOfLines={1} style={styles.headerTitle}>
           {detail ? detail.course.name : "Course"}

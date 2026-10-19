@@ -20,6 +20,7 @@ import { AccountSettingsScreen } from "./components/AccountSettingsScreen";
 import { CalendarScreen } from "./components/CalendarScreen";
 import { CourseDetailScreen } from "./components/CourseDetailScreen";
 import { CoursesScreen } from "./components/CoursesScreen";
+import { SemesterScreen } from "./components/SemesterScreen";
 import { DashboardScreen } from "./components/DashboardScreen";
 import { GoalsScreen } from "./components/GoalsScreen";
 import { MealCoachScreen } from "./components/MealCoachScreen";
@@ -68,6 +69,8 @@ function App() {
   const [loadingSession, setLoadingSession] = useState(true);
   const [activeScreen, setActiveScreen] = useState<MobileScreen>("dashboard");
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
+  // Where the course detail's back button goes: Courses, or Semester when opened from there.
+  const [courseBackScreen, setCourseBackScreen] = useState<"courses" | "semester">("courses");
   const [isRecoveringPassword, setIsRecoveringPassword] = useState(false);
   const [authLinkMessage, setAuthLinkMessage] = useState<string | undefined>();
   // Set by AuthScreen and the auth deep-link handler. supabase-js also emits
@@ -148,6 +151,7 @@ function App() {
       const screen = data?.screen;
       if (screen === "course" && typeof data?.courseId === "string") {
         setSelectedCourseId(data.courseId);
+        setCourseBackScreen("courses");
         setActiveScreen("courseDetail");
         captureEvent("notification_opened", { destination: "course" });
         return;
@@ -174,6 +178,13 @@ function App() {
 
   function openCourse(courseId: string) {
     setSelectedCourseId(courseId);
+    setCourseBackScreen("courses");
+    setActiveScreen("courseDetail");
+  }
+
+  function openCourseFromSemester(courseId: string) {
+    setSelectedCourseId(courseId);
+    setCourseBackScreen("semester");
     setActiveScreen("courseDetail");
   }
 
@@ -274,6 +285,19 @@ function App() {
             accessToken={token}
             onImportSyllabus={() => setActiveScreen("syllabusImport")}
             onOpenCourse={openCourse}
+            onOpenSemester={() => setActiveScreen("semester")}
+          />
+        </View>
+      );
+    }
+
+    if (activeScreen === "semester") {
+      return (
+        <View style={styles.tabBody}>
+          <SemesterScreen
+            accessToken={token}
+            onBack={() => setActiveScreen("courses")}
+            onOpenCourse={openCourseFromSemester}
           />
         </View>
       );
@@ -298,8 +322,9 @@ function App() {
         <View style={styles.tabBody}>
           <CourseDetailScreen
             accessToken={token}
+            backLabel={courseBackScreen === "semester" ? "Semester" : "Courses"}
             courseId={selectedCourseId}
-            onBack={() => setActiveScreen("courses")}
+            onBack={() => setActiveScreen(courseBackScreen)}
           />
         </View>
       );
