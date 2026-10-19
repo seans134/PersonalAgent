@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { courseItemsToCalendarEvents } from "@/lib/courses/projection";
+import type { CourseItemRow } from "@/lib/courses/types";
 import { getAuthenticatedRequestClient } from "@/lib/supabase/request";
 
 type CalendarEventRow = {
@@ -23,7 +25,12 @@ type ScheduleBlockRow = {
 type UserProfileCalendarRow = {
   has_school_schedule: boolean | null;
   has_work_schedule: boolean | null;
+  timezone: string | null;
 };
+
+type CourseNameRow = { id: string; name: string; code: string | null };
+
+const DEFAULT_TIMEZONE = "America/Toronto";
 
 const CALENDAR_CATEGORIES = new Set(["school", "work", "study", "personal", "unavailable"]);
 
@@ -116,10 +123,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Authentication required." }, { status: 401 });
   }
 
-  const [profileResult, eventsResult, blocksResult] = await Promise.all([
+  const [profileResult, eventsResult, blocksResult, coursesResult, courseItemsResult] = await Promise.all([
     auth.supabase
       .from("user_profiles")
-      .select("has_school_schedule, has_work_schedule")
+      .select("has_school_schedule, has_work_schedule, timezone")
       .eq("user_id", auth.user.id)
       .maybeSingle(),
     auth.supabase
@@ -133,24 +140,42 @@ export async function GET(request: NextRequest) {
       .select("id, title, category, days_of_week, start_time, end_time, timezone")
       .eq("user_id", auth.user.id)
       .order("start_time", { ascending: true }),
+    auth.supabase
+      .from("courses")
+      .select("id, name, code")
+      .eq("user_id", auth.user.id)
+      .is("archived_at", null),
+    auth.supabase
+      .from("course_items")
+      .select("*")
+      .eq("user_id", auth.user.id)
+      .order("due_at", { ascending: true }),
   ]);
 
-  if (profileResult.error || eventsResult.error || blocksResult.error) {
-    return NextResponse.json(
-      {
-        error:
-          profileResult.error?.message ??
-          eventsResult.error?.message ??
-          blocksResult.error?.message ??
-          "Unable to load calendar.",
-      },
-      { status: 500 },
-    );
+  const firstError =
+    profileResult.error ?? eventsResult.error ?? blocksResult.error ?? coursesResult.error ?? courseItemsResult.error;
+  if (firstError) {
+    return NextResponse.json({ error: firstError.message || "Unable to load calendar." }, { status: 500 });
   }
 
   const profile = profileResult.data as UserProfileCalendarRow | null;
   const events = ((eventsResult.data ?? []) as CalendarEventRow[]).map(toEvent);
   const scheduleBlocks = ((blocksResult.data ?? []) as ScheduleBlockRow[]).map(toBlock);
+
+  // Course items (assignments, quizzes, exams/tests — e.g. from a syllabus import) show on
+  // the calendar alongside local events. Items from archived courses are left out.
+  const courseNameById = new Map(
+    ((coursesResult.data ?? []) as CourseNameRow[]).map((course) => [
+      course.id,
+      course.code ? `${course.code} · ${course.name}` : course.name,
+    ]),
+  );
+  const timezone = profile?.timezone?.trim() || DEFAULT_TIMEZONE;
+  const courseEvents = courseItemsToCalendarEvents(
+    ((courseItemsResult.data ?? []) as CourseItemRow[]).filter((item) => courseNameById.has(item.course_id)),
+    courseNameById,
+    timezone,
+  );
 
   return NextResponse.json({
     visibility: {
@@ -162,6 +187,7 @@ export async function GET(request: NextRequest) {
     },
     scheduleBlocks,
     events,
+    courseEvents,
   });
 }
 
@@ -245,9 +271,9 @@ export async function DELETE(request: NextRequest) {
 
   try {
     const payload = (await request.json()) as CalendarMutationPayload;
-    const kind = calendarKind(payload.kind);
+    const kind = payload.kind === "course_item" ? "course_item" : calendarKind(payload.kind);
     const id = requiredText(payload.id, "Calendar item id");
-    const table = kind === "event" ? "calendar_events" : "schedule_blocks";
+    const table = kind === "event" ? "calendar_events" : kind === "block" ? "schedule_blocks" : "course_items";
     const { error } = await auth.supabase.from(table).delete().eq("id", id).eq("user_id", auth.user.id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true });

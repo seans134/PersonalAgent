@@ -3,7 +3,17 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { type FormEvent, type MouseEvent, useEffect, useMemo, useState } from "react";
-import { Calendar, type CalendarEvent, type ScheduleBlock, type ScheduleBlockCategory } from "@personal-agent/core/calendar";
+import {
+  Calendar,
+  calendarActivityOptions,
+  calendarEventActivity,
+  calendarEventTimeLabel,
+  isActivityVisible,
+  type CalendarActivity,
+  type CalendarEvent,
+  type ScheduleBlock,
+  type ScheduleBlockCategory,
+} from "@personal-agent/core/calendar";
 import { createClient } from "@/lib/supabase/client";
 
 const weekdayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -30,6 +40,8 @@ type EventFormState = {
 type EditingTarget =
   | { id: string; type: "single" }
   | { id: string; type: "recurring" };
+
+type CalendarApiResponse = { courseEvents?: CalendarEvent[]; error?: string };
 
 type CalendarEventRow = {
   id: string;
@@ -97,9 +109,14 @@ function parseCalendarView(value: string | null): CalendarView {
   return calendarViews.find((view) => view === value) ?? "month";
 }
 
+function startOfToday() {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+}
+
 function parseDateParam(value: string | null) {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return new Date(2026, 5, 8);
+    return startOfToday();
   }
 
   const [year, month, day] = value.split("-").map(Number);
@@ -110,7 +127,7 @@ function parseDateParam(value: string | null) {
     parsedDate.getMonth() !== month - 1 ||
     parsedDate.getDate() !== day
   ) {
-    return new Date(2026, 5, 8);
+    return startOfToday();
   }
 
   return parsedDate;
@@ -174,6 +191,22 @@ function eventColor(category: CalendarEvent["category"]) {
   if (category === "personal") return "border-success/40 bg-success/10 text-success";
   if (category === "unavailable") return "border-line bg-surface2 text-ink-muted";
   return "border-goal/30 bg-goal/10 text-goal";
+}
+
+function activityColor(activity: CalendarActivity) {
+  if (activity === "exam") return "border-danger/40 bg-danger/10 text-danger";
+  if (activity === "quiz") return "border-warning/40 bg-warning/10 text-warning";
+  if (activity === "assignment") return "border-teal/40 bg-teal/10 text-teal";
+  return eventColor(activity);
+}
+
+function eventClasses(event: CalendarEvent) {
+  return activityColor(calendarEventActivity(event));
+}
+
+function eventTitle(event: CalendarEvent) {
+  const when = event.course?.isDeadline ? `Due ${event.course.dueTime}` : `${event.startTime} - ${event.endTime}`;
+  return event.course ? `${when} ${event.title} (${event.course.courseName})` : `${when} ${event.title}`;
 }
 
 function clickStartedOnEvent(clickEvent: MouseEvent<HTMLElement>) {
@@ -275,16 +308,16 @@ function EventPill({
 }) {
   return (
     <button
-      className={`w-full truncate rounded border px-2 py-1 text-left text-xs font-medium ${eventColor(event.category)}`}
+      className={`w-full truncate rounded border px-2 py-1 text-left text-xs font-medium ${eventClasses(event)}`}
       data-calendar-event="true"
       onClick={(clickEvent) => {
         clickEvent.stopPropagation();
         onEditEvent(event);
       }}
-      title={`${event.startTime} - ${event.endTime} ${event.title}`}
+      title={eventTitle(event)}
       type="button"
     >
-      {event.startTime} {event.title}
+      {calendarEventTimeLabel(event)} {event.title}
     </button>
   );
 }
@@ -442,17 +475,17 @@ function WeekCalendar({
                   <div className="space-y-1">
                     {events.map((event) => (
                       <button
-                        className={`w-full truncate rounded border px-2 py-1 text-left text-[11px] font-medium leading-tight ${eventColor(event.category)}`}
+                        className={`w-full truncate rounded border px-2 py-1 text-left text-[11px] font-medium leading-tight ${eventClasses(event)}`}
                         data-calendar-event="true"
                         key={`${event.id}-${hour}`}
                         onClick={(clickEvent) => {
                           clickEvent.stopPropagation();
                           onEditEvent(event);
                         }}
-                        title={`${event.startTime} - ${event.endTime} ${event.title}`}
+                        title={eventTitle(event)}
                         type="button"
                       >
-                        {event.startTime} {event.title}
+                        {calendarEventTimeLabel(event)} {event.title}
                       </button>
                     ))}
                   </div>
@@ -521,17 +554,17 @@ function DayCalendar({
                   <div className="space-y-1">
                     {hourEvents.map((event) => (
                       <button
-                        className={`w-full truncate rounded border px-2 py-1 text-left text-[11px] font-medium leading-tight ${eventColor(event.category)}`}
+                        className={`w-full truncate rounded border px-2 py-1 text-left text-[11px] font-medium leading-tight ${eventClasses(event)}`}
                         data-calendar-event="true"
                         key={`${event.id}-${hour}`}
                         onClick={(clickEvent) => {
                           clickEvent.stopPropagation();
                           onEditEvent(event);
                         }}
-                        title={`${event.startTime} - ${event.endTime} ${event.title}`}
+                        title={eventTitle(event)}
                         type="button"
                       >
-                        {event.startTime} {event.title}
+                        {calendarEventTimeLabel(event)} {event.title}
                       </button>
                     ))}
                   </div>
@@ -675,13 +708,114 @@ function EventModal({
   );
 }
 
+const courseKindLabels: Record<NonNullable<CalendarEvent["course"]>["kind"], string> = {
+  exam: "Exam / test",
+  quiz: "Quiz",
+  assignment: "Assignment",
+};
+
+function CourseEventModal({
+  error,
+  event,
+  isDeleting,
+  onClose,
+  onDelete,
+}: {
+  error: string;
+  event: CalendarEvent;
+  isDeleting: boolean;
+  onClose: () => void;
+  onDelete: () => void;
+}) {
+  const course = event.course!;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-teal/50 px-4">
+      <div className="w-full max-w-lg rounded-lg border border-line bg-surface p-6 shadow-xl">
+        <div className="mb-5 flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium uppercase tracking-wide text-ink-muted">{courseKindLabels[course.kind]}</p>
+            <h2 className="mt-1 text-2xl font-semibold text-ink">{event.title}</h2>
+            <p className="mt-1 text-sm text-ink-muted">{course.courseName}</p>
+          </div>
+          <button className="rounded-md px-2 py-1 text-sm text-ink-muted hover:bg-surface2" onClick={onClose} type="button">
+            Close
+          </button>
+        </div>
+
+        <p className="rounded-lg bg-surface2 px-3 py-2 text-sm text-ink">
+          {event.date} · {course.isDeadline ? `Due ${course.dueTime}` : `${event.startTime} - ${event.endTime}`}
+        </p>
+        <p className="mt-3 text-xs text-ink-muted">
+          This comes from your course. Edit it on the course page. Deleting it here also removes it from the course and
+          its grade.
+        </p>
+
+        {error ? <p className="mt-4 rounded-lg border border-danger bg-surface px-3 py-2 text-sm text-danger">{error}</p> : null}
+
+        <div className="mt-5 flex flex-wrap justify-end gap-3">
+          <button
+            className="mr-auto rounded-lg border border-danger px-4 py-2 text-sm font-medium text-danger disabled:opacity-60"
+            disabled={isDeleting}
+            onClick={onDelete}
+            type="button"
+          >
+            {isDeleting ? "Deleting..." : "Delete"}
+          </button>
+          <Link className="rounded-lg bg-teal px-4 py-2 text-sm font-medium text-on-teal" href={`/courses/${course.courseId}`}>
+            Open course
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ActivityFilter({
+  hidden,
+  onReset,
+  onToggle,
+}: {
+  hidden: CalendarActivity[];
+  onReset: () => void;
+  onToggle: (activity: CalendarActivity) => void;
+}) {
+  return (
+    <div aria-label="Show activities" className="mb-4 flex flex-wrap items-center gap-2" role="group">
+      <span className="mr-1 text-xs font-semibold uppercase tracking-wide text-ink-muted">Show</span>
+      {calendarActivityOptions.map((option) => {
+        const isVisible = isActivityVisible(option.value, hidden);
+
+        return (
+          <button
+            aria-pressed={isVisible}
+            className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+              isVisible ? activityColor(option.value) : "border-line bg-surface text-ink-muted line-through"
+            }`}
+            key={option.value}
+            onClick={() => onToggle(option.value)}
+            type="button"
+          >
+            {option.label}
+          </button>
+        );
+      })}
+      {hidden.length > 0 ? (
+        <button className="text-xs font-medium text-ink-muted underline" onClick={onReset} type="button">
+          Show all
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 export default function LocalCalendarPage() {
   const supabase = useMemo(() => createClient(), []);
   const searchParams = useSearchParams();
   const selectedView = parseCalendarView(searchParams.get("view"));
   const selectedDate = parseDateParam(searchParams.get("date"));
   const visibleMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
-  const todayKey = "2026-06-08";
+  const todayKey = toDateKey(startOfToday());
   const [userId, setUserId] = useState("");
   const [isLoadingCalendar, setIsLoadingCalendar] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -691,6 +825,9 @@ export default function LocalCalendarPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [eventForm, setEventForm] = useState<EventFormState | null>(null);
   const [editingTarget, setEditingTarget] = useState<EditingTarget | null>(null);
+  const [courseEvents, setCourseEvents] = useState<CalendarEvent[]>([]);
+  const [hiddenActivities, setHiddenActivities] = useState<CalendarActivity[]>([]);
+  const [selectedCourseEvent, setSelectedCourseEvent] = useState<CalendarEvent | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -716,13 +853,14 @@ export default function LocalCalendarPage() {
         setUserId("");
         setManualEvents([]);
         setRecurringBlocks([]);
+        setCourseEvents([]);
         setIsLoadingCalendar(false);
         return;
       }
 
       setUserId(user.id);
 
-      const [eventsResult, blocksResult] = await Promise.all([
+      const [eventsResult, blocksResult, courseResult] = await Promise.all([
         supabase
           .from("calendar_events")
           .select("id, title, category, event_date, start_time, end_time")
@@ -734,15 +872,23 @@ export default function LocalCalendarPage() {
           .select("id, title, category, days_of_week, start_time, end_time, timezone")
           .eq("user_id", user.id)
           .order("start_time", { ascending: true }),
+        // Course items (exams, tests, quizzes, assignments) come projected from the shared calendar API.
+        fetch("/api/mobile/calendar", { cache: "no-store" })
+          .then(async (response) => ({ ok: response.ok, body: (await response.json()) as CalendarApiResponse }))
+          .catch(() => ({ ok: false, body: { error: "Unable to load course dates." } as CalendarApiResponse })),
       ]);
 
       if (!isMounted) return;
 
-      if (eventsResult.error || blocksResult.error) {
-        setLoadError(eventsResult.error?.message ?? blocksResult.error?.message ?? "Unable to load calendar.");
+      if (eventsResult.error || blocksResult.error || !courseResult.ok) {
+        setLoadError(
+          eventsResult.error?.message ?? blocksResult.error?.message ?? courseResult.body.error ?? "Unable to load calendar.",
+        );
         setIsLoadingCalendar(false);
         return;
       }
+
+      setCourseEvents(courseResult.body.courseEvents ?? []);
 
       setManualEvents(((eventsResult.data ?? []) as CalendarEventRow[]).map(toCalendarEvent));
       setRecurringBlocks(((blocksResult.data ?? []) as ScheduleBlockRow[]).map(toScheduleBlock));
@@ -756,13 +902,26 @@ export default function LocalCalendarPage() {
     };
   }, [supabase]);
 
+  // What the grid shows: everything the activity filter leaves visible.
   const calendar = useMemo(
     () =>
       new Calendar({
-        scheduleBlocks: recurringBlocks,
-        events: manualEvents,
+        scheduleBlocks: recurringBlocks.filter((block) => isActivityVisible(block.category, hiddenActivities)),
+        events: [...manualEvents, ...courseEvents].filter((event) =>
+          isActivityVisible(calendarEventActivity(event), hiddenActivities),
+        ),
       }),
-    [manualEvents, recurringBlocks],
+    [courseEvents, hiddenActivities, manualEvents, recurringBlocks],
+  );
+
+  // Free windows ignore the filter (a hidden class still takes up time); assignment deadlines aren't busy time.
+  const busyCalendar = useMemo(
+    () =>
+      new Calendar({
+        scheduleBlocks: recurringBlocks,
+        events: [...manualEvents, ...courseEvents.filter((event) => !event.course?.isDeadline)],
+      }),
+    [courseEvents, manualEvents, recurringBlocks],
   );
 
   const monthDays = getMonthDays(visibleMonth);
@@ -788,8 +947,18 @@ export default function LocalCalendarPage() {
     });
   }
 
+  function toggleActivity(activity: CalendarActivity) {
+    setHiddenActivities((current) =>
+      current.includes(activity) ? current.filter((value) => value !== activity) : [...current, activity],
+    );
+  }
+
   function openEditEventModal(event: CalendarEvent) {
     setModalError("");
+    if (event.source === "course") {
+      setSelectedCourseEvent(event);
+      return;
+    }
     setEditingTarget(
       event.source === "recurring_schedule" && event.sourceId
         ? { id: event.sourceId, type: "recurring" }
@@ -809,10 +978,7 @@ export default function LocalCalendarPage() {
     setModalError("");
     setEventForm(null);
     setEditingTarget(null);
-  }
-
-  function updateEventForm(patch: Partial<EventFormState>) {
-    setEventForm((current) => (current ? { ...current, ...patch } : current));
+    setSelectedCourseEvent(null);
   }
 
   async function handleDeleteEvent() {
@@ -846,6 +1012,36 @@ export default function LocalCalendarPage() {
     } finally {
       setIsDeleting(false);
     }
+  }
+
+  async function handleDeleteCourseEvent() {
+    const course = selectedCourseEvent?.course;
+    if (!selectedCourseEvent || !course) return;
+    if (!window.confirm(`Delete "${selectedCourseEvent.title}"? This also removes it from ${course.courseName}.`)) return;
+
+    setIsDeleting(true);
+    setModalError("");
+    try {
+      const response = await fetch("/api/mobile/calendar", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: "course_item", id: course.itemId }),
+      });
+      if (!response.ok) {
+        const body = (await response.json().catch(() => ({}))) as { error?: string };
+        throw new Error(body.error ?? "Unable to delete this item.");
+      }
+      setCourseEvents((current) => current.filter((event) => event.course?.itemId !== course.itemId));
+      closeEventModal();
+    } catch (error) {
+      setModalError(error instanceof Error ? error.message : "Unable to delete this item.");
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
+  function updateEventForm(patch: Partial<EventFormState>) {
+    setEventForm((current) => (current ? { ...current, ...patch } : current));
   }
 
   async function handleSubmitEvent(event: FormEvent<HTMLFormElement>) {
@@ -1000,7 +1196,7 @@ export default function LocalCalendarPage() {
           <p className="text-sm font-medium uppercase tracking-wide text-ink-muted">Calendar</p>
           <h1 className="text-3xl font-semibold tracking-tight text-ink">{title}</h1>
           <p className="mt-2 max-w-2xl text-ink-muted">
-            Your classes, work shifts, and events. Atlas plans study time around them.
+            Your events, weekly schedule, and course dates (exams, tests, quizzes, and assignments) in one place.
           </p>
         </div>
       </header>
@@ -1039,6 +1235,8 @@ export default function LocalCalendarPage() {
             <CalendarNavigation currentDate={selectedDate} currentView={selectedView} />
           </div>
 
+          <ActivityFilter hidden={hiddenActivities} onReset={() => setHiddenActivities([])} onToggle={toggleActivity} />
+
           {selectedView === "day" ? (
             <DayCalendar
               calendar={calendar}
@@ -1067,20 +1265,21 @@ export default function LocalCalendarPage() {
 
         <aside className="rounded-lg border border-line bg-surface p-5 shadow-sm">
           <p className="text-sm font-medium uppercase tracking-wide text-ink-muted">Today</p>
-          <h2 className="mt-1 text-xl font-semibold text-ink">June 8</h2>
+          <h2 className="mt-1 text-xl font-semibold text-ink">{formatDay(startOfToday())}</h2>
 
           <div className="mt-5 space-y-3">
             {todayEvents.length === 0 ? <p className="text-sm text-ink-muted">Nothing scheduled today.</p> : null}
             {todayEvents.map((event) => (
               <button
-                className={`w-full rounded-lg border p-3 text-left ${eventColor(event.category)}`}
+                className={`w-full rounded-lg border p-3 text-left ${eventClasses(event)}`}
                 key={event.id}
                 onClick={() => openEditEventModal(event)}
                 type="button"
               >
                 <p className="text-sm font-semibold">{event.title}</p>
                 <p className="mt-1 text-xs">
-                  {event.startTime} - {event.endTime}
+                  {event.course?.isDeadline ? `Due ${event.course.dueTime}` : `${event.startTime} - ${event.endTime}`}
+                  {event.course ? ` · ${event.course.courseName}` : ""}
                 </p>
               </button>
             ))}
@@ -1089,7 +1288,7 @@ export default function LocalCalendarPage() {
           <div className="mt-6 border-t border-line pt-5">
             <p className="text-sm font-medium text-ink">Free windows</p>
             <ul className="mt-3 space-y-2">
-              {calendar.getFreeWindows(todayKey, "08:00", "20:00").map((window) => (
+              {busyCalendar.getFreeWindows(todayKey, "08:00", "20:00").map((window) => (
                 <li className="rounded-lg bg-surface2 px-3 py-2 text-sm text-ink-muted" key={`${window.startTime}-${window.endTime}`}>
                   {window.startTime} - {window.endTime}
                 </li>
@@ -1112,6 +1311,16 @@ export default function LocalCalendarPage() {
           onClose={closeEventModal}
           onDelete={handleDeleteEvent}
           onSubmit={handleSubmitEvent}
+        />
+      ) : null}
+
+      {selectedCourseEvent ? (
+        <CourseEventModal
+          error={modalError}
+          event={selectedCourseEvent}
+          isDeleting={isDeleting}
+          onClose={closeEventModal}
+          onDelete={handleDeleteCourseEvent}
         />
       ) : null}
     </main>

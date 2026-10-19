@@ -1,15 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTheme } from "../lib/theme";
 import type { Theme } from "../lib/theme";
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
-import type { CalendarEvent, ScheduleBlockCategory } from "@personal-agent/core/calendar";
+import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  calendarActivityOptions,
+  calendarEventActivity,
+  isActivityVisible,
+  type CalendarActivity,
+  type CalendarEvent,
+} from "@personal-agent/core/calendar";
 import { CalendarEventModal, type EventFormState } from "./CalendarEventModal";
 import { CalendarGrid, type SelectedSlot } from "./CalendarGrid";
 import {
+  activityColor,
   buildCalendar,
+  calendarEventColor,
   calendarViews,
-  categoryOptions,
-  eventColor,
   formatDay,
   formatMonth,
   fromDateKey,
@@ -59,7 +65,7 @@ export function CalendarScreen({ accessToken }: CalendarScreenProps) {
   const [snapshot, setSnapshot] = useState<MobileCalendarResponse | null>(null);
   const [view, setView] = useState<CalendarView>("month");
   const [selectedDate, setSelectedDate] = useState(() => new Date());
-  const [hiddenCategories, setHiddenCategories] = useState<ScheduleBlockCategory[]>([]);
+  const [hiddenActivities, setHiddenActivities] = useState<CalendarActivity[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState("");
@@ -116,18 +122,32 @@ export function CalendarScreen({ accessToken }: CalendarScreenProps) {
 
   const visibleSnapshot = useMemo(() => {
     if (!snapshot) return null;
-    if (hiddenCategories.length === 0) return snapshot;
+    if (hiddenActivities.length === 0) return snapshot;
 
     return {
       ...snapshot,
-      scheduleBlocks: snapshot.scheduleBlocks.filter(
-        (block) => !hiddenCategories.includes(block.category),
+      scheduleBlocks: snapshot.scheduleBlocks.filter((block) =>
+        isActivityVisible(block.category, hiddenActivities),
       ),
-      events: snapshot.events.filter((event) => !hiddenCategories.includes(event.category)),
+      events: snapshot.events.filter((event) => isActivityVisible(event.category, hiddenActivities)),
+      courseEvents: (snapshot.courseEvents ?? []).filter((event) =>
+        isActivityVisible(calendarEventActivity(event), hiddenActivities),
+      ),
     };
-  }, [hiddenCategories, snapshot]);
+  }, [hiddenActivities, snapshot]);
 
   const calendar = useMemo(() => buildCalendar(visibleSnapshot), [visibleSnapshot]);
+  // Free windows ignore the filter (a hidden class still takes up time); assignment deadlines aren't busy time.
+  const busyCalendar = useMemo(
+    () =>
+      buildCalendar(
+        snapshot && {
+          ...snapshot,
+          courseEvents: (snapshot.courseEvents ?? []).filter((event) => !event.course?.isDeadline),
+        },
+      ),
+    [snapshot],
+  );
 
   const visibleMonth = useMemo(
     () => new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1),
@@ -136,7 +156,7 @@ export function CalendarScreen({ accessToken }: CalendarScreenProps) {
   const monthDays = useMemo(() => getMonthDays(visibleMonth), [visibleMonth]);
   const weekDays = useMemo(() => getWeekDays(selectedDate), [selectedDate]);
   const todayEvents = calendar.getEventsForDate(todayKey);
-  const freeWindows = calendar.getFreeWindows(todayKey, dayStartTime, dayEndTime);
+  const freeWindows = busyCalendar.getFreeWindows(todayKey, dayStartTime, dayEndTime);
 
   const title =
     view === "month"
@@ -150,13 +170,49 @@ export function CalendarScreen({ accessToken }: CalendarScreenProps) {
     setSelectedDate((current) => getShiftedDate(current, view, direction));
   }
 
-  function toggleCategory(category: ScheduleBlockCategory) {
+  function toggleActivity(activity: CalendarActivity) {
     tapHaptic();
-    setHiddenCategories((current) =>
-      current.includes(category)
-        ? current.filter((value) => value !== category)
-        : [...current, category],
+    setHiddenActivities((current) =>
+      current.includes(activity)
+        ? current.filter((value) => value !== activity)
+        : [...current, activity],
     );
+  }
+
+  async function deleteCourseEvent(event: CalendarEvent) {
+    if (!event.course) return;
+    try {
+      await deleteMobileCalendarItem(accessToken, "course_item", event.course.itemId);
+      successHaptic();
+      await loadCalendar();
+    } catch (error) {
+      errorHaptic();
+      Alert.alert("Couldn't delete", error instanceof Error ? error.message : "Unable to delete this item.");
+    }
+  }
+
+  // Course dates are edited on the course screen; here they can only be reviewed or deleted.
+  function openCourseEvent(event: CalendarEvent) {
+    const course = event.course;
+    if (!course) return;
+    tapHaptic();
+    const when = course.isDeadline ? `Due ${course.dueTime}` : `${event.startTime} - ${event.endTime}`;
+    Alert.alert(event.title, `${course.courseName}\n${event.date} · ${when}`, [
+      { text: "Close", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: () =>
+          Alert.alert(
+            "Delete this course item?",
+            `This also removes "${event.title}" from ${course.courseName} and its grade.`,
+            [
+              { text: "Cancel", style: "cancel" },
+              { text: "Delete", style: "destructive", onPress: () => void deleteCourseEvent(event) },
+            ],
+          ),
+      },
+    ]);
   }
 
   function openCreateModal(slot: SelectedSlot) {
@@ -174,6 +230,10 @@ export function CalendarScreen({ accessToken }: CalendarScreenProps) {
   }
 
   function openEditModal(event: CalendarEvent) {
+    if (event.source === "course") {
+      openCourseEvent(event);
+      return;
+    }
     tapHaptic();
     setModalError("");
     setEditingTarget(
@@ -307,8 +367,8 @@ export function CalendarScreen({ accessToken }: CalendarScreenProps) {
           <Text style={styles.eyebrow}>Local calendar</Text>
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.body}>
-            Tap a day or hour to add an event. Tap an event to edit it. Changes stay synchronized
-            with the web app and daily planner.
+            Tap a day or hour to add an event. Tap an event to edit or delete it. Exams, tests,
+            quizzes, and assignments from your courses show up here too.
           </Text>
         </View>
 
@@ -350,14 +410,16 @@ export function CalendarScreen({ accessToken }: CalendarScreenProps) {
         </View>
 
         <View style={styles.legendRow}>
-          {categoryOptions.map((category) => {
-            const colors = eventColor(category);
-            const isHidden = hiddenCategories.includes(category);
+          {calendarActivityOptions.map(({ value: activity, label }) => {
+            const colors = activityColor(activity);
+            const isHidden = !isActivityVisible(activity, hiddenActivities);
 
             return (
               <Pressable
-                key={category}
-                onPress={() => toggleCategory(category)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: !isHidden }}
+                key={activity}
+                onPress={() => toggleActivity(activity)}
                 style={[
                   styles.legendChip,
                   { borderColor: colors.border, backgroundColor: colors.background },
@@ -366,7 +428,7 @@ export function CalendarScreen({ accessToken }: CalendarScreenProps) {
               >
                 <View style={[styles.swatch, { backgroundColor: colors.text }, isHidden && styles.swatchOff]} />
                 <Text style={[styles.legendText, { color: colors.text }, isHidden && styles.legendTextOff]}>
-                  {titleCase(category)}
+                  {label}
                 </Text>
               </Pressable>
             );
@@ -397,7 +459,7 @@ export function CalendarScreen({ accessToken }: CalendarScreenProps) {
           ) : (
             <View style={styles.todayList}>
               {todayEvents.map((event) => {
-                const colors = eventColor(event.category);
+                const colors = calendarEventColor(event);
 
                 return (
                   <Pressable
@@ -410,8 +472,11 @@ export function CalendarScreen({ accessToken }: CalendarScreenProps) {
                   >
                     <Text style={[styles.todayItemTitle, { color: colors.text }]}>{event.title}</Text>
                     <Text style={[styles.todayItemMeta, { color: colors.text }]}>
-                      {event.startTime} - {event.endTime}
+                      {event.course?.isDeadline
+                        ? `Due ${event.course.dueTime}`
+                        : `${event.startTime} - ${event.endTime}`}
                       {event.source === "recurring_schedule" ? " | Weekly" : ""}
+                      {event.course ? ` | ${event.course.courseName}` : ""}
                     </Text>
                   </Pressable>
                 );
@@ -440,7 +505,7 @@ export function CalendarScreen({ accessToken }: CalendarScreenProps) {
           {snapshot ? (
             <Text style={styles.counts}>
               {snapshot.scheduleBlocks.length} recurring blocks | {snapshot.events.length} local
-              events
+              events | {snapshot.courseEvents?.length ?? 0} course dates
             </Text>
           ) : null}
         </View>

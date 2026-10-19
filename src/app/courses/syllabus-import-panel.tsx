@@ -30,6 +30,19 @@ const MAX_UPLOAD_BYTES = 4.5 * 1024 * 1024;
 const TOO_LARGE_MESSAGE =
   "That file is too large to upload. Please use a syllabus under 4.5 MB, or paste the text instead.";
 
+// Review groups, most time-critical first. Term tests and midterms are stored as "exam".
+const KIND_GROUPS: Array<{ kind: SyllabusItemKind; label: string }> = [
+  { kind: "exam", label: "Exams & term tests" },
+  { kind: "quiz", label: "Quizzes" },
+  { kind: "assignment", label: "Assignments" },
+];
+
+const KIND_LABELS: Record<SyllabusItemKind, string> = {
+  exam: "exam / test",
+  quiz: "quiz",
+  assignment: "assignment",
+};
+
 function isErrorResponse(value: ParseResponse | ApplyResponse): value is { error: string } {
   return "error" in value;
 }
@@ -387,65 +400,109 @@ export function SyllabusImportPanel({
 
           {/* Items */}
           {draft.items.length > 0 ? (
-            <div className="space-y-2">
-              <h3 className="text-sm font-semibold text-ink">Assignments, quizzes &amp; exams</h3>
-              {draft.items.map((item, index) => (
-                <div className="flex flex-wrap items-center gap-2 rounded-lg border border-line bg-surface p-2" key={index}>
-                  <input
-                    checked={item.include}
-                    className="h-4 w-4"
-                    disabled={!item.due_at}
-                    onChange={(event) => updateItem(index, { include: event.target.checked })}
-                    title={item.due_at ? "Include this item" : "Add a due date to include"}
-                    type="checkbox"
-                  />
-                  <select
-                    className="rounded-lg border border-line bg-surface px-2 py-2 text-sm text-ink"
-                    onChange={(event) => updateItem(index, { kind: event.target.value as SyllabusItemKind })}
-                    value={item.kind}
-                  >
-                    {KIND_OPTIONS.map((kind) => (
-                      <option key={kind} value={kind}>
-                        {kind}
-                      </option>
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-sm font-semibold text-ink">Exams, tests, quizzes &amp; assignments</h3>
+                <p className="mt-1 text-xs text-ink-muted">
+                  Checked items are added to the course and show up on your local calendar.
+                </p>
+              </div>
+              {KIND_GROUPS.map((group) => {
+                const entries = draft.items
+                  .map((item, index) => ({ item, index }))
+                  .filter(({ item }) => item.kind === group.kind);
+                if (entries.length === 0) return null;
+                const includedCount = entries.filter(({ item }) => item.include).length;
+
+                return (
+                  <div className="space-y-2" key={group.kind}>
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-muted">{group.label}</h4>
+                      <span className="text-xs text-ink-muted">
+                        {includedCount} of {entries.length} on calendar
+                      </span>
+                    </div>
+                    {entries.map(({ item, index }) => (
+                      <div
+                        className="flex flex-wrap items-center gap-2 rounded-lg border border-line bg-surface p-2"
+                        key={index}
+                      >
+                        <input
+                          checked={item.include}
+                          className="h-4 w-4"
+                          disabled={!item.due_at}
+                          onChange={(event) => updateItem(index, { include: event.target.checked })}
+                          title={item.due_at ? "Include this item" : "Add a date to include"}
+                          type="checkbox"
+                        />
+                        <select
+                          className="rounded-lg border border-line bg-surface px-2 py-2 text-sm text-ink"
+                          onChange={(event) => {
+                            const kind = event.target.value as SyllabusItemKind;
+                            updateItem(index, { kind, end_at: kind === "assignment" ? null : item.end_at });
+                          }}
+                          value={item.kind}
+                        >
+                          {KIND_OPTIONS.map((kind) => (
+                            <option key={kind} value={kind}>
+                              {KIND_LABELS[kind]}
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          className="min-w-[140px] flex-1 rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink"
+                          onChange={(event) => updateItem(index, { title: event.target.value })}
+                          placeholder="Title"
+                          value={item.title}
+                        />
+                        <label className="flex items-center gap-1 text-xs text-ink-muted">
+                          {item.kind === "assignment" ? "Due" : "Starts"}
+                          <input
+                            className="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink"
+                            onChange={(event) => {
+                              const iso = localInputToIso(event.target.value);
+                              updateItem(index, { due_at: iso, include: iso ? item.include : false });
+                            }}
+                            type="datetime-local"
+                            value={isoToLocalInput(item.due_at)}
+                          />
+                        </label>
+                        {item.kind !== "assignment" ? (
+                          <label className="flex items-center gap-1 text-xs text-ink-muted">
+                            Ends
+                            <input
+                              className="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink"
+                              min={isoToLocalInput(item.due_at) || undefined}
+                              onChange={(event) => updateItem(index, { end_at: localInputToIso(event.target.value) })}
+                              type="datetime-local"
+                              value={isoToLocalInput(item.end_at)}
+                            />
+                          </label>
+                        ) : null}
+                        <select
+                          className="rounded-lg border border-line bg-surface px-2 py-2 text-sm text-ink"
+                          onChange={(event) => updateItem(index, { categoryKey: event.target.value || null })}
+                          value={item.categoryKey ?? ""}
+                        >
+                          <option value="">No category</option>
+                          {draft.categories.map((category) => (
+                            <option key={category.key} value={category.key}>
+                              {category.name || "(unnamed)"}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          className="rounded-lg border border-line px-3 py-2 text-sm text-danger transition hover:bg-surface2"
+                          onClick={() => removeItem(index)}
+                          type="button"
+                        >
+                          Remove
+                        </button>
+                      </div>
                     ))}
-                  </select>
-                  <input
-                    className="min-w-[140px] flex-1 rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink"
-                    onChange={(event) => updateItem(index, { title: event.target.value })}
-                    placeholder="Title"
-                    value={item.title}
-                  />
-                  <input
-                    className="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink"
-                    onChange={(event) => {
-                      const iso = localInputToIso(event.target.value);
-                      updateItem(index, { due_at: iso, include: iso ? item.include : false });
-                    }}
-                    type="datetime-local"
-                    value={isoToLocalInput(item.due_at)}
-                  />
-                  <select
-                    className="rounded-lg border border-line bg-surface px-2 py-2 text-sm text-ink"
-                    onChange={(event) => updateItem(index, { categoryKey: event.target.value || null })}
-                    value={item.categoryKey ?? ""}
-                  >
-                    <option value="">No category</option>
-                    {draft.categories.map((category) => (
-                      <option key={category.key} value={category.key}>
-                        {category.name || "(unnamed)"}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    className="rounded-lg border border-line px-3 py-2 text-sm text-danger transition hover:bg-surface2"
-                    onClick={() => removeItem(index)}
-                    type="button"
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
+                  </div>
+                );
+              })}
             </div>
           ) : null}
 

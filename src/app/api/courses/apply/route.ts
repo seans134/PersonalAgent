@@ -74,6 +74,7 @@ export async function POST(request: NextRequest) {
           kind: item.kind,
           title: item.title,
           due_at: item.due_at,
+          end_at: item.end_at,
           score_max: item.score_max,
         })),
       );

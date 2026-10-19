@@ -1,6 +1,9 @@
 import {
   Calendar,
+  calendarEventActivity,
+  type CalendarActivity,
   type CalendarEvent,
+  type CourseItemKind,
   type DayOfWeek,
   type ScheduleBlockCategory,
 } from "@personal-agent/core/calendar";
@@ -37,6 +40,23 @@ const categoryColors: Record<ScheduleBlockCategory, CategoryColor> = {
 
 export function eventColor(category: ScheduleBlockCategory) {
   return categoryColors[category] ?? categoryColors.school;
+}
+
+// Course dates get their own colors so exams stand out from classes. Mirrors the web calendar.
+const courseKindColors: Record<CourseItemKind, CategoryColor> = {
+  exam: { border: "#fecaca", background: "#fef2f2", text: "#7f1d1d" },
+  quiz: { border: "#fed7aa", background: "#fff7ed", text: "#7c2d12" },
+  assignment: { border: "#99f6e4", background: "#f0fdfa", text: "#134e4a" },
+};
+
+export function activityColor(activity: CalendarActivity) {
+  return activity in courseKindColors
+    ? courseKindColors[activity as CourseItemKind]
+    : eventColor(activity as ScheduleBlockCategory);
+}
+
+export function calendarEventColor(event: CalendarEvent) {
+  return activityColor(calendarEventActivity(event));
 }
 
 export function toDateKey(value: Date) {
@@ -153,6 +173,14 @@ export function buildCalendar(snapshot: MobileCalendarResponse | null) {
       });
     } catch {
       // Skip unusable events.
+    }
+  }
+
+  for (const event of snapshot.courseEvents ?? []) {
+    try {
+      calendar.addEvent(event);
+    } catch {
+      // Skip unusable course dates.
     }
   }
 

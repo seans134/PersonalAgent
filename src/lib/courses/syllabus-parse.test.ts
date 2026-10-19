@@ -52,6 +52,32 @@ describe("validateSyllabusDraft", () => {
     expect(draft.items.map((i) => i.kind)).toEqual(["exam", "assignment", "quiz", "exam"]);
   });
 
+  it("keeps term tests as exams with their start and end times", () => {
+    const draft = validateSyllabusDraft({
+      course: { name: "Chem" },
+      categories: [],
+      items: [
+        {
+          kind: "Term Test",
+          title: "Term Test 1",
+          due_at: "2026-10-14T18:00:00-04:00",
+          end_at: "2026-10-14T20:00:00-04:00",
+        },
+        { kind: "exam", title: "Final", due_at: "2026-12-10T09:00:00-05:00", end_at: "2026-12-10T08:00:00-05:00" },
+        { kind: "assignment", title: "A1", due_at: "2026-10-01T23:59:00-04:00", end_at: "2026-10-02T23:59:00-04:00" },
+      ],
+    });
+
+    expect(draft.items[0]).toMatchObject({
+      kind: "exam",
+      due_at: "2026-10-14T22:00:00.000Z",
+      end_at: "2026-10-15T00:00:00.000Z",
+    });
+    // End before start is dropped; assignments never carry an end time.
+    expect(draft.items[1].end_at).toBeNull();
+    expect(draft.items[2].end_at).toBeNull();
+  });
+
   it("excludes items without a valid due date and warns", () => {
     const draft = validateSyllabusDraft({
       course: { name: "Physics" },

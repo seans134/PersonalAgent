@@ -20,7 +20,10 @@ export type SyllabusItemDraft = {
   kind: SyllabusItemKind;
   title: string;
   categoryName: string | null;
+  /** Assignments: when it is due. Exams, tests and quizzes: when it starts. */
   due_at: string | null;
+  /** When an exam/test/quiz ends, if the syllabus says; always null for assignments. */
+  end_at: string | null;
   score_max: number;
   include: boolean;
 };
@@ -59,6 +62,7 @@ const KIND_SYNONYMS: Record<string, SyllabusItemKind> = {
   midterm: "exam",
   final: "exam",
   test: "exam",
+  "term test": "exam",
 };
 
 function asObject(value: unknown): Record<string, unknown> | null {
@@ -215,11 +219,15 @@ export function validateSyllabusDraft(value: unknown): SyllabusDraft {
     if (!dueAt) {
       datelessCount += 1;
     }
+    const kind = normalizeKind(record.kind);
+    const endAt = kind === "assignment" || !dueAt ? null : normalizeDueAt(record.end_at);
     items.push({
-      kind: normalizeKind(record.kind),
+      kind,
       title: title.slice(0, 200),
       categoryName: optionalString(record.categoryName),
       due_at: dueAt,
+      // Drop an end time that isn't after the start (course_items requires end_at >= due_at).
+      end_at: endAt && dueAt && endAt > dueAt ? endAt : null,
       score_max: normalizeScoreMax(record.score_max, warnings),
       // Items without a valid due date can't be saved (course_items.due_at is NOT NULL),
       // so they start excluded until the user adds a date in the review step.

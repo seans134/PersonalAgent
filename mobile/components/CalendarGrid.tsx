@@ -2,9 +2,9 @@ import { useMemo } from "react";
 import { useTheme } from "../lib/theme";
 import type { Theme } from "../lib/theme";
 import { ScrollView, StyleSheet, Text, View, Pressable } from "react-native";
-import type { Calendar, CalendarEvent } from "@personal-agent/core/calendar";
+import { calendarEventTimeLabel, type Calendar, type CalendarEvent } from "@personal-agent/core/calendar";
 import {
-  eventColor,
+  calendarEventColor,
   eventOverlapsHour,
   formatDay,
   formatHour,
@@ -55,7 +55,7 @@ function EventPill({
 }) {
   const theme = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
-  const colors = eventColor(event.category);
+  const colors = calendarEventColor(event);
 
   return (
     <Pressable
@@ -67,7 +67,7 @@ function EventPill({
       ]}
     >
       <Text numberOfLines={1} style={[styles.pillText, compact && styles.pillTextCompact, { color: colors.text }]}>
-        {event.startTime} {event.title}
+        {calendarEventTimeLabel(event)} {event.title}
       </Text>
     </Pressable>
   );

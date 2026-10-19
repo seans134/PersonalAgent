@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  courseItemsToCalendarEvents,
   courseItemsToStudyItems,
   courseItemsToTodayBusyEvents,
   projectCourseItemsToEvents,
@@ -85,5 +86,26 @@ describe("projection", () => {
   it("excludes events not on the specified today date", () => {
     const events = courseItemsToTodayBusyEvents([row({ due_at: "2026-08-08T18:00:00Z" })], tz, "2026-08-07");
     expect(events).toHaveLength(0);
+  });
+
+  describe("courseItemsToCalendarEvents", () => {
+    const names = new Map([["c1", "CHEM 201"]]);
+
+    it("gives a late-night assignment deadline a visible block ending at midnight", () => {
+      // 03:59Z next day = 23:59 EDT
+      const [event] = courseItemsToCalendarEvents(
+        [row({ kind: "assignment", title: "A1", due_at: "2026-10-02T03:59:00Z" })],
+        names,
+        tz,
+      );
+      expect(event).toMatchObject({ date: "2026-10-01", startTime: "23:29", endTime: "23:59", source: "course" });
+      expect(event.course).toMatchObject({ kind: "assignment", isDeadline: true, dueTime: "23:59", courseName: "CHEM 201" });
+    });
+
+    it("keeps exam timing and links back to the course item", () => {
+      const [event] = courseItemsToCalendarEvents([row({})], names, tz);
+      expect(event).toMatchObject({ id: "course-i1", startTime: "14:00", endTime: "16:00", sourceId: "i1" });
+      expect(event.course).toMatchObject({ kind: "exam", isDeadline: false, courseId: "c1" });
+    });
   });
 });

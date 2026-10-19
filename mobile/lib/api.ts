@@ -1,5 +1,6 @@
 import type { TodayPlanResponse } from "@personal-agent/core/planner/client-types";
 import type { HabitDigest, HabitMetrics, HabitPeriod, Nudge } from "@personal-agent/core/habits";
+import type { CalendarEvent } from "@personal-agent/core/calendar";
 import { analyticsEvents, hasCoursesReady, type NeededScore, type SyllabusImportSource } from "@personal-agent/core";
 import { captureEvent, captureException } from "./analytics";
 import { requireMobileEnv } from "./env";
@@ -103,6 +104,8 @@ export type MobileCalendarResponse = {
   visibility: MobileCalendarVisibility;
   scheduleBlocks: MobileScheduleBlock[];
   events: MobileCalendarEvent[];
+  /** Exams, tests, quizzes and assignment deadlines from the user's courses. */
+  courseEvents?: CalendarEvent[];
 };
 
 export type MobileCalendarEventInput = {
@@ -562,7 +565,11 @@ export async function updateMobileCalendarItem(
   return response;
 }
 
-export async function deleteMobileCalendarItem(accessToken: string, kind: "event" | "block", id: string) {
+export async function deleteMobileCalendarItem(
+  accessToken: string,
+  kind: "event" | "block" | "course_item",
+  id: string,
+) {
   const response = await fetchJson<{ ok: true }>("/api/mobile/calendar", accessToken, {
     method: "DELETE",
     body: JSON.stringify({ kind, id }),
@@ -1082,6 +1089,7 @@ export type MobileSyllabusDraft = {
     title: string;
     // Links to a category by name; apply resolves it to an id after inserting categories.
     categoryName: string | null;
+    end_at?: string | null;
     // Items without a due date can't be saved; they arrive with include: false.
     due_at: string | null;
     score_max: number;

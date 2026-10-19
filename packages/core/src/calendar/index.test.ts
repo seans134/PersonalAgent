@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { Calendar, type CalendarEvent, type ScheduleBlock } from ".";
+import {
+  Calendar,
+  calendarEventActivity,
+  calendarEventTimeLabel,
+  type CalendarEvent,
+  type ScheduleBlock,
+} from ".";
 
 const schoolBlock: ScheduleBlock = {
   id: "class-calc",
@@ -169,5 +175,29 @@ describe("Calendar", () => {
     snapshot.scheduleBlocks[0]?.daysOfWeek.push(5);
 
     expect(calendar.getScheduleBlocks()[0]?.daysOfWeek).toEqual([1, 3]);
+  });
+});
+
+describe("calendar activities", () => {
+  const base = { startTime: "23:29", category: "school" as const };
+
+  it("uses the course kind for course events and the category otherwise", () => {
+    expect(calendarEventActivity(base)).toBe("school");
+    expect(
+      calendarEventActivity({
+        ...base,
+        course: { itemId: "i", courseId: "c", courseName: "C", kind: "exam", isDeadline: false, dueTime: "09:00" },
+      }),
+    ).toBe("exam");
+  });
+
+  it("labels deadlines by due time", () => {
+    expect(calendarEventTimeLabel(base)).toBe("23:29");
+    expect(
+      calendarEventTimeLabel({
+        ...base,
+        course: { itemId: "i", courseId: "c", courseName: "C", kind: "assignment", isDeadline: true, dueTime: "23:59" },
+      }),
+    ).toBe("Due 23:59");
   });
 });

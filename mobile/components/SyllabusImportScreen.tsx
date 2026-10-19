@@ -65,6 +65,8 @@ type ReviewItem = {
   categoryKey: string | null;
   dueDate: string;
   dueTime: string;
+  endDate: string;
+  endTime: string;
   score_max: number;
   include: boolean;
 };
@@ -92,12 +94,15 @@ function reviewFromDraft(parsed: MobileSyllabusDraft): ReviewState {
     })),
     items: draft.items.map((item) => {
       const due = splitIso(item.due_at);
+      const end = splitIso(item.end_at ?? null);
       return {
         kind: item.kind,
         title: item.title,
         categoryKey: item.categoryKey,
         dueDate: due.date,
         dueTime: due.time,
+        endDate: end.date,
+        endTime: end.time,
         score_max: item.score_max,
         include: item.include,
       };
@@ -115,7 +120,7 @@ function parseNumber(text: string): number | null {
 function dueAtFromReview(item: ReviewItem): string | null {
   const date = item.dueDate.trim();
   if (!date) return null;
-  return combineToIso(date, item.dueTime.trim() || DEFAULT_DUE_TIME);
+  return combineToIso(date, item.dueTime.trim() || (item.kind === "assignment" ? DEFAULT_DUE_TIME : "09:00"));
 }
 
 function draftFromReview(review: ReviewState): MobileSyllabusDraft {
@@ -139,6 +144,7 @@ function draftFromReview(review: ReviewState): MobileSyllabusDraft {
         title: item.title.trim(),
         categoryKey: item.categoryKey,
         due_at: dueAt,
+        end_at: item.kind === "assignment" ? null : combineToIso(item.endDate.trim(), item.endTime.trim()),
         score_max: item.score_max,
         include: isSyllabusItemApplied({ include: item.include, due_at: dueAt }),
       };
@@ -553,14 +559,14 @@ function ItemEditor({
             active={item.kind === option.value}
             key={option.value}
             label={option.label}
-            onPress={() => onChange({ kind: option.value })}
+            onPress={() => onChange({ kind: option.value, ...(option.value === "assignment" ? { endDate: "", endTime: "" } : {}) })}
           />
         ))}
       </View>
 
       <View style={styles.timeRow}>
         <View style={styles.timeField}>
-          <Text style={styles.subLabel}>Due date</Text>
+          <Text style={styles.subLabel}>{item.kind === "assignment" ? "Due date" : "Start date"}</Text>
           <TextInput
             autoCapitalize="none"
             onChangeText={(dueDate) => onChange({ dueDate })}
@@ -575,13 +581,30 @@ function ItemEditor({
           <TextInput
             autoCapitalize="none"
             onChangeText={(dueTime) => onChange({ dueTime })}
-            placeholder={DEFAULT_DUE_TIME}
+            placeholder={item.kind === "assignment" ? DEFAULT_DUE_TIME : "09:00"}
             placeholderTextColor={theme.colors.inkMuted}
             style={styles.input}
             value={item.dueTime}
           />
         </View>
       </View>
+
+      {item.kind !== "assignment" ? (
+        <View style={styles.timeRow}>
+          <View style={styles.timeField}>
+            <Text style={styles.subLabel}>End date (optional)</Text>
+            <TextInput autoCapitalize="none" onChangeText={(endDate) => onChange({ endDate })}
+              placeholder="YYYY-MM-DD" placeholderTextColor={theme.colors.inkMuted}
+              style={styles.input} value={item.endDate} />
+          </View>
+          <View style={styles.timeField}>
+            <Text style={styles.subLabel}>End time</Text>
+            <TextInput autoCapitalize="none" onChangeText={(endTime) => onChange({ endTime, endDate: item.endDate || item.dueDate })}
+              placeholder="HH:MM" placeholderTextColor={theme.colors.inkMuted}
+              style={styles.input} value={item.endTime} />
+          </View>
+        </View>
+      ) : null}
 
       <Text style={styles.subLabel}>Category</Text>
       <View style={styles.wrapRow}>

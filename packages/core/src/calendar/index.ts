@@ -12,7 +12,20 @@ export type ScheduleBlock = {
   timezone?: string;
 };
 
-export type CalendarEventSource = "manual" | "recurring_schedule";
+export type CalendarEventSource = "manual" | "recurring_schedule" | "course";
+
+export type CourseItemKind = "assignment" | "quiz" | "exam";
+
+/** Present on events projected from a course item (syllabus import or course page). */
+export type CalendarCourseInfo = {
+  itemId: string;
+  courseId: string;
+  courseName: string;
+  kind: CourseItemKind;
+  /** Assignments are deadlines: `dueTime` is the moment they are due, not a busy block. */
+  isDeadline: boolean;
+  dueTime: string;
+};
 
 export type CalendarEvent = {
   id: string;
@@ -23,6 +36,7 @@ export type CalendarEvent = {
   endTime: string;
   source: CalendarEventSource;
   sourceId?: string;
+  course?: CalendarCourseInfo;
 };
 
 export type CalendarConflict = {
@@ -351,4 +365,34 @@ export class Calendar {
       events: this.getEvents(),
     };
   }
+}
+
+/**
+ * Activities the calendar can be filtered by: the manual/recurring categories plus the
+ * course item kinds, so a user can e.g. show only exams and assignments.
+ */
+export type CalendarActivity = ScheduleBlockCategory | CourseItemKind;
+
+export const calendarActivityOptions: Array<{ value: CalendarActivity; label: string }> = [
+  { value: "exam", label: "Exams & tests" },
+  { value: "quiz", label: "Quizzes" },
+  { value: "assignment", label: "Assignments" },
+  { value: "school", label: "School" },
+  { value: "study", label: "Study" },
+  { value: "work", label: "Work" },
+  { value: "personal", label: "Personal" },
+  { value: "unavailable", label: "Unavailable" },
+];
+
+export function calendarEventActivity(event: Pick<CalendarEvent, "category" | "course">): CalendarActivity {
+  return event.course ? event.course.kind : event.category;
+}
+
+export function isActivityVisible(activity: CalendarActivity, hidden: readonly CalendarActivity[]): boolean {
+  return !hidden.includes(activity);
+}
+
+/** Label for an event pill: deadlines show when they are due, everything else its start. */
+export function calendarEventTimeLabel(event: Pick<CalendarEvent, "startTime" | "course">): string {
+  return event.course?.isDeadline ? `Due ${event.course.dueTime}` : event.startTime;
 }
