@@ -2,14 +2,22 @@
 
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
-import type {
-  SyllabusCategoryDraft,
-  SyllabusDraft,
-  SyllabusItemDraft,
-  SyllabusItemKind,
-} from "@/lib/courses/syllabus-parse";
+import {
+  addSyllabusCategory,
+  fromSyllabusReview,
+  removeSyllabusCategory,
+  renameSyllabusCategory,
+  summarizeSyllabusWeights,
+  toSyllabusReview,
+  type SyllabusReview,
+} from "@personal-agent/core";
+import type { SyllabusDraft, SyllabusItemKind } from "@/lib/courses/syllabus-parse";
 
 type ParseResponse = { draft: SyllabusDraft } | { error: string };
+// Review state links items to categories by a stable key so renames can't merge groups.
+type ReviewDraft = SyllabusReview<SyllabusDraft>;
+type ReviewCategory = ReviewDraft["categories"][number];
+type ReviewItem = ReviewDraft["items"][number];
 type ApplyResponse = { courseId: string; applied: { categories: number; items: number } } | { error: string };
 
 const KIND_OPTIONS: SyllabusItemKind[] = ["assignment", "quiz", "exam"];
@@ -54,15 +62,14 @@ export function SyllabusImportPanel({ geminiConfigured }: { geminiConfigured: bo
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [text, setText] = useState("");
-  const [draft, setDraft] = useState<SyllabusDraft | null>(null);
+  const [draft, setDraft] = useState<ReviewDraft | null>(null);
   const [error, setError] = useState("");
   const [isParsing, setIsParsing] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
 
   const canParse = geminiConfigured && !isParsing && (Boolean(file) || text.trim().length >= 8);
 
-  const weightSum = draft ? draft.categories.reduce((sum, category) => sum + (Number(category.weight) || 0), 0) : 0;
-  const weightOff = draft !== null && draft.categories.length > 0 && Math.abs(weightSum - 100) > 0.5;
+  const { total: weightSum, isOff: weightOff } = summarizeSyllabusWeights(draft?.categories ?? []);
 
   function updateCourse(field: keyof SyllabusDraft["course"], value: string) {
     setDraft((current) => {
@@ -81,32 +88,29 @@ export function SyllabusImportPanel({ geminiConfigured }: { geminiConfigured: bo
     });
   }
 
-  function updateCategory(index: number, patch: Partial<SyllabusCategoryDraft>) {
+  function updateCategory(key: string, patch: Partial<Omit<ReviewCategory, "key">>) {
     setDraft((current) => {
       if (!current) return current;
-      const categories = current.categories.map((category, i) => (i === index ? { ...category, ...patch } : category));
+      const categories = current.categories.map((category) => (category.key === key ? { ...category, ...patch } : category));
       return { ...current, categories };
     });
   }
 
-  function removeCategory(index: number) {
-    setDraft((current) => {
-      if (!current) return current;
-      return { ...current, categories: current.categories.filter((_, i) => i !== index) };
-    });
+  function renameCategory(key: string, name: string) {
+    setDraft((current) => (current ? renameSyllabusCategory(current, key, name) : current));
+  }
+
+  function removeCategory(key: string) {
+    setDraft((current) => (current ? removeSyllabusCategory(current, key) : current));
   }
 
   function addCategory() {
-    setDraft((current) => {
-      if (!current) return current;
-      return {
-        ...current,
-        categories: [...current.categories, { name: "", weight: 0, position: current.categories.length }],
-      };
-    });
+    setDraft((current) =>
+      current ? addSyllabusCategory(current, { name: "", weight: 0, position: current.categories.length }) : current,
+    );
   }
 
-  function updateItem(index: number, patch: Partial<SyllabusItemDraft>) {
+  function updateItem(index: number, patch: Partial<ReviewItem>) {
     setDraft((current) => {
       if (!current) return current;
       const items = current.items.map((item, i) => (i === index ? { ...item, ...patch } : item));
@@ -150,7 +154,7 @@ export function SyllabusImportPanel({ geminiConfigured }: { geminiConfigured: bo
         throw new Error(isErrorResponse(payload) ? payload.error : "Unable to parse syllabus.");
       }
 
-      setDraft(payload.draft);
+      setDraft(toSyllabusReview(payload.draft));
     } catch (parseError) {
       setError(parseError instanceof Error ? parseError.message : "Unable to parse syllabus.");
     } finally {
@@ -172,7 +176,7 @@ export function SyllabusImportPanel({ geminiConfigured }: { geminiConfigured: bo
       const response = await fetch("/api/courses/apply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ draft }),
+        body: JSON.stringify({ draft: fromSyllabusReview(draft) }),
       });
       const payload = (await response.json()) as ApplyResponse;
 
@@ -310,12 +314,12 @@ export function SyllabusImportPanel({ geminiConfigured }: { geminiConfigured: bo
                 {Math.round(weightSum)}% total
               </span>
             </div>
-            {draft.categories.map((category, index) => (
-              <div className="flex flex-wrap items-end gap-2" key={index}>
+            {draft.categories.map((category) => (
+              <div className="flex flex-wrap items-end gap-2" key={category.key}>
                 <div className="min-w-[140px] flex-1 space-y-1">
                   <input
                     className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink"
-                    onChange={(event) => updateCategory(index, { name: event.target.value })}
+                    onChange={(event) => renameCategory(category.key, event.target.value)}
                     placeholder="Category name"
                     value={category.name}
                   />
@@ -325,7 +329,7 @@ export function SyllabusImportPanel({ geminiConfigured }: { geminiConfigured: bo
                     className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm font-mono text-ink"
                     max={100}
                     min={0}
-                    onChange={(event) => updateCategory(index, { weight: Number(event.target.value) })}
+                    onChange={(event) => updateCategory(category.key, { weight: Number(event.target.value) })}
                     placeholder="Weight %"
                     type="number"
                     value={category.weight}
@@ -333,7 +337,7 @@ export function SyllabusImportPanel({ geminiConfigured }: { geminiConfigured: bo
                 </div>
                 <button
                   className="rounded-lg border border-line px-3 py-2 text-sm text-danger transition hover:bg-surface"
-                  onClick={() => removeCategory(index)}
+                  onClick={() => removeCategory(category.key)}
                   type="button"
                 >
                   Remove
@@ -391,12 +395,12 @@ export function SyllabusImportPanel({ geminiConfigured }: { geminiConfigured: bo
                   />
                   <select
                     className="rounded-lg border border-line bg-surface px-2 py-2 text-sm text-ink"
-                    onChange={(event) => updateItem(index, { categoryName: event.target.value || null })}
-                    value={item.categoryName ?? ""}
+                    onChange={(event) => updateItem(index, { categoryKey: event.target.value || null })}
+                    value={item.categoryKey ?? ""}
                   >
                     <option value="">No category</option>
-                    {draft.categories.map((category, catIndex) => (
-                      <option key={catIndex} value={category.name}>
+                    {draft.categories.map((category) => (
+                      <option key={category.key} value={category.key}>
                         {category.name || "(unnamed)"}
                       </option>
                     ))}

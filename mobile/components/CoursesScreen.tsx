@@ -22,6 +22,7 @@ import {
 
 type CoursesScreenProps = {
   accessToken: string;
+  onImportSyllabus: () => void;
   onOpenCourse: (id: string) => void;
 };
 
@@ -59,7 +60,7 @@ function inputFromForm(form: CourseFormState): MobileCourseInput {
   };
 }
 
-export function CoursesScreen({ accessToken, onOpenCourse }: CoursesScreenProps) {
+export function CoursesScreen({ accessToken, onImportSyllabus, onOpenCourse }: CoursesScreenProps) {
   const theme = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const [courses, setCourses] = useState<MobileCourseSummary[]>([]);
@@ -168,12 +169,19 @@ export function CoursesScreen({ accessToken, onOpenCourse }: CoursesScreenProps)
         <View style={styles.panelHeader}>
           <View style={styles.panelHeaderCopy}>
             <Text style={styles.panelLabel}>Add course</Text>
-            <Text style={styles.panelBody}>Create a course to start tracking grades and deadlines.</Text>
+            <Text style={styles.panelBody}>
+              Create a course to start tracking grades and deadlines, or import one from its syllabus.
+            </Text>
           </View>
           {!showForm ? (
-            <Pressable hitSlop={8} onPress={() => setShowForm(true)} style={styles.smallButton}>
-              <Text style={styles.smallButtonText}>Add course</Text>
-            </Pressable>
+            <View style={styles.headerActions}>
+              <Pressable hitSlop={8} onPress={() => setShowForm(true)} style={styles.smallButton}>
+                <Text style={styles.smallButtonText}>Add course</Text>
+              </Pressable>
+              <Pressable hitSlop={8} onPress={onImportSyllabus} style={styles.smallButton}>
+                <Text style={styles.smallButtonText}>Import syllabus</Text>
+              </Pressable>
+            </View>
           ) : null}
         </View>
 
@@ -387,6 +395,11 @@ function makeStyles(theme: Theme) {
     },
     panelLabel: {
       ...theme.text("title", "ink"),
+    },
+    headerActions: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 8,
     },
     panelBody: {
       ...theme.text("body", "inkMuted"),

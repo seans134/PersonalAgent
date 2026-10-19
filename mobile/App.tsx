@@ -38,6 +38,7 @@ import { MealsScreen } from "./components/MealsScreen";
 import { OnboardingScreen } from "./components/OnboardingScreen";
 import { NotificationSettingsScreen } from "./components/NotificationSettingsScreen";
 import { ResetPasswordScreen } from "./components/ResetPasswordScreen";
+import { SyllabusImportScreen } from "./components/SyllabusImportScreen";
 import { WorkoutCoachScreen } from "./components/WorkoutCoachScreen";
 import { WorkoutPlanScreen } from "./components/WorkoutPlanScreen";
 import { WorkoutsScreen } from "./components/WorkoutsScreen";
@@ -223,7 +224,23 @@ function App() {
     if (activeScreen === "courses") {
       return (
         <View style={styles.tabBody}>
-          <CoursesScreen accessToken={token} onOpenCourse={openCourse} />
+          <CoursesScreen
+            accessToken={token}
+            onImportSyllabus={() => setActiveScreen("syllabusImport")}
+            onOpenCourse={openCourse}
+          />
+        </View>
+      );
+    }
+
+    if (activeScreen === "syllabusImport") {
+      return (
+        <View style={styles.tabBody}>
+          <SyllabusImportScreen
+            accessToken={token}
+            onBack={() => setActiveScreen("courses")}
+            onImported={openCourse}
+          />
         </View>
       );
     }
