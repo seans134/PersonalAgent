@@ -1,3 +1,4 @@
+import { ProfileFields } from "./ProfileFields";
 import { useMemo } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useTheme, useThemePreference } from "../lib/theme";
@@ -6,6 +7,8 @@ import { Icon } from "./Icon";
 import { isScreenEnabled, type MobileScreen } from "./MobileAppShell";
 
 type MoreMenuScreenProps = {
+  accessToken: string;
+  onAccountDeleted: () => void;
   onNavigate: (screen: MobileScreen) => void;
   onSignOut: () => void;
 };
@@ -16,7 +19,7 @@ const allItems: Array<{ screen: MobileScreen; label: string; subtitle: string }>
   { screen: "onboarding", label: "Setup", subtitle: "Courses and class times" },
   { screen: "weeklyRhythm", label: "Weekly rhythm", subtitle: "Study blocks, protected time, and work hours" },
   { screen: "notifications", label: "Notifications", subtitle: "Reminder schedule" },
-  { screen: "settings", label: "Settings & Legal", subtitle: "Support and account" },
+  { screen: "settings", label: "Support & privacy", subtitle: "Support and account" },
 ];
 
 const items = allItems.filter((item) => isScreenEnabled(item.screen));
@@ -27,7 +30,7 @@ const themeOptions: Array<{ value: ThemePreference; label: string }> = [
   { value: "dark", label: "Dark" },
 ];
 
-export function MoreMenuScreen({ onNavigate, onSignOut }: MoreMenuScreenProps) {
+export function MoreMenuScreen({ onNavigate, onSignOut, accessToken, onAccountDeleted }: MoreMenuScreenProps) {
   const theme = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const { preference, setPreference } = useThemePreference();
@@ -36,9 +39,10 @@ export function MoreMenuScreen({ onNavigate, onSignOut }: MoreMenuScreenProps) {
     <ScrollView style={{ backgroundColor: theme.colors.paper }} contentContainerStyle={styles.content}>
       <View style={styles.header}>
         <Text style={theme.text("monoLabel", "teal")}>Atlas</Text>
-        <Text style={theme.text("displayXl", "ink")}>More</Text>
+        <Text style={theme.text("displayXl", "ink")}>Profile</Text>
       </View>
 
+      <ProfileFields accessToken={accessToken} onAccountDeleted={onAccountDeleted} />
       <View style={styles.card}>
         {items.map((item, index) => (
           <Pressable

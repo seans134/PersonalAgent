@@ -1,3 +1,4 @@
+import { Calendar, dateInTimezone, shiftDate, type DayOfWeek } from "@personal-agent/core/calendar";
 import { useState, useMemo } from "react";
 import { useTheme } from "../lib/theme";
 import type { Theme } from "../lib/theme";
@@ -33,6 +34,9 @@ type WeeklyScheduleGridProps = {
 };
 
 type BlockFormState = {
+  endDayOffset?: 0 | 1;
+  effectiveFrom?: string | null;
+  effectiveUntil?: string | null;
   id: string | null;
   title: string;
   category: ScheduleBlockCategory;
@@ -58,11 +62,6 @@ function placeholderForCategory(category: ScheduleBlockCategory) {
   return "Gym, dinner, family time";
 }
 
-function blockOverlapsHour(block: MobileScheduleBlock, hour: number) {
-  const hourStart = hour * 60;
-  return toMinutes(block.startTime) < hourStart + 60 && toMinutes(block.endTime) > hourStart;
-}
-
 function localTimezone() {
   return Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Toronto";
 }
@@ -85,10 +84,11 @@ export function WeeklyScheduleGrid({
 
   const visibleBlocks = blocks.filter((block) => visibleCategories.includes(block.category));
 
+  const today = dateInTimezone(new Date(), localTimezone());
+  const weekStart = shiftDate(today, -new Date(`${today}T12:00:00`).getDay());
+  const calendar = new Calendar({ scheduleBlocks: visibleBlocks.map((b) => ({ ...b, daysOfWeek: b.daysOfWeek as DayOfWeek[] })) });
   function blocksAt(dayOfWeek: number, hour: number) {
-    return visibleBlocks
-      .filter((block) => block.daysOfWeek.includes(dayOfWeek) && blockOverlapsHour(block, hour))
-      .sort((first, second) => first.startTime.localeCompare(second.startTime));
+    return calendar.getEventsForDate(shiftDate(weekStart, dayOfWeek)).filter((event) => toMinutes(event.startTime) < hour * 60 + 60 && toMinutes(event.endTime) > hour * 60).map((event) => ({ ...visibleBlocks.find((b) => b.id === event.sourceId)!, startTime: event.startTime, endTime: event.endTime }));
   }
 
   function openCreate(dayOfWeek: number, hour: number) {
@@ -104,7 +104,8 @@ export function WeeklyScheduleGrid({
     });
   }
 
-  function openEdit(block: MobileScheduleBlock) {
+  function openEdit(occurrence: MobileScheduleBlock) {
+    const block = blocks.find((b) => b.id === occurrence.id) ?? occurrence;
     // Blocks outside this step's editable categories are context only.
     if (!categories.includes(block.category)) return;
 
@@ -117,6 +118,7 @@ export function WeeklyScheduleGrid({
       daysOfWeek: [...block.daysOfWeek],
       startTime: block.startTime,
       endTime: block.endTime,
+      endDayOffset: block.endDayOffset, effectiveFrom: block.effectiveFrom, effectiveUntil: block.effectiveUntil,
     });
   }
 
@@ -160,7 +162,7 @@ export function WeeklyScheduleGrid({
       errorHaptic();
       return;
     }
-    if (form.endTime <= form.startTime) {
+    if (form.endDayOffset ? form.endTime > form.startTime : form.endTime <= form.startTime) {
       setError("End time must be after start time.");
       errorHaptic();
       return;
@@ -176,6 +178,7 @@ export function WeeklyScheduleGrid({
       daysOfWeek: form.daysOfWeek,
       startTime: form.startTime,
       endTime: form.endTime,
+      endDayOffset: form.endDayOffset ?? 0, effectiveFrom: form.effectiveFrom, effectiveUntil: form.effectiveUntil,
       timezone: localTimezone(),
     };
 
@@ -257,7 +260,8 @@ export function WeeklyScheduleGrid({
       </Text>
 
       <View style={styles.card}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <View style={{ gap: 8, marginBottom: 12 }}>{visibleBlocks.map((b) => <Pressable key={b.id} onPress={() => openEdit(b)}><Text style={styles.label}>{b.title} · {b.startTime}–{b.endTime}{b.endDayOffset ? " (+1 day)" : ""} · {b.effectiveFrom || "Any start"} → {b.effectiveUntil || "Ongoing"}</Text></Pressable>)}</View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View>
             <View style={styles.headerRow}>
               <View style={[styles.timeGutter, styles.headerCell]}>
@@ -349,6 +353,9 @@ export function WeeklyScheduleGrid({
                   value={form.title}
                 />
 
+                <Pressable onPress={() => updateForm({ endDayOffset: form.endDayOffset === 1 ? 0 : 1 })}><Text style={styles.label}>{form.endDayOffset ? "☑" : "☐"} Ends the next day</Text></Pressable>
+                <Text style={styles.label}>First date (optional)</Text><TextInput style={styles.input} placeholder="YYYY-MM-DD" value={form.effectiveFrom ?? ""} onChangeText={(v) => updateForm({ effectiveFrom: v || null })} />
+                <Text style={styles.label}>Last date (optional)</Text><TextInput style={styles.input} placeholder="YYYY-MM-DD" value={form.effectiveUntil ?? ""} onChangeText={(v) => updateForm({ effectiveUntil: v || null })} />
                 <Text style={styles.label}>Repeats weekly on</Text>
                 <View style={styles.wrapRow}>
                   {weekdayLabels.map((label, day) => {

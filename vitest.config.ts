@@ -1,7 +1,8 @@
-import { defineConfig } from "vitest/config";
+import { defineConfig, configDefaults } from "vitest/config";
 import path from "node:path";
 
 export default defineConfig({
+  test: { exclude: [...configDefaults.exclude, ".superpowers/**", ".claude/**"] },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),

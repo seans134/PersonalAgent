@@ -7,7 +7,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "ios": {
       "bundleIdentifier": "com.personalagent.atlas",
       "supportsTablet": true,
@@ -41,8 +41,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Atlas uses your photo library so you can import a course syllabus from a photo.",
-          "cameraPermission": "Atlas uses the camera so you can photograph a course syllabus to import it.",
+          "photosPermission": "Atlas uses your photo library to import a course syllabus or school and work schedule.",
+          "cameraPermission": "Atlas uses the camera to photograph a syllabus or schedule for import.",
           "microphonePermission": false
         }
       ]

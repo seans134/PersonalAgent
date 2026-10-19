@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { type FormEvent, type MouseEvent, useEffect, useMemo, useState } from "react";
 import {
   Calendar,
+  dateInTimezone,
   calendarActivityOptions,
   calendarEventActivity,
   calendarEventTimeLabel,
@@ -35,32 +36,16 @@ type EventFormState = {
   startTime: string;
   endTime: string;
   recurrence: "single" | "weekly";
+  endDayOffset?: 0 | 1;
+  effectiveFrom?: string | null;
+  effectiveUntil?: string | null;
 };
 
 type EditingTarget =
   | { id: string; type: "single" }
   | { id: string; type: "recurring" };
 
-type CalendarApiResponse = { courseEvents?: CalendarEvent[]; error?: string };
-
-type CalendarEventRow = {
-  id: string;
-  title: string;
-  category: ScheduleBlockCategory;
-  event_date: string;
-  start_time: string;
-  end_time: string;
-};
-
-type ScheduleBlockRow = {
-  id: string;
-  title: string;
-  category: ScheduleBlockCategory;
-  days_of_week: number[];
-  start_time: string;
-  end_time: string;
-  timezone: string | null;
-};
+type CalendarApiResponse = { courseEvents?: CalendarEvent[]; events: CalendarEvent[]; scheduleBlocks: ScheduleBlock[]; timezone: string; error?: string };
 
 function toDateKey(value: Date) {
   const year = value.getFullYear();
@@ -160,10 +145,6 @@ function toTimeString(hour: number, minute = 0) {
   return `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`;
 }
 
-function normalizeDbTime(value: string) {
-  return value.slice(0, 5);
-}
-
 function formatHour(hour: number) {
   if (hour === 0) return "12 AM";
   if (hour < 12) return `${hour} AM`;
@@ -211,30 +192,6 @@ function eventTitle(event: CalendarEvent) {
 
 function clickStartedOnEvent(clickEvent: MouseEvent<HTMLElement>) {
   return clickEvent.target instanceof HTMLElement && clickEvent.target.closest("[data-calendar-event]");
-}
-
-function toCalendarEvent(row: CalendarEventRow): CalendarEvent {
-  return {
-    id: row.id,
-    title: row.title,
-    category: row.category,
-    date: row.event_date,
-    startTime: normalizeDbTime(row.start_time),
-    endTime: normalizeDbTime(row.end_time),
-    source: "manual",
-  };
-}
-
-function toScheduleBlock(row: ScheduleBlockRow): ScheduleBlock {
-  return {
-    id: row.id,
-    title: row.title,
-    category: row.category,
-    daysOfWeek: row.days_of_week as ScheduleBlock["daysOfWeek"],
-    startTime: normalizeDbTime(row.start_time),
-    endTime: normalizeDbTime(row.end_time),
-    timezone: row.timezone ?? undefined,
-  };
 }
 
 function ViewSwitcher({
@@ -682,6 +639,8 @@ function EventModal({
             </label>
           </div>
 
+          <label className="flex gap-2"><input type="checkbox" checked={form.endDayOffset === 1} onChange={(e) => onChange({ endDayOffset: e.target.checked ? 1 : 0 })} />Ends the next day</label>
+          {form.recurrence === "weekly" && <div className="grid gap-3 sm:grid-cols-2"><label>First date (optional)<input className="w-full rounded-lg border border-line p-2" type="date" value={form.effectiveFrom ?? ""} onChange={(e) => onChange({ effectiveFrom: e.target.value || null })} /></label><label>Last date (optional)<input className="w-full rounded-lg border border-line p-2" type="date" value={form.effectiveUntil ?? ""} onChange={(e) => onChange({ effectiveUntil: e.target.value || null })} /></label></div>}
           {error ? <p className="rounded-lg border border-danger bg-surface px-3 py-2 text-sm text-danger">{error}</p> : null}
 
           <div className="flex flex-wrap justify-end gap-3 pt-2">
@@ -813,9 +772,10 @@ export default function LocalCalendarPage() {
   const supabase = useMemo(() => createClient(), []);
   const searchParams = useSearchParams();
   const selectedView = parseCalendarView(searchParams.get("view"));
-  const selectedDate = parseDateParam(searchParams.get("date"));
+  const [timezone, setTimezone] = useState("America/Toronto");
+  const selectedDate = parseDateParam(searchParams.get("date") || dateInTimezone(new Date(), timezone));
   const visibleMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
-  const todayKey = toDateKey(startOfToday());
+  const todayKey = dateInTimezone(new Date(), timezone);
   const [userId, setUserId] = useState("");
   const [isLoadingCalendar, setIsLoadingCalendar] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -860,38 +820,14 @@ export default function LocalCalendarPage() {
 
       setUserId(user.id);
 
-      const [eventsResult, blocksResult, courseResult] = await Promise.all([
-        supabase
-          .from("calendar_events")
-          .select("id, title, category, event_date, start_time, end_time")
-          .eq("user_id", user.id)
-          .order("event_date", { ascending: true })
-          .order("start_time", { ascending: true }),
-        supabase
-          .from("schedule_blocks")
-          .select("id, title, category, days_of_week, start_time, end_time, timezone")
-          .eq("user_id", user.id)
-          .order("start_time", { ascending: true }),
-        // Course items (exams, tests, quizzes, assignments) come projected from the shared calendar API.
-        fetch("/api/mobile/calendar", { cache: "no-store" })
-          .then(async (response) => ({ ok: response.ok, body: (await response.json()) as CalendarApiResponse }))
-          .catch(() => ({ ok: false, body: { error: "Unable to load course dates." } as CalendarApiResponse })),
-      ]);
-
+      try {
+        const response = await fetch("/api/mobile/calendar", { cache: "no-store" });
+        const body = await response.json() as CalendarApiResponse;
+        if (!response.ok) throw new Error(body.error || "Unable to load calendar.");
+        if (!isMounted) return;
+        setManualEvents(body.events); setRecurringBlocks(body.scheduleBlocks); setCourseEvents(body.courseEvents ?? []); setTimezone(body.timezone);
+      } catch (error) { if (isMounted) setLoadError(error instanceof Error ? error.message : "Unable to load calendar."); }
       if (!isMounted) return;
-
-      if (eventsResult.error || blocksResult.error || !courseResult.ok) {
-        setLoadError(
-          eventsResult.error?.message ?? blocksResult.error?.message ?? courseResult.body.error ?? "Unable to load calendar.",
-        );
-        setIsLoadingCalendar(false);
-        return;
-      }
-
-      setCourseEvents(courseResult.body.courseEvents ?? []);
-
-      setManualEvents(((eventsResult.data ?? []) as CalendarEventRow[]).map(toCalendarEvent));
-      setRecurringBlocks(((blocksResult.data ?? []) as ScheduleBlockRow[]).map(toScheduleBlock));
       setIsLoadingCalendar(false);
     }
 
@@ -959,17 +895,21 @@ export default function LocalCalendarPage() {
       setSelectedCourseEvent(event);
       return;
     }
+    const original = event.source === "recurring_schedule" ? recurringBlocks.find((b) => b.id === event.sourceId) : manualEvents.find((e) => e.id === (event.sourceId ?? event.id));
     setEditingTarget(
       event.source === "recurring_schedule" && event.sourceId
         ? { id: event.sourceId, type: "recurring" }
-        : { id: event.id, type: "single" },
+        : { id: event.sourceId ?? event.id, type: "single" },
     );
     setEventForm({
       title: event.title,
       category: event.category,
-      date: event.date,
-      startTime: event.startTime,
-      endTime: event.endTime,
+      date: event.originalDate ?? event.date,
+      startTime: event.originalStartTime ?? event.startTime,
+      endTime: event.originalEndTime ?? event.endTime,
+      endDayOffset: original?.endDayOffset ?? 0,
+      effectiveFrom: original && "effectiveFrom" in original ? original.effectiveFrom : null,
+      effectiveUntil: original && "effectiveUntil" in original ? original.effectiveUntil : null,
       recurrence: event.source === "recurring_schedule" ? "weekly" : "single",
     });
   }
@@ -1045,140 +985,20 @@ export default function LocalCalendarPage() {
   }
 
   async function handleSubmitEvent(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!eventForm) return;
-
-    if (!userId) {
-      setModalError("Sign in before saving calendar events.");
-      return;
-    }
-
-    const title = eventForm.title.trim();
-    if (!title) {
-      setModalError("Add a title before saving.");
-      return;
-    }
-
-    if (eventForm.endTime <= eventForm.startTime) {
-      setModalError("End time must be after start time.");
-      return;
-    }
-
-    if (eventForm.recurrence === "weekly") {
-      const date = parseDateParam(eventForm.date);
-      const blockPayload = {
-        user_id: userId,
-        title,
-        category: eventForm.category,
-        days_of_week: [date.getDay()],
-        start_time: eventForm.startTime,
-        end_time: eventForm.endTime,
-        timezone: "America/Toronto",
-      };
-
-      if (editingTarget?.type === "single") {
-        const [deleteResult, insertResult] = await Promise.all([
-          supabase.from("calendar_events").delete().eq("id", editingTarget.id).eq("user_id", userId),
-          supabase.from("schedule_blocks").insert(blockPayload).select("id, title, category, days_of_week, start_time, end_time, timezone").single(),
-        ]);
-
-        if (deleteResult.error || insertResult.error || !insertResult.data) {
-          setModalError(deleteResult.error?.message ?? insertResult.error?.message ?? "Unable to save event.");
-          return;
-        }
-
-        setManualEvents((current) => current.filter((manualEvent) => manualEvent.id !== editingTarget.id));
-        setRecurringBlocks((current) => [...current, toScheduleBlock(insertResult.data as ScheduleBlockRow)]);
-      } else if (editingTarget?.type === "recurring") {
-        const { data, error } = await supabase
-          .from("schedule_blocks")
-          .update(blockPayload)
-          .eq("id", editingTarget.id)
-          .eq("user_id", userId)
-          .select("id, title, category, days_of_week, start_time, end_time, timezone")
-          .single();
-
-        if (error || !data) {
-          setModalError(error?.message ?? "Unable to save event.");
-          return;
-        }
-
-        const nextBlock = toScheduleBlock(data as ScheduleBlockRow);
-        setRecurringBlocks((current) =>
-          current.map((block) => (block.id === editingTarget.id ? nextBlock : block)),
-        );
-      } else {
-        const { data, error } = await supabase
-          .from("schedule_blocks")
-          .insert(blockPayload)
-          .select("id, title, category, days_of_week, start_time, end_time, timezone")
-          .single();
-
-        if (error || !data) {
-          setModalError(error?.message ?? "Unable to save event.");
-          return;
-        }
-
-        setRecurringBlocks((current) => [...current, toScheduleBlock(data as ScheduleBlockRow)]);
-      }
-    } else {
-      const eventPayload = {
-        user_id: userId,
-        title,
-        category: eventForm.category,
-        event_date: eventForm.date,
-        start_time: eventForm.startTime,
-        end_time: eventForm.endTime,
-      };
-
-      if (editingTarget?.type === "recurring") {
-        const [deleteResult, insertResult] = await Promise.all([
-          supabase.from("schedule_blocks").delete().eq("id", editingTarget.id).eq("user_id", userId),
-          supabase.from("calendar_events").insert(eventPayload).select("id, title, category, event_date, start_time, end_time").single(),
-        ]);
-
-        if (deleteResult.error || insertResult.error || !insertResult.data) {
-          setModalError(deleteResult.error?.message ?? insertResult.error?.message ?? "Unable to save event.");
-          return;
-        }
-
-        setRecurringBlocks((current) => current.filter((block) => block.id !== editingTarget.id));
-        setManualEvents((current) => [...current, toCalendarEvent(insertResult.data as CalendarEventRow)]);
-      } else if (editingTarget?.type === "single") {
-        const { data, error } = await supabase
-          .from("calendar_events")
-          .update(eventPayload)
-          .eq("id", editingTarget.id)
-          .eq("user_id", userId)
-          .select("id, title, category, event_date, start_time, end_time")
-          .single();
-
-        if (error || !data) {
-          setModalError(error?.message ?? "Unable to save event.");
-          return;
-        }
-
-        const nextEvent = toCalendarEvent(data as CalendarEventRow);
-        setManualEvents((current) =>
-          current.map((manualEvent) => (manualEvent.id === editingTarget.id ? nextEvent : manualEvent)),
-        );
-      } else {
-        const { data, error } = await supabase
-          .from("calendar_events")
-          .insert(eventPayload)
-          .select("id, title, category, event_date, start_time, end_time")
-          .single();
-
-        if (error || !data) {
-          setModalError(error?.message ?? "Unable to save event.");
-          return;
-        }
-
-        setManualEvents((current) => [...current, toCalendarEvent(data as CalendarEventRow)]);
-      }
-    }
-
-    closeEventModal();
+    event.preventDefault(); if (!eventForm || !userId || isDeleting) return;
+    const kind = eventForm.recurrence === "weekly" ? "block" : "event";
+    const oldKind = editingTarget?.type === "recurring" ? "block" : "event";
+    if (editingTarget && kind !== oldKind) { setModalError("Keep this item's repeat type, or remove it and create a new item."); return; }
+    setModalError("");
+    try {
+      const payload = { ...eventForm, kind, id: editingTarget?.id, timezone,
+        daysOfWeek: editingTarget?.type === "recurring" ? recurringBlocks.find((b) => b.id === editingTarget.id)?.daysOfWeek : [parseDateParam(eventForm.date).getDay()] };
+      const response = await fetch("/api/mobile/calendar", { method: editingTarget ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const body = await response.json(); if (!response.ok) throw new Error(body.error || "Unable to save event.");
+      if (body.event) setManualEvents((items) => [...items.filter((e) => e.id !== body.event.id), body.event]);
+      if (body.scheduleBlock) setRecurringBlocks((items) => [...items.filter((e) => e.id !== body.scheduleBlock.id), body.scheduleBlock]);
+      closeEventModal();
+    } catch (error) { setModalError(error instanceof Error ? error.message : "Unable to save event."); }
   }
 
   return (
@@ -1201,6 +1021,7 @@ export default function LocalCalendarPage() {
         </div>
       </header>
 
+      <Link className="mb-4 inline-flex rounded-lg bg-teal px-4 py-2 text-on-teal" href="/calendar/import">Import schedule</Link>
       {isLoadingCalendar ? (
         <section className="rounded-lg border border-line bg-surface p-6 text-ink-muted shadow-sm">
           Loading calendar...
@@ -1265,7 +1086,7 @@ export default function LocalCalendarPage() {
 
         <aside className="rounded-lg border border-line bg-surface p-5 shadow-sm">
           <p className="text-sm font-medium uppercase tracking-wide text-ink-muted">Today</p>
-          <h2 className="mt-1 text-xl font-semibold text-ink">{formatDay(startOfToday())}</h2>
+          <h2 className="mt-1 text-xl font-semibold text-ink">{formatDay(parseDateParam(todayKey))}</h2>
 
           <div className="mt-5 space-y-3">
             {todayEvents.length === 0 ? <p className="text-sm text-ink-muted">Nothing scheduled today.</p> : null}

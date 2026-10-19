@@ -7,6 +7,7 @@ export type IconName =
   | "meals"
   | "workouts"
   | "more"
+  | "profile"
   | "back";
 
 type IconProps = {
@@ -31,6 +32,8 @@ export function Icon({ name, size = 24, color, strokeWidth = 1.8 }: IconProps) {
   };
 
   switch (name) {
+    case "profile":
+      return <Svg width={size} height={size} viewBox="0 0 24 24"><Circle cx={12} cy={8} r={4} {...common} /><Polyline points="4,21 4,19 6,15 18,15 20,19 20,21" {...common} /></Svg>;
     case "today": // compass
       return (
         <Svg width={size} height={size} viewBox="0 0 24 24">

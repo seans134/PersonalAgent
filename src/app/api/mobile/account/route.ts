@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthenticatedRequestClient } from "@/lib/supabase/request";
+import { verifyAccountPassword } from "@/lib/supabase/verify-password";
 
 export async function DELETE(request: NextRequest) {
   const auth = await getAuthenticatedRequestClient(request);
@@ -8,12 +9,16 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: "Authentication required." }, { status: 401 });
   }
 
-  const payload = (await request.json().catch(() => ({}))) as { confirmation?: unknown };
+  const payload = (await request.json().catch(() => ({}))) as { confirmation?: unknown; password?: unknown };
   if (payload.confirmation !== "DELETE") {
     return NextResponse.json({ error: "Account deletion confirmation is required." }, { status: 400 });
   }
 
+  if (typeof payload.password !== "string" || !payload.password) return NextResponse.json({ error: "Enter your current password." }, { status: 400 });
+
   try {
+    const verified = await verifyAccountPassword(auth.user, payload.password);
+    await verified.auth.signOut({ scope: "global" });
     const admin = createAdminClient();
     const { error } = await admin.auth.admin.deleteUser(auth.user.id, false);
 
@@ -24,7 +29,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ deleted: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to delete account.";
-    const status = message.includes("not configured") ? 503 : 500;
+    const status = message.includes("not configured") ? 503 : message.includes("password") ? 400 : 500;
     return NextResponse.json({ error: message }, { status });
   }
 }

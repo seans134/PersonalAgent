@@ -1,3 +1,4 @@
+import { ScheduleImportScreen } from "./components/ScheduleImportScreen";
 import { StatusBar } from "expo-status-bar";
 import * as Notifications from "expo-notifications";
 import { useFonts } from "expo-font";
@@ -185,8 +186,10 @@ function App() {
   function renderSignedInScreen() {
     const token = session!.access_token;
 
+    if (activeScreen === "scheduleImport") return <ScheduleImportScreen accessToken={token} onBack={() => setActiveScreen("calendar")} />;
+
     if (activeScreen === "calendar") {
-      return <CalendarScreen accessToken={token} />;
+      return <CalendarScreen accessToken={token} onImport={() => setActiveScreen("scheduleImport")} />;
     }
 
     if (!isScreenEnabled(activeScreen)) {
@@ -240,16 +243,16 @@ function App() {
       );
     }
 
-    if (activeScreen === "more") {
+    if (activeScreen === "profile") {
       return (
-        <MoreMenuScreen onNavigate={setActiveScreen} onSignOut={signOut} />
+        <MoreMenuScreen accessToken={token} onAccountDeleted={() => setSession(null)} onNavigate={setActiveScreen} onSignOut={signOut} />
       );
     }
 
     if (activeScreen === "insights") {
       return (
         <View style={styles.tabBody}>
-          <DetailHeader onBack={() => setActiveScreen("more")} title="Insights" />
+          <DetailHeader onBack={() => setActiveScreen("profile")} title="Insights" />
           <InsightsScreen accessToken={token} />
         </View>
       );
@@ -258,7 +261,7 @@ function App() {
     if (activeScreen === "goals") {
       return (
         <View style={styles.tabBody}>
-          <DetailHeader onBack={() => setActiveScreen("more")} title="Goals" />
+          <DetailHeader onBack={() => setActiveScreen("profile")} title="Goals" />
           <GoalsScreen accessToken={token} />
         </View>
       );
@@ -305,8 +308,8 @@ function App() {
     if (activeScreen === "onboarding") {
       return (
         <View style={styles.tabBody}>
-          <DetailHeader onBack={() => setActiveScreen("more")} title="Setup" />
-          <OnboardingScreen accessToken={token} onComplete={() => setActiveScreen("dashboard")} />
+          <DetailHeader onBack={() => setActiveScreen("profile")} title="Setup" />
+          <OnboardingScreen onImport={() => setActiveScreen("scheduleImport")} accessToken={token} onComplete={() => setActiveScreen("dashboard")} />
         </View>
       );
     }
@@ -314,8 +317,8 @@ function App() {
     if (activeScreen === "weeklyRhythm") {
       return (
         <View style={styles.tabBody}>
-          <DetailHeader onBack={() => setActiveScreen("more")} title="Weekly rhythm" />
-          <WeeklyRhythmScreen accessToken={token} />
+          <DetailHeader onBack={() => setActiveScreen("profile")} title="Weekly rhythm" />
+          <WeeklyRhythmScreen onImport={() => setActiveScreen("scheduleImport")} accessToken={token} />
         </View>
       );
     }
@@ -323,7 +326,7 @@ function App() {
     if (activeScreen === "notifications") {
       return (
         <View style={styles.tabBody}>
-          <DetailHeader onBack={() => setActiveScreen("more")} title="Notifications" />
+          <DetailHeader onBack={() => setActiveScreen("profile")} title="Notifications" />
           <NotificationSettingsScreen accessToken={token} />
         </View>
       );
@@ -332,8 +335,8 @@ function App() {
     if (activeScreen === "settings") {
       return (
         <View style={styles.tabBody}>
-          <DetailHeader onBack={() => setActiveScreen("more")} title="Settings & Legal" />
-          <AccountSettingsScreen accessToken={token} onAccountDeleted={() => setSession(null)} />
+          <DetailHeader onBack={() => setActiveScreen("profile")} title="Support & privacy" />
+          <AccountSettingsScreen />
         </View>
       );
     }

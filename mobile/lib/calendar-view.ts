@@ -154,6 +154,9 @@ export function buildCalendar(snapshot: MobileCalendarResponse | null) {
         startTime: block.startTime,
         endTime: block.endTime,
         timezone: block.timezone,
+        endDayOffset: block.endDayOffset,
+        effectiveFrom: block.effectiveFrom,
+        effectiveUntil: block.effectiveUntil,
       });
     } catch {
       // Skip unusable schedule blocks.
@@ -170,6 +173,7 @@ export function buildCalendar(snapshot: MobileCalendarResponse | null) {
         startTime: event.startTime,
         endTime: event.endTime,
         source: "manual",
+        endDayOffset: event.endDayOffset,
       });
     } catch {
       // Skip unusable events.

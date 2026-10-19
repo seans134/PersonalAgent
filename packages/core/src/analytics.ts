@@ -7,6 +7,10 @@ export const analyticsEvents = {
   syllabusImported: "syllabus_imported",
   planGenerated: "plan_generated",
   neededScoreViewed: "needed_score_viewed",
+  scheduleImportParsed: "schedule_import_parsed",
+  scheduleImportCompleted: "schedule_import_completed",
+  scheduleImportFailed: "schedule_import_failed",
+  scheduleAdded: "schedule_added",
 } as const;
 
 export type AnalyticsEventName = (typeof analyticsEvents)[keyof typeof analyticsEvents];

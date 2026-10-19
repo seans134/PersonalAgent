@@ -1,10 +1,11 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { createAdminClientMock, getAuthenticatedRequestClientMock, deleteUserMock } = vi.hoisted(() => ({
+const { createAdminClientMock, getAuthenticatedRequestClientMock, deleteUserMock, verifyPasswordMock } = vi.hoisted(() => ({
   createAdminClientMock: vi.fn(),
   getAuthenticatedRequestClientMock: vi.fn(),
   deleteUserMock: vi.fn(),
+  verifyPasswordMock: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/admin", () => ({
@@ -15,17 +16,20 @@ vi.mock("@/lib/supabase/request", () => ({
   getAuthenticatedRequestClient: getAuthenticatedRequestClientMock,
 }));
 
-function request(confirmation?: string) {
+vi.mock("@/lib/supabase/verify-password", () => ({ verifyAccountPassword: verifyPasswordMock }));
+
+function request(confirmation?: string, password = "test-password") {
   return new NextRequest("http://localhost/api/mobile/account", {
     method: "DELETE",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ confirmation }),
+    body: JSON.stringify({ confirmation, password }),
   });
 }
 
 describe("DELETE /api/mobile/account", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    verifyPasswordMock.mockResolvedValue({ auth: { signOut: vi.fn(async () => ({ error: null })) } });
     const tokenQuery = {
       select: vi.fn(() => tokenQuery),
       eq: vi.fn(() => tokenQuery),
@@ -53,6 +57,19 @@ describe("DELETE /api/mobile/account", () => {
     expect(deleteUserMock).not.toHaveBeenCalled();
   });
 
+  it("rejects a missing password before deletion", async () => {
+    getAuthenticatedRequestClientMock.mockResolvedValue({ user: { id: "user-1" } });
+    const { DELETE } = await import("./route");
+    expect((await DELETE(request("DELETE", ""))).status).toBe(400);
+    expect(deleteUserMock).not.toHaveBeenCalled();
+  });
+  it("rejects an incorrect password", async () => {
+    getAuthenticatedRequestClientMock.mockResolvedValue({ user: { id: "user-1" } });
+    verifyPasswordMock.mockRejectedValueOnce(new Error("Current password is incorrect."));
+    const { DELETE } = await import("./route");
+    expect((await DELETE(request("DELETE"))).status).toBe(400);
+    expect(deleteUserMock).not.toHaveBeenCalled();
+  });
   it("permanently deletes the authenticated user", async () => {
     getAuthenticatedRequestClientMock.mockResolvedValue({ user: { id: "user-1" } });
     const { DELETE } = await import("./route");

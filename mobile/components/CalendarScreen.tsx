@@ -1,3 +1,4 @@
+import { dateInTimezone } from "@personal-agent/core/calendar";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTheme } from "../lib/theme";
 import type { Theme } from "../lib/theme";
@@ -22,7 +23,6 @@ import {
   getMonthDays,
   getShiftedDate,
   getWeekDays,
-  toDateKey,
   weekdayLabels,
   type CalendarView,
 } from "../lib/calendar-view";
@@ -38,6 +38,7 @@ import {
 } from "../lib/api";
 
 type CalendarScreenProps = {
+  onImport?: () => void;
   accessToken: string;
 };
 
@@ -59,7 +60,7 @@ function localTimezone() {
   return Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Toronto";
 }
 
-export function CalendarScreen({ accessToken }: CalendarScreenProps) {
+export function CalendarScreen({ accessToken, onImport }: CalendarScreenProps) {
   const theme = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const [snapshot, setSnapshot] = useState<MobileCalendarResponse | null>(null);
@@ -76,7 +77,7 @@ export function CalendarScreen({ accessToken }: CalendarScreenProps) {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  const todayKey = toDateKey(new Date());
+  const todayKey = dateInTimezone(new Date(), snapshot?.timezone || "America/Toronto");
 
   const loadCalendar = useCallback(async () => {
     try {
@@ -236,17 +237,21 @@ export function CalendarScreen({ accessToken }: CalendarScreenProps) {
     }
     tapHaptic();
     setModalError("");
+    const original = event.source === "recurring_schedule" ? snapshot?.scheduleBlocks.find((b) => b.id === event.sourceId) : snapshot?.events.find((e) => e.id === (event.sourceId ?? event.id));
     setEditingTarget(
       event.source === "recurring_schedule" && event.sourceId
         ? { id: event.sourceId, type: "recurring" }
-        : { id: event.id, type: "single" },
+        : { id: event.sourceId ?? event.id, type: "single" },
     );
     setForm({
       title: event.title,
       category: event.category,
-      date: event.date,
-      startTime: event.startTime,
-      endTime: event.endTime,
+      date: event.originalDate ?? event.date,
+      startTime: event.originalStartTime ?? event.startTime,
+      endTime: event.originalEndTime ?? event.endTime,
+      endDayOffset: original?.endDayOffset ?? 0,
+      effectiveFrom: original?.effectiveFrom ?? null,
+      effectiveUntil: original?.effectiveUntil ?? null,
       recurrence: event.source === "recurring_schedule" ? "weekly" : "single",
     });
   }
@@ -267,7 +272,7 @@ export function CalendarScreen({ accessToken }: CalendarScreenProps) {
     if (!timePattern.test(nextForm.startTime) || !timePattern.test(nextForm.endTime)) {
       return "Times must use HH:MM format.";
     }
-    if (nextForm.endTime <= nextForm.startTime) return "End time must be after start time.";
+    if (nextForm.endDayOffset ? nextForm.endTime > nextForm.startTime : nextForm.endTime <= nextForm.startTime) return "End time must be after start time.";
     return "";
   }
 
@@ -289,14 +294,17 @@ export function CalendarScreen({ accessToken }: CalendarScreenProps) {
       category: form.category,
       startTime: form.startTime,
       endTime: form.endTime,
+      endDayOffset: form.endDayOffset ?? 0,
+      effectiveFrom: form.effectiveFrom,
+      effectiveUntil: form.effectiveUntil,
     };
     const input: MobileCalendarItemInput =
       form.recurrence === "weekly"
         ? {
             ...common,
             kind: "block",
-            daysOfWeek: [fromDateKey(form.date).getDay()],
-            timezone: localTimezone(),
+            daysOfWeek: editingTarget?.type === "recurring" ? snapshot?.scheduleBlocks.find((b) => b.id === editingTarget.id)?.daysOfWeek ?? [fromDateKey(form.date).getDay()] : [fromDateKey(form.date).getDay()],
+            timezone: snapshot?.timezone || localTimezone(),
           }
         : { ...common, kind: "event", date: form.date };
     const nextType = form.recurrence === "weekly" ? "recurring" : "single";
@@ -439,6 +447,7 @@ export function CalendarScreen({ accessToken }: CalendarScreenProps) {
         {loadError ? <Text style={styles.error}>{loadError}</Text> : null}
         {loading ? <Text style={styles.empty}>Loading calendar...</Text> : null}
 
+        {onImport && <Pressable accessibilityRole="button" onPress={onImport}><Text style={styles.navText}>Import schedule</Text></Pressable>}
         <CalendarGrid
           calendar={calendar}
           monthDays={monthDays}

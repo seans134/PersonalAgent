@@ -4,6 +4,7 @@ export type TimeRange = {
 };
 
 export function toMinutes(value: string): number {
+  if (value === "24:00") return 1440;
   const [hoursRaw, minutesRaw] = value.split(":");
   const hours = Number(hoursRaw);
   const minutes = Number(minutesRaw);

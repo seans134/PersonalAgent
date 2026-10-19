@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { generateTodayPlanForUser } from "./plan-today";
 
 type MockState = {
@@ -15,6 +15,9 @@ type MockState = {
     event_date: string;
     start_time: string;
     end_time: string;
+    end_day_offset?: 0 | 1;
+    effective_from?: string | null;
+    effective_until?: string | null;
   }>;
   localEventsError?: string;
   profile?: {
@@ -98,24 +101,8 @@ function createSupabaseMock(state: MockState) {
       }
 
       if (table === "calendar_events") {
-        return {
-          select() {
-            return {
-              eq() {
-                return {
-                  eq() {
-                    return {
-                      order: async () => ({
-                        data: state.localEvents ?? [],
-                        error: state.localEventsError ? { message: state.localEventsError } : null,
-                      }),
-                    };
-                  },
-                };
-              },
-            };
-          },
-        };
+        const query = { select: () => query, eq: () => query, gte: () => query, lte: () => query, order: async () => ({ data: state.localEvents ?? [], error: state.localEventsError ? { message: state.localEventsError } : null }) };
+        return query;
       }
 
       if (table === "schedule_blocks") {
@@ -381,4 +368,21 @@ describe("generateTodayPlanForUser", () => {
     expect(studyItem).toBeDefined();
     expect(studyItem?.title).toMatch(/Midterm/);
   });
+});
+
+it("blocks yesterday's overnight tail using the profile timezone", async () => {
+  vi.useFakeTimers(); vi.setSystemTime(new Date("2026-11-01T07:00:00Z"));
+  try {
+    const result = await generateTodayPlanForUser({
+      supabase: createSupabaseMock({ goals: [], profile: { work_start_time: "05:00", work_end_time: "10:00", no_meeting_start: null, no_meeting_end: null, focus_block_minutes: 30, workout_preference: "none", timezone: "America/Toronto" },
+        localEvents: [{ id: "night", title: "Overnight work", event_date: "2026-10-31", start_time: "22:00:00", end_time: "06:00:00", end_day_offset: 1 }],
+        scheduleBlocks: [{ id: "old", title: "Expired class", days_of_week: [0], start_time: "08:00", end_time: "09:00", effective_until: "2026-10-31" }],
+      }) as never, userId: "user-1", enhancePlan: async ({ plan }) => ({ plan }),
+    });
+    if ("error" in result.body) throw new Error(result.body.error);
+    expect(result.body.meta.warnings).toEqual([]);
+    expect(result.body.contextEvents).toHaveLength(1);
+    expect(result.body.contextEvents[0]).toMatchObject({ title: "Overnight work", startTime: "00:00", endTime: "06:00" });
+    expect(result.body.plan.items.every((item) => item.startTime >= "06:00")).toBe(true);
+  } finally { vi.useRealTimers(); }
 });

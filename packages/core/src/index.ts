@@ -6,3 +6,5 @@ export * from "./features";
 export * from "./analytics";
 export * from "./syllabus";
 export * from "./onboarding";
+export * from "./schedule-import";
+export * from "./profile";

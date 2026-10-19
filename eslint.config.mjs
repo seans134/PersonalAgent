@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    ".superpowers/**",
+    ".claude/**",
   ]),
   // Metro loads its config with Node's require(), so it must stay CommonJS.
   {

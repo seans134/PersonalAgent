@@ -7,6 +7,8 @@ contracts, so features land on both surfaces together rather than web-first.
 
 Current capabilities:
 - Supabase email/password authentication
+- PDF/image timetable and roster imports with editable review, duplicate checks, date ranges, and overnight shifts
+- Profile on web and mobile for account security, planning preferences, appearance, and reminder settings
 - Onboarding for goals, schedule constraints, and preferences
 - Deterministic daily planner endpoint (`POST /api/plan/today`)
 - Courses & grade manager: weighted grade categories, assignments/quizzes/exams,
@@ -109,6 +111,8 @@ point it at your running web/API instance.
 - `/auth` sign in / sign up
 - `/onboarding` onboarding form (requires auth)
 - `/calendar/local` visual day/week/month calendar
+- `/calendar/import` upload and review a school or work schedule
+- `/profile` account and preferences (`/settings` redirects here)
 - `/courses` course list; `/courses/[id]` grade summary, categories, and items
 - `/api/plan/today` generates deterministic plan and optional enhanced copy
 - `/api/mobile/*` stable JSON contracts consumed by the mobile app

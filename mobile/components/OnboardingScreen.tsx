@@ -34,6 +34,7 @@ import { tapHaptic } from "../lib/haptics";
 
 type OnboardingScreenProps = {
   accessToken: string;
+  onImport?: () => void;
   /** Leaves onboarding for Today. */
   onComplete: () => void;
 };
@@ -53,7 +54,7 @@ const stepCopy: Record<OnboardingStepKey, { title: string; body: string }> = {
   },
 };
 
-export function OnboardingScreen({ accessToken, onComplete }: OnboardingScreenProps) {
+export function OnboardingScreen({ accessToken, onComplete, onImport }: OnboardingScreenProps) {
   const theme = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   // null until the first load picks where to resume.
@@ -289,7 +290,8 @@ export function OnboardingScreen({ accessToken, onComplete }: OnboardingScreenPr
 
       {step === "class_times" ? (
         <>
-          <NaturalLanguageOnboardingPanel
+          {onImport && <Pressable onPress={onImport}><Text style={theme.text("label", "teal")}>Import schedule</Text></Pressable>}
+      <NaturalLanguageOnboardingPanel
             accessToken={accessToken}
             mode="school_work"
             onApplied={() => {

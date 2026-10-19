@@ -15,6 +15,9 @@ type ScheduleBlockRow = {
   days_of_week: number[];
   start_time: string;
   end_time: string;
+  end_day_offset?: 0 | 1;
+  effective_from?: string | null;
+  effective_until?: string | null;
 };
 
 export default async function ScheduleCommitmentsPage({
@@ -37,7 +40,7 @@ export default async function ScheduleCommitmentsPage({
   const [{ data: blocks }, { count: courseCount }] = await Promise.all([
     supabase
       .from("schedule_blocks")
-      .select("id, title, category, days_of_week, start_time, end_time")
+      .select("id, title, category, days_of_week, start_time, end_time, end_day_offset, effective_from, effective_until")
       .eq("user_id", user.id)
       .in("category", ["school", "work"])
       .order("start_time", { ascending: true }),
@@ -75,6 +78,7 @@ export default async function ScheduleCommitmentsPage({
         <OnboardingProgress currentStep="class_times" progress={{ courseCount: courseCount ?? 0, classTimeCount }} />
       ) : null}
 
+      <Link className="mb-4 inline-flex rounded-lg bg-teal px-4 py-2 text-on-teal" href="/calendar/import">Import schedule</Link>
       <NaturalLanguageOnboardingPanel mode="school_work" />
 
       <OnboardingScheduleCalendar initialBlocks={blockRows} userId={user.id} />

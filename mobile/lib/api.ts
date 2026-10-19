@@ -49,6 +49,9 @@ export type MobileOnboardingScheduleBlockDraft = {
   daysOfWeek: number[];
   startTime: string;
   endTime: string;
+  endDayOffset?: 0 | 1;
+  effectiveFrom?: string | null;
+  effectiveUntil?: string | null;
   timezone: string;
 };
 
@@ -87,6 +90,9 @@ export type MobileScheduleBlock = {
   daysOfWeek: number[];
   startTime: string;
   endTime: string;
+  endDayOffset?: 0 | 1;
+  effectiveFrom?: string | null;
+  effectiveUntil?: string | null;
   timezone?: string;
 };
 
@@ -97,10 +103,14 @@ export type MobileCalendarEvent = {
   date: string;
   startTime: string;
   endTime: string;
+  endDayOffset?: 0 | 1;
+  effectiveFrom?: string | null;
+  effectiveUntil?: string | null;
   source: "manual";
 };
 
 export type MobileCalendarResponse = {
+  timezone?: string;
   visibility: MobileCalendarVisibility;
   scheduleBlocks: MobileScheduleBlock[];
   events: MobileCalendarEvent[];
@@ -116,6 +126,9 @@ export type MobileCalendarEventInput = {
   date: string;
   startTime: string;
   endTime: string;
+  endDayOffset?: 0 | 1;
+  effectiveFrom?: string | null;
+  effectiveUntil?: string | null;
 };
 
 export type MobileScheduleBlockInput = {
@@ -126,6 +139,9 @@ export type MobileScheduleBlockInput = {
   daysOfWeek: number[];
   startTime: string;
   endTime: string;
+  endDayOffset?: 0 | 1;
+  effectiveFrom?: string | null;
+  effectiveUntil?: string | null;
   timezone?: string;
 };
 

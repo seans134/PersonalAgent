@@ -10,6 +10,8 @@ type CalendarEventRow = {
   event_date: string;
   start_time: string;
   end_time: string;
+  end_day_offset?: 0 | 1;
+  timezone?: string | null;
 };
 
 type ScheduleBlockRow = {
@@ -20,6 +22,9 @@ type ScheduleBlockRow = {
   start_time: string;
   end_time: string;
   timezone: string | null;
+  end_day_offset?: 0 | 1;
+  effective_from?: string | null;
+  effective_until?: string | null;
 };
 
 type UserProfileCalendarRow = {
@@ -44,6 +49,9 @@ type CalendarMutationPayload = {
   startTime?: unknown;
   endTime?: unknown;
   timezone?: unknown;
+  endDayOffset?: unknown;
+  effectiveFrom?: unknown;
+  effectiveUntil?: unknown;
 };
 
 function normalizeDbTime(value: string) {
@@ -73,8 +81,9 @@ function time(value: unknown, label: string) {
 function timeRange(payload: CalendarMutationPayload) {
   const startTime = time(payload.startTime, "Start time");
   const endTime = time(payload.endTime, "End time");
-  if (endTime <= startTime) throw new Error("End time must be after start time.");
-  return { startTime, endTime };
+  const endDayOffset: 0 | 1 = payload.endDayOffset === 1 ? 1 : 0;
+  if (endDayOffset ? endTime > startTime : endTime <= startTime) throw new Error("Choose a valid duration of up to 24 hours.");
+  return { startTime, endTime, endDayOffset };
 }
 
 function eventDate(value: unknown) {
@@ -101,6 +110,8 @@ function toEvent(event: CalendarEventRow) {
     startTime: normalizeDbTime(event.start_time),
     endTime: normalizeDbTime(event.end_time),
     source: "manual" as const,
+    endDayOffset: event.end_day_offset ?? 0,
+    timezone: event.timezone ?? undefined,
   };
 }
 
@@ -113,6 +124,9 @@ function toBlock(block: ScheduleBlockRow) {
     startTime: normalizeDbTime(block.start_time),
     endTime: normalizeDbTime(block.end_time),
     timezone: block.timezone ?? undefined,
+    endDayOffset: block.end_day_offset ?? 0,
+    effectiveFrom: block.effective_from ?? null,
+    effectiveUntil: block.effective_until ?? null,
   };
 }
 
@@ -131,13 +145,13 @@ export async function GET(request: NextRequest) {
       .maybeSingle(),
     auth.supabase
       .from("calendar_events")
-      .select("id, title, category, event_date, start_time, end_time")
+      .select("id, title, category, event_date, start_time, end_time, end_day_offset, timezone")
       .eq("user_id", auth.user.id)
       .order("event_date", { ascending: true })
       .order("start_time", { ascending: true }),
     auth.supabase
       .from("schedule_blocks")
-      .select("id, title, category, days_of_week, start_time, end_time, timezone")
+      .select("id, title, category, days_of_week, start_time, end_time, timezone, end_day_offset, effective_from, effective_until")
       .eq("user_id", auth.user.id)
       .order("start_time", { ascending: true }),
     auth.supabase
@@ -188,6 +202,7 @@ export async function GET(request: NextRequest) {
     scheduleBlocks,
     events,
     courseEvents,
+    timezone,
   });
 }
 
@@ -200,7 +215,7 @@ async function saveCalendarItem(request: NextRequest, update: boolean) {
     const kind = calendarKind(payload.kind);
     const title = requiredText(payload.title, "Title");
     const itemCategory = category(payload.category);
-    const { startTime, endTime } = timeRange(payload);
+    const { startTime, endTime, endDayOffset } = timeRange(payload);
     const id = update ? requiredText(payload.id, "Calendar item id") : null;
 
     if (kind === "event") {
@@ -211,12 +226,13 @@ async function saveCalendarItem(request: NextRequest, update: boolean) {
         event_date: eventDate(payload.date),
         start_time: startTime,
         end_time: endTime,
+        ...(payload.endDayOffset !== undefined || !update ? { end_day_offset: endDayOffset } : {}),
       };
       const query = update
         ? auth.supabase.from("calendar_events").update(values).eq("id", id).eq("user_id", auth.user.id)
         : auth.supabase.from("calendar_events").insert(values);
       const { data, error } = await query
-        .select("id, title, category, event_date, start_time, end_time")
+        .select("id, title, category, event_date, start_time, end_time, end_day_offset, timezone")
         .single();
       if (error || !data) return NextResponse.json({ error: error?.message ?? "Unable to save event." }, { status: 500 });
       return NextResponse.json({ event: toEvent(data as CalendarEventRow) }, { status: update ? 200 : 201 });
@@ -230,12 +246,15 @@ async function saveCalendarItem(request: NextRequest, update: boolean) {
       start_time: startTime,
       end_time: endTime,
       timezone: typeof payload.timezone === "string" && payload.timezone.trim() ? payload.timezone.trim() : "America/Toronto",
+      ...(payload.endDayOffset !== undefined || !update ? { end_day_offset: endDayOffset } : {}),
+      ...(payload.effectiveFrom !== undefined ? { effective_from: payload.effectiveFrom ? eventDate(payload.effectiveFrom) : null } : {}),
+      ...(payload.effectiveUntil !== undefined ? { effective_until: payload.effectiveUntil ? eventDate(payload.effectiveUntil) : null } : {}),
     };
     const query = update
       ? auth.supabase.from("schedule_blocks").update(values).eq("id", id).eq("user_id", auth.user.id)
       : auth.supabase.from("schedule_blocks").insert(values);
     const { data, error } = await query
-      .select("id, title, category, days_of_week, start_time, end_time, timezone")
+      .select("id, title, category, days_of_week, start_time, end_time, timezone, end_day_offset, effective_from, effective_until")
       .single();
     if (error || !data) return NextResponse.json({ error: error?.message ?? "Unable to save schedule block." }, { status: 500 });
 

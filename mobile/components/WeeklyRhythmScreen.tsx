@@ -24,6 +24,7 @@ import {
 
 type WeeklyRhythmScreenProps = {
   accessToken: string;
+  onImport?: () => void;
 };
 
 const workoutOptions: NonNullable<MobileOnboardingInput["workoutPreference"]>[] = [
@@ -38,7 +39,7 @@ const workoutOptions: NonNullable<MobileOnboardingInput["workoutPreference"]>[] 
  * preferences. These used to be onboarding steps 2 and 3; onboarding is now
  * courses -> class times -> done, so they live here, reachable from More.
  */
-export function WeeklyRhythmScreen({ accessToken }: WeeklyRhythmScreenProps) {
+export function WeeklyRhythmScreen({ accessToken, onImport }: WeeklyRhythmScreenProps) {
   const theme = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const [blocks, setBlocks] = useState<MobileScheduleBlock[]>([]);
@@ -158,6 +159,7 @@ export function WeeklyRhythmScreen({ accessToken }: WeeklyRhythmScreenProps) {
 
       {blocksError ? <Text style={styles.error}>{blocksError}</Text> : null}
 
+      {onImport && <Pressable onPress={onImport}><Text style={theme.text("label", "teal")}>Import schedule</Text></Pressable>}
       <NaturalLanguageOnboardingPanel accessToken={accessToken} mode="weekly_rhythm" onApplied={loadBlocks} />
       {loadingBlocks ? (
         <ActivityIndicator color={theme.colors.teal} />

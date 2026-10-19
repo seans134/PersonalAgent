@@ -25,7 +25,7 @@ function fileSize(uri: string): number | null {
 }
 
 /** Re-encodes a photo as JPEG, stepping down size/quality until it fits the upload limit. */
-export async function compressSyllabusPhoto(photo: PickedPhoto): Promise<MobileSyllabusImportFile> {
+export async function compressSyllabusPhoto(photo: PickedPhoto, maxBytes = SYLLABUS_MAX_UPLOAD_BYTES): Promise<MobileSyllabusImportFile> {
   let last: MobileSyllabusImportFile | null = null;
 
   for (const pass of PHOTO_PASSES) {
@@ -37,7 +37,7 @@ export async function compressSyllabusPhoto(photo: PickedPhoto): Promise<MobileS
     const saved = await image.saveAsync({ compress: pass.compress, format: SaveFormat.JPEG });
     last = { uri: saved.uri, name: "syllabus.jpg", type: "image/jpeg", size: fileSize(saved.uri) };
     // Unknown size: upload as is; a server 413 maps to the same too-large message.
-    if (!last.size || last.size <= SYLLABUS_MAX_UPLOAD_BYTES) return last;
+    if (!last.size || last.size <= maxBytes) return last;
   }
 
   // Still too large after every pass: parseSyllabusImport rejects it before uploading.
@@ -45,21 +45,21 @@ export async function compressSyllabusPhoto(photo: PickedPhoto): Promise<MobileS
 }
 
 /** Opens the camera. Resolves null when the student cancels. */
-export async function takeSyllabusPhoto(): Promise<MobileSyllabusImportFile | null> {
+export async function takeSyllabusPhoto(maxBytes = SYLLABUS_MAX_UPLOAD_BYTES): Promise<MobileSyllabusImportFile | null> {
   const permission = await ImagePicker.requestCameraPermissionsAsync();
   if (!permission.granted) {
     throw new Error("Camera access is off. Allow it in Settings, or choose a photo or file instead.");
   }
   const result = await ImagePicker.launchCameraAsync({ mediaTypes: ["images"], quality: 1 });
   if (result.canceled || !result.assets[0]) return null;
-  return compressSyllabusPhoto(result.assets[0]);
+  return compressSyllabusPhoto(result.assets[0], maxBytes);
 }
 
 /** Opens the photo library (the system picker needs no permission prompt). Resolves null on cancel. */
-export async function chooseSyllabusPhoto(): Promise<MobileSyllabusImportFile | null> {
+export async function chooseSyllabusPhoto(maxBytes = SYLLABUS_MAX_UPLOAD_BYTES): Promise<MobileSyllabusImportFile | null> {
   const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 1 });
   if (result.canceled || !result.assets[0]) return null;
-  return compressSyllabusPhoto(result.assets[0]);
+  return compressSyllabusPhoto(result.assets[0], maxBytes);
 }
 
 /** Opens the document picker for a PDF or Word (.docx) file. Resolves null on cancel. */

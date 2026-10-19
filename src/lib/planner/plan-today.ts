@@ -1,3 +1,4 @@
+import { Calendar as LocalCalendar, dateInTimezone, shiftDate, type DayOfWeek } from "@personal-agent/core/calendar";
 import type { createClient } from "@/lib/supabase/server";
 import { deriveStudyTasks, type StudyTask } from "@personal-agent/core";
 import { enhancePlanCopy, type EnhancePlanResult } from "./enhance-plan";
@@ -35,6 +36,9 @@ type LocalCalendarEventRow = {
   event_date: string;
   start_time: string;
   end_time: string;
+  end_day_offset?: 0 | 1;
+  effective_from?: string | null;
+  effective_until?: string | null;
 };
 
 type ScheduleBlockRow = {
@@ -44,18 +48,14 @@ type ScheduleBlockRow = {
   days_of_week: number[];
   start_time: string;
   end_time: string;
+  end_day_offset?: 0 | 1;
+  effective_from?: string | null;
+  effective_until?: string | null;
 };
 
 type LocalTodayContextEvent = TodayPlanContextEvent & {
   category?: CalendarEvent["category"];
 };
-
-function toDateKey(value: Date) {
-  const year = value.getFullYear();
-  const month = (value.getMonth() + 1).toString().padStart(2, "0");
-  const day = value.getDate().toString().padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
 
 function normalizeDbTime(value: string) {
   return value.slice(0, 5);
@@ -71,16 +71,16 @@ function toPlannerEvent(event: LocalTodayContextEvent): CalendarEvent {
   };
 }
 
-async function fetchLocalTodayContextEvents(supabase: SupabaseClient, userId: string): Promise<LocalTodayContextEvent[]> {
+async function fetchLocalTodayContextEvents(supabase: SupabaseClient, userId: string, timezone: string): Promise<LocalTodayContextEvent[]> {
   const today = new Date();
-  const todayKey = toDateKey(today);
-  const dayOfWeek = today.getDay();
+  const todayKey = dateInTimezone(today, timezone);
 
   const { data: localEvents, error: localEventsError } = await supabase
     .from("calendar_events")
-    .select("id, title, category, event_date, start_time, end_time")
+    .select("id, title, category, event_date, start_time, end_time, end_day_offset")
     .eq("user_id", userId)
-    .eq("event_date", todayKey)
+    .gte("event_date", shiftDate(todayKey, -1))
+    .lte("event_date", todayKey)
     .order("start_time", { ascending: true });
 
   if (localEventsError) {
@@ -89,7 +89,7 @@ async function fetchLocalTodayContextEvents(supabase: SupabaseClient, userId: st
 
   const { data: scheduleBlocks, error: scheduleBlocksError } = await supabase
     .from("schedule_blocks")
-    .select("id, title, category, days_of_week, start_time, end_time")
+    .select("id, title, category, days_of_week, start_time, end_time, end_day_offset, effective_from, effective_until")
     .eq("user_id", userId)
     .order("start_time", { ascending: true });
 
@@ -97,27 +97,11 @@ async function fetchLocalTodayContextEvents(supabase: SupabaseClient, userId: st
     throw new Error(`Unable to load recurring schedule: ${scheduleBlocksError.message}`);
   }
 
-  const events = ((localEvents ?? []) as LocalCalendarEventRow[]).map((event) => ({
-    id: `local-${event.id}`,
-    title: event.title,
-    category: event.category ?? undefined,
-    startTime: normalizeDbTime(event.start_time),
-    endTime: normalizeDbTime(event.end_time),
-    source: "local" as const,
-  }));
-
-  const recurring = ((scheduleBlocks ?? []) as ScheduleBlockRow[])
-    .filter((block) => block.days_of_week.includes(dayOfWeek))
-    .map((block) => ({
-      id: `schedule-${block.id}`,
-      title: block.title,
-      category: block.category ?? undefined,
-      startTime: normalizeDbTime(block.start_time),
-      endTime: normalizeDbTime(block.end_time),
-      source: "schedule" as const,
-    }));
-
-  return [...events, ...recurring].sort((a, b) => (a.startTime < b.startTime ? -1 : 1));
+  const calendar = new LocalCalendar({
+    events: ((localEvents ?? []) as LocalCalendarEventRow[]).map((event) => ({ id: event.id, title: event.title, category: event.category ?? "personal", date: event.event_date, startTime: normalizeDbTime(event.start_time), endTime: normalizeDbTime(event.end_time), endDayOffset: event.end_day_offset, source: "manual" as const })),
+    scheduleBlocks: ((scheduleBlocks ?? []) as ScheduleBlockRow[]).map((block) => ({ id: block.id, title: block.title, category: block.category ?? "personal", daysOfWeek: block.days_of_week as DayOfWeek[], startTime: normalizeDbTime(block.start_time), endTime: normalizeDbTime(block.end_time), endDayOffset: block.end_day_offset, effectiveFrom: block.effective_from, effectiveUntil: block.effective_until })),
+  });
+  return calendar.getEventsForDate(todayKey).map((event) => ({ id: event.source === "manual" ? `local-${event.id}` : `schedule-${event.sourceId}`, title: event.title, category: event.category, startTime: event.startTime, endTime: event.endTime, source: event.source === "manual" ? "local" as const : "schedule" as const }));
 }
 
 export type PlanResult = {
@@ -176,7 +160,7 @@ export async function generateTodayPlanForUser(input: {
   let contextEvents: TodayPlanContextEvent[] = [];
 
   try {
-    const localContextEvents = await fetchLocalTodayContextEvents(supabase, userId);
+    const localContextEvents = await fetchLocalTodayContextEvents(supabase, userId, timezone);
     const publicLocalContextEvents = localContextEvents.map((event) => ({
       id: event.id,
       title: event.title,

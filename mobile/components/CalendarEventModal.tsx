@@ -22,6 +22,9 @@ export type EventFormState = {
   date: string;
   startTime: string;
   endTime: string;
+  endDayOffset?: 0 | 1;
+  effectiveFrom?: string | null;
+  effectiveUntil?: string | null;
   recurrence: "single" | "weekly";
 };
 
@@ -166,6 +169,8 @@ export function CalendarEventModal({
               ))}
             </View>
 
+            <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: form.endDayOffset === 1 }} onPress={() => onChange({ endDayOffset: form.endDayOffset === 1 ? 0 : 1 })}><Text style={styles.label}>{form.endDayOffset === 1 ? "☑" : "☐"} Ends the next day</Text></Pressable>
+            {form.recurrence === "weekly" && <><Text style={styles.label}>First date (optional)</Text><TextInput style={styles.input} placeholder="YYYY-MM-DD" value={form.effectiveFrom ?? ""} onChangeText={(value) => onChange({ effectiveFrom: value || null })} /><Text style={styles.label}>Last date (optional)</Text><TextInput style={styles.input} placeholder="YYYY-MM-DD" value={form.effectiveUntil ?? ""} onChangeText={(value) => onChange({ effectiveUntil: value || null })} /></>}
             {error ? <Text style={styles.error}>{error}</Text> : null}
           </ScrollView>
 

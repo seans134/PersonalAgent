@@ -11,6 +11,9 @@ type ScheduleBlockRow = {
   days_of_week: number[];
   start_time: string;
   end_time: string;
+  end_day_offset?: 0 | 1;
+  effective_from?: string | null;
+  effective_until?: string | null;
 };
 
 type ScheduleCategory = ScheduleBlockCategory;
@@ -19,6 +22,9 @@ type SelectedSlot = {
   dayOfWeek: number;
   startTime: string;
   endTime: string;
+  endDayOffset?: 0 | 1;
+  effectiveFrom?: string | null;
+  effectiveUntil?: string | null;
 };
 
 type ScheduleFormState = {
@@ -27,11 +33,15 @@ type ScheduleFormState = {
   daysOfWeek: number[];
   startTime: string;
   endTime: string;
+  endDayOffset?: 0 | 1;
+  effectiveFrom?: string | null;
+  effectiveUntil?: string | null;
 };
 
 const weekdayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const hours = Array.from({ length: 24 }, (_, index) => index);
-const referenceWeekStart = new Date(2026, 5, 7);
+const referenceWeekStart = new Date();
+referenceWeekStart.setDate(referenceWeekStart.getDate() - referenceWeekStart.getDay());
 
 function toDateKey(value: Date) {
   const year = value.getFullYear();
@@ -88,6 +98,7 @@ function toScheduleBlock(row: ScheduleBlockRow): ScheduleBlock {
     daysOfWeek: row.days_of_week as ScheduleBlock["daysOfWeek"],
     startTime: normalizeDbTime(row.start_time),
     endTime: normalizeDbTime(row.end_time),
+    endDayOffset: row.end_day_offset, effectiveFrom: row.effective_from, effectiveUntil: row.effective_until,
   };
 }
 
@@ -134,6 +145,8 @@ export function OnboardingScheduleCalendar({
   const [form, setForm] = useState<ScheduleFormState | null>(null);
   const [editingBlockId, setEditingBlockId] = useState("");
   const [error, setError] = useState("");
+  const [timezone, setTimezone] = useState("America/Toronto");
+  useEffect(() => { void fetch("/api/mobile/profile").then((r) => r.json()).then((data) => { if (data.profile?.timezone) setTimezone(data.profile.timezone); }).catch(() => {}); }, []);
 
   const calendar = useMemo(() => new Calendar({ scheduleBlocks: blocks }), [blocks]);
   const weekDays = Array.from({ length: 7 }, (_, index) => addDays(referenceWeekStart, index));
@@ -166,6 +179,7 @@ export function OnboardingScheduleCalendar({
       daysOfWeek: [...block.daysOfWeek],
       startTime: block.startTime,
       endTime: block.endTime,
+      endDayOffset: block.endDayOffset, effectiveFrom: block.effectiveFrom, effectiveUntil: block.effectiveUntil,
     });
   }
 
@@ -194,7 +208,7 @@ export function OnboardingScheduleCalendar({
       return;
     }
 
-    if (form.endTime <= form.startTime) {
+    if (form.endDayOffset ? form.endTime > form.startTime : form.endTime <= form.startTime) {
       setError("End time must be after start time.");
       return;
     }
@@ -206,7 +220,8 @@ export function OnboardingScheduleCalendar({
       days_of_week: [...new Set(form.daysOfWeek)].sort((a, b) => a - b),
       start_time: form.startTime,
       end_time: form.endTime,
-      timezone: "America/Toronto",
+      end_day_offset: form.endDayOffset ?? 0, effective_from: form.effectiveFrom ?? null, effective_until: form.effectiveUntil ?? null,
+      timezone,
     };
 
     const query = editingBlockId
@@ -218,7 +233,7 @@ export function OnboardingScheduleCalendar({
       : supabase.from("schedule_blocks").insert(payload);
 
     const { data, error: saveError } = await query
-      .select("id, title, category, days_of_week, start_time, end_time")
+      .select("id, title, category, days_of_week, start_time, end_time, end_day_offset, effective_from, effective_until")
       .single();
 
     if (saveError || !data) {
@@ -284,6 +299,7 @@ export function OnboardingScheduleCalendar({
         </div>
       </div>
 
+      <div className="mb-4 space-y-2">{blocks.filter((b) => categories.includes(b.category)).map((b) => <button className="mr-2 rounded-lg border border-line p-2 text-sm" key={b.id} onClick={() => openEditModal(b.id)}>{b.title} · {b.startTime}–{b.endTime}{b.endDayOffset ? " (+1 day)" : ""} · {b.effectiveFrom || "Any start"} → {b.effectiveUntil || "Ongoing"}</button>)}</div>
       <section className="overflow-x-auto rounded-lg border border-line bg-surface shadow-sm">
         <div className="min-w-[56rem]">
           <div
@@ -462,6 +478,9 @@ export function OnboardingScheduleCalendar({
                 </label>
               </div>
 
+              <label className="flex gap-2"><input type="checkbox" checked={form.endDayOffset === 1} onChange={(e) => updateForm({ endDayOffset: e.target.checked ? 1 : 0 })} />Ends the next day</label>
+              <label className="block">First date (optional)<input className="rounded-lg border border-line p-2" type="date" value={form.effectiveFrom ?? ""} onChange={(e) => updateForm({ effectiveFrom: e.target.value || null })} /></label>
+              <label className="block">Last date (optional)<input className="rounded-lg border border-line p-2" type="date" value={form.effectiveUntil ?? ""} onChange={(e) => updateForm({ effectiveUntil: e.target.value || null })} /></label>
               <div className="flex justify-end gap-3 pt-2">
                 <button className="rounded-lg border border-line px-4 py-2 text-sm font-medium text-ink-muted" onClick={closeModal} type="button">
                   Cancel

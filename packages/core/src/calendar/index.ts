@@ -10,6 +10,9 @@ export type ScheduleBlock = {
   startTime: string;
   endTime: string;
   timezone?: string;
+  effectiveFrom?: string | null;
+  effectiveUntil?: string | null;
+  endDayOffset?: 0 | 1;
 };
 
 export type CalendarEventSource = "manual" | "recurring_schedule" | "course";
@@ -37,6 +40,12 @@ export type CalendarEvent = {
   source: CalendarEventSource;
   sourceId?: string;
   course?: CalendarCourseInfo;
+  endDayOffset?: 0 | 1;
+  timezone?: string;
+  /** Original item for editing a clipped overnight occurrence. */
+  originalDate?: string;
+  originalStartTime?: string;
+  originalEndTime?: string;
 };
 
 export type CalendarConflict = {
@@ -88,13 +97,14 @@ function assertDate(value: string) {
 }
 
 function toMinutes(value: string): number {
+  if (value === "24:00") return 1440;
   assertClockTime(value, "time");
   const [hours, minutes] = value.split(":").map(Number);
   return hours * 60 + minutes;
 }
 
 function toTimeString(totalMinutes: number): string {
-  const safeMinutes = Math.max(0, Math.min(24 * 60 - 1, Math.floor(totalMinutes)));
+  const safeMinutes = Math.max(0, Math.min(24 * 60, Math.floor(totalMinutes)));
   const hours = Math.floor(safeMinutes / 60).toString().padStart(2, "0");
   const minutes = (safeMinutes % 60).toString().padStart(2, "0");
   return `${hours}:${minutes}`;
@@ -117,11 +127,12 @@ function dayOfWeekFromDateKey(dateKey: string): DayOfWeek {
   return new Date(year, month - 1, day).getDay() as DayOfWeek;
 }
 
-function validateTimeRange(startTime: string, endTime: string) {
+function validateTimeRange(startTime: string, endTime: string, endDayOffset: 0 | 1 = 0) {
   assertClockTime(startTime, "startTime");
   assertClockTime(endTime, "endTime");
 
-  if (toMinutes(endTime) <= toMinutes(startTime)) {
+  const duration = toMinutes(endTime) + endDayOffset * 1440 - toMinutes(startTime);
+  if (duration <= 0 || duration > 1440) {
     throw new Error("endTime must be after startTime.");
   }
 }
@@ -145,7 +156,10 @@ function validateScheduleBlock(block: ScheduleBlock) {
     }
   }
 
-  validateTimeRange(block.startTime, block.endTime);
+  validateTimeRange(block.startTime, block.endTime, block.endDayOffset);
+  if (block.effectiveFrom) assertDate(block.effectiveFrom);
+  if (block.effectiveUntil) assertDate(block.effectiveUntil);
+  if (block.effectiveFrom && block.effectiveUntil && block.effectiveUntil < block.effectiveFrom) throw new Error("End date must not precede start date.");
 }
 
 function validateCalendarEvent(event: CalendarEvent) {
@@ -158,7 +172,7 @@ function validateCalendarEvent(event: CalendarEvent) {
   }
 
   assertDate(event.date);
-  validateTimeRange(event.startTime, event.endTime);
+  validateTimeRange(event.startTime, event.endTime, event.endDayOffset);
 }
 
 function sortEvents(events: CalendarEvent[]): CalendarEvent[] {
@@ -271,24 +285,23 @@ export class Calendar {
 
   getEventsForDate(date: Date | string): CalendarEvent[] {
     const dateKey = toDateKey(date);
-    const dayOfWeek = dayOfWeekFromDateKey(dateKey);
-
-    const recurringEvents = this.scheduleBlocks
-      .filter((block) => block.daysOfWeek.includes(dayOfWeek))
-      .map((block): CalendarEvent => ({
-        id: `${block.id}:${dateKey}`,
-        title: block.title,
-        category: block.category,
-        date: dateKey,
-        startTime: block.startTime,
-        endTime: block.endTime,
-        source: "recurring_schedule",
-        sourceId: block.id,
-      }));
-
-    const datedEvents = this.events.filter((event) => event.date === dateKey);
-
-    return sortEvents([...recurringEvents, ...datedEvents]);
+    const previousDate = shiftDate(dateKey, -1);
+    const result: CalendarEvent[] = [];
+    const clip = (event: CalendarEvent) => {
+      if (event.date === dateKey) {
+        result.push(event.endDayOffset ? { ...event, originalDate: event.date, originalStartTime: event.startTime, originalEndTime: event.endTime, endTime: "24:00" } : event);
+      } else if (event.date === previousDate && event.endDayOffset && event.endTime !== "00:00") {
+        result.push({ ...event, id: `${event.id}:continuation`, sourceId: event.sourceId ?? event.id, date: dateKey, startTime: "00:00", originalDate: event.date, originalStartTime: event.startTime, originalEndTime: event.endTime });
+      }
+    };
+    for (const origin of [previousDate, dateKey]) {
+      for (const block of this.scheduleBlocks) {
+        if (!block.daysOfWeek.includes(dayOfWeekFromDateKey(origin)) || (block.effectiveFrom && origin < block.effectiveFrom) || (block.effectiveUntil && origin > block.effectiveUntil)) continue;
+        clip({ id: `${block.id}:${origin}`, sourceId: block.id, title: block.title, category: block.category, date: origin, startTime: block.startTime, endTime: block.endTime, endDayOffset: block.endDayOffset, timezone: block.timezone, source: "recurring_schedule" });
+      }
+    }
+    for (const event of this.events) clip(event);
+    return sortEvents(result);
   }
 
   findConflicts(date: Date | string): CalendarConflict[] {
@@ -365,6 +378,19 @@ export class Calendar {
       events: this.getEvents(),
     };
   }
+}
+
+/** Calendar arithmetic uses date components, never elapsed milliseconds across DST. */
+export function shiftDate(date: string, days: number): string {
+  assertDate(date);
+  const [y, m, d] = date.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
+}
+
+export function dateInTimezone(now: Date, timezone: string): string {
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(now);
+  const part = (type: string) => parts.find((p) => p.type === type)!.value;
+  return `${part("year")}-${part("month")}-${part("day")}`;
 }
 
 /**

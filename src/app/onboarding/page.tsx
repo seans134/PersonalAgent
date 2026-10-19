@@ -11,6 +11,9 @@ type RhythmBlockRow = {
   days_of_week: number[];
   start_time: string;
   end_time: string;
+  end_day_offset?: 0 | 1;
+  effective_from?: string | null;
+  effective_until?: string | null;
 };
 
 export default async function OnboardingPage({
@@ -30,7 +33,7 @@ export default async function OnboardingPage({
 
   const { data: rhythmBlocks } = await supabase
     .from("schedule_blocks")
-    .select("id, title, category, days_of_week, start_time, end_time")
+    .select("id, title, category, days_of_week, start_time, end_time, end_day_offset, effective_from, effective_until")
     .eq("user_id", user.id)
     .order("start_time", { ascending: true });
 
@@ -50,6 +53,7 @@ export default async function OnboardingPage({
 
       {params.error ? <p className="mb-4 text-sm text-danger">{params.error}</p> : null}
 
+      <Link className="mb-4 inline-flex rounded-lg bg-teal px-4 py-2 text-on-teal" href="/calendar/import">Import schedule</Link>
       <NaturalLanguageOnboardingPanel mode="weekly_rhythm" />
 
       <section className="mb-6">
