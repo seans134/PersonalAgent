@@ -32,7 +32,8 @@ export function syncAnalyticsUser(userId: string | null) {
   if (userId && userId !== identifiedUserId) {
     posthog.identify(userId);
     identifiedUserId = userId;
-  } else if (!userId && identifiedUserId) {
+  } else if (!userId && (identifiedUserId || posthog.get_property("$user_state") === "identified")) {
+    // Sign-out is a full page load, so module state is fresh; PostHog's persisted state still holds the old user.
     posthog.reset();
     identifiedUserId = null;
   }
