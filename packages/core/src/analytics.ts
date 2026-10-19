@@ -13,6 +13,8 @@ export const analyticsEvents = {
   scheduleImportCompleted: "schedule_import_completed",
   scheduleImportFailed: "schedule_import_failed",
   scheduleAdded: "schedule_added",
+  // Properties: week_count, crunch_week_count.
+  semesterViewed: "semester_viewed",
 } as const;
 
 export type AnalyticsEventName = (typeof analyticsEvents)[keyof typeof analyticsEvents];

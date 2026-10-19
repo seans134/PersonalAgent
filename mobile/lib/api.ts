@@ -11,6 +11,7 @@ import {
   type PlanItemStatusResponse,
   type PlannedItemType,
   type PlanStatusResponse,
+  type SemesterTimeline,
   type SyllabusImportSource,
 } from "@personal-agent/core";
 import { captureEvent, captureException } from "./analytics";
@@ -1069,6 +1070,12 @@ export async function fetchMobileCourseDetail(accessToken: string, id: string): 
     { method: "GET" },
     "Unable to load course.",
   );
+}
+
+/** GET /api/mobile/semester: the week-by-week semester timeline; `term` picks one of `terms`. */
+export async function fetchMobileSemester(accessToken: string, term?: string | null): Promise<SemesterTimeline> {
+  const path = term ? `/api/mobile/semester?term=${encodeURIComponent(term)}` : "/api/mobile/semester";
+  return fetchJson<SemesterTimeline>(path, accessToken, { method: "GET" }, "Unable to load semester.");
 }
 
 export async function updateMobileCourse(accessToken: string, id: string, input: MobileCourseUpdateInput) {

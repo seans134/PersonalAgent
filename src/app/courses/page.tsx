@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { listCourseSummaries } from "@/lib/courses/queries";
 import { isGeminiConfigured } from "@/lib/gemini/client";
@@ -40,6 +41,12 @@ export default async function CoursesPage({
       <div className="mb-8">
         <h1 className="font-display text-3xl font-semibold tracking-tight text-ink">Courses</h1>
         <p className="mt-2 text-ink-muted">Track grades, deadlines, and progress toward your target in every course.</p>
+        <Link
+          className="mt-4 inline-flex rounded-lg border border-teal px-3 py-2 text-sm font-medium text-teal transition hover:bg-surface2"
+          href="/courses/semester"
+        >
+          Semester view: every exam and deadline by week
+        </Link>
       </div>
 
       {params.error ? (

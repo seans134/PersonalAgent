@@ -5,3 +5,4 @@ export * from "./describe";
 export * from "./study";
 export * from "./upcoming";
 export * from "./exams";
+export * from "./semester";

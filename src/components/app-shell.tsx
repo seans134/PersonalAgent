@@ -9,6 +9,7 @@ import { features } from "@personal-agent/core";
 const allNavItems = [
   { href: "/", label: "Today" },
   { href: "/courses", label: "Courses" },
+  { href: "/courses/semester", label: "Semester" },
   { href: "/calendar/local", label: "Calendar" },
   { href: "/goals", label: "Goals" },
   { href: "/goals/completed", label: "Completed goals" },
@@ -95,6 +96,10 @@ export function AppShell({
 }) {
   const pathname = usePathname();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  // The most specific matching item, so /courses/semester highlights Semester rather than Courses too.
+  const activeHref = navItems
+    .filter((item) => (item.href === "/" ? pathname === item.href : pathname === item.href || pathname.startsWith(`${item.href}/`)))
+    .reduce<string | null>((best, item) => (best === null || item.href.length > best.length ? item.href : best), null);
 
   return (
     <div className="min-h-screen">
@@ -137,8 +142,7 @@ export function AppShell({
 
         <nav aria-label="Primary navigation" className="mt-8 flex flex-1 flex-col gap-1 overflow-y-auto">
           {navItems.map((item) => {
-            const isActive =
-              item.href === "/" ? pathname === item.href : pathname === item.href || pathname.startsWith(`${item.href}/`);
+            const isActive = item.href === activeHref;
 
             return (
               <Link
