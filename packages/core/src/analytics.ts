@@ -6,6 +6,8 @@ export const analyticsEvents = {
   courseCreated: "course_created",
   syllabusImported: "syllabus_imported",
   planGenerated: "plan_generated",
+  planAccepted: "plan_accepted",
+  planItemCompleted: "plan_item_completed",
   neededScoreViewed: "needed_score_viewed",
   scheduleImportParsed: "schedule_import_parsed",
   scheduleImportCompleted: "schedule_import_completed",

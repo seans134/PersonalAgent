@@ -1,7 +1,18 @@
 "use client";
 
-import { useReducer } from "react";
-import { analyticsEvents, features } from "@personal-agent/core";
+import { useReducer, useRef, useState } from "react";
+import {
+  analyticsEvents,
+  applyPlanItemStatus,
+  features,
+  isCheckoffForToday,
+  nextPlanItemStatus,
+  planCheckoffCounts,
+  type PlanAcceptResponse,
+  type PlanItemStatus,
+  type PlanItemStatusResponse,
+  type PlannedItem,
+} from "@personal-agent/core";
 import { captureEvent } from "@/lib/analytics";
 import type { TodayPlanResponse } from "@/lib/planner/client-types";
 import { TodayPlanMeridian } from "./today-plan-meridian";
@@ -52,6 +63,28 @@ async function requestTodayPlan(): Promise<TodayPlanResponse> {
   return parseTodayPlanResponse(payload);
 }
 
+// Check-off and acceptance go through the shared /api/mobile/plan/* contract (cookie auth on web).
+async function sendPlanRequest<T>(path: string, method: "PUT" | "POST", body: unknown, fallbackError: string): Promise<T> {
+  const response = await fetch(path, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const payload = (await response.json().catch(() => null)) as unknown;
+  if (!response.ok) {
+    if (typeof payload === "object" && payload !== null && "error" in payload && typeof payload.error === "string") {
+      throw new Error(payload.error);
+    }
+    throw new Error(fallbackError);
+  }
+  return payload as T;
+}
+
+function formatAcceptedAt(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+
 function StatTile({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="rounded-[12px] border border-line bg-surface2 px-4 py-3">
@@ -67,6 +100,22 @@ export function TodayPlanPanel() {
   const isLoading = state.status === "loading";
   const planData = state.status === "success" ? state.data : null;
   const errorMessage = state.status === "error" ? state.error : null;
+  // The ref guards against double-sends before React re-renders; the state drives the disabled buttons.
+  const pendingKeysRef = useRef(new Set<string>());
+  const [pendingKeys, setPendingKeys] = useState<ReadonlySet<string>>(new Set());
+  const [accepting, setAccepting] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  // Check-off only applies to a plan dated today (in the profile timezone the server used); an older plan shows read-only.
+  const planIsForToday = planData?.checkoff ? isCheckoffForToday(planData.checkoff) : false;
+  const checkoff = planIsForToday ? planData?.checkoff : undefined;
+  const staleCheckoffDate = planData?.checkoff && !planIsForToday ? planData.checkoff.planDate : null;
+  const counts = planData ? planCheckoffCounts(planData.plan.items) : null;
+
+  function setKeyPending(key: string, pending: boolean) {
+    if (pending) pendingKeysRef.current.add(key);
+    else pendingKeysRef.current.delete(key);
+    setPendingKeys(new Set(pendingKeysRef.current));
+  }
 
   async function handleGeneratePlan() {
     dispatch({ type: "start" });
@@ -79,6 +128,62 @@ export function TodayPlanPanel() {
         type: "failed",
         message: error instanceof Error ? error.message : "Unable to generate today plan.",
       });
+    }
+  }
+
+  async function handleCheckoff(item: PlannedItem, tapped: PlanItemStatus) {
+    if (!planData || !checkoff || !item.key || pendingKeysRef.current.has(item.key)) return;
+    if (!isCheckoffForToday(checkoff)) {
+      setActionError("This plan is from a previous day. Plan your day again to check off today's items.");
+      return;
+    }
+    const key = item.key;
+    const generatedAt = planData.meta.generatedAt;
+    const previous = item.status ?? null;
+    const status = nextPlanItemStatus(previous, tapped);
+    setActionError(null);
+    setKeyPending(key, true);
+    dispatch({ type: "itemStatus", key, status, generatedAt });
+    try {
+      await sendPlanRequest<PlanItemStatusResponse>(
+        "/api/mobile/plan/status",
+        "PUT",
+        { planDate: checkoff.planDate, itemKey: key, itemType: item.type, status },
+        "Unable to save check-off.",
+      );
+      if (status) {
+        const updated = planCheckoffCounts(applyPlanItemStatus(planData.plan.items, key, status));
+        captureEvent(analyticsEvents.planItemCompleted, { item_type: item.type, status, ...updated });
+      }
+    } catch (error) {
+      dispatch({ type: "itemStatus", key, status: previous, generatedAt });
+      setActionError(error instanceof Error ? error.message : "Unable to save check-off.");
+    } finally {
+      setKeyPending(key, false);
+    }
+  }
+
+  async function handleAccept() {
+    if (!planData || !checkoff || accepting) return;
+    if (!isCheckoffForToday(checkoff)) {
+      setActionError("This plan is from a previous day. Plan your day again first.");
+      return;
+    }
+    setActionError(null);
+    setAccepting(true);
+    try {
+      const result = await sendPlanRequest<PlanAcceptResponse>(
+        "/api/mobile/plan/accept",
+        "POST",
+        { planDate: checkoff.planDate, itemCount: planData.plan.items.length },
+        "Unable to accept plan.",
+      );
+      dispatch({ type: "accepted", acceptedAt: result.acceptedAt });
+      if (result.created) captureEvent(analyticsEvents.planAccepted, planCheckoffCounts(planData.plan.items));
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "Unable to accept plan.");
+    } finally {
+      setAccepting(false);
     }
   }
 
@@ -141,10 +246,44 @@ export function TodayPlanPanel() {
             </div>
           </div>
 
+          {checkoff && counts && counts.item_count > 0 ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-[11px] border border-line bg-surface2 px-4 py-3">
+              <p className="text-sm text-ink">
+                <span className="font-semibold">
+                  {counts.done_count} of {counts.item_count} done
+                </span>
+                {counts.skipped_count > 0 ? <span className="text-ink-muted"> · {counts.skipped_count} skipped</span> : null}
+                {checkoff.acceptedAt ? (
+                  <span className="text-ink-muted"> · Committed at {formatAcceptedAt(checkoff.acceptedAt)}</span>
+                ) : null}
+              </p>
+              {checkoff.acceptedAt ? null : (
+                <button
+                  className="inline-flex items-center rounded-[11px] border border-teal px-4 py-2 font-display text-sm font-medium text-teal transition hover:bg-teal hover:text-on-teal disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={accepting}
+                  onClick={handleAccept}
+                  type="button"
+                >
+                  {accepting ? "Saving..." : "Commit to this plan"}
+                </button>
+              )}
+            </div>
+          ) : null}
+          {staleCheckoffDate ? (
+            <p className="rounded-[11px] border border-warning border-l-[3px] bg-surface px-4 py-3 text-sm text-warning">
+              This plan is for {staleCheckoffDate}. Plan your day again to check off today&apos;s items.
+            </p>
+          ) : null}
+          {actionError ? (
+            <p className="rounded-[11px] border border-danger border-l-[3px] bg-surface px-4 py-3 text-sm text-danger">{actionError}</p>
+          ) : null}
+
           <TodayPlanMeridian
             contextEvents={planData.contextEvents}
             generatedAt={planData.meta.generatedAt}
             items={planData.plan.items}
+            onCheckoff={checkoff ? handleCheckoff : undefined}
+            pendingKeys={pendingKeys}
           />
           <p className="text-right font-mono text-[11px] text-ink-muted">Planned {formatGeneratedAt(planData.meta.generatedAt)}</p>
         </div>

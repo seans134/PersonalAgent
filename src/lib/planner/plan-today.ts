@@ -1,6 +1,6 @@
 import { Calendar as LocalCalendar, dateInTimezone, shiftDate, type DayOfWeek } from "@personal-agent/core/calendar";
 import type { createClient } from "@/lib/supabase/server";
-import { deriveStudyTasks, type StudyTask } from "@personal-agent/core";
+import { deriveStudyTasks, mergePlanItemStatuses, type PlanItemStatus, type StudyTask } from "@personal-agent/core";
 import { enhancePlanCopy, type EnhancePlanResult } from "./enhance-plan";
 import {
   toPlannerGoals,
@@ -10,7 +10,8 @@ import {
 } from "./adapters";
 import { generateDailyPlan } from "./planner";
 import type { CalendarEvent } from "./types";
-import type { TodayPlanContextEvent } from "./client-types";
+import type { TodayPlanCheckoff, TodayPlanContextEvent } from "./client-types";
+import { readPlanCheckoff } from "./checkoff-store";
 import { fetchAllCourseItems, fetchCoursesById } from "@/lib/courses/queries";
 import { courseItemsToStudyItems, courseItemsToTodayBusyEvents } from "@/lib/courses/projection";
 import { localDateOnly } from "@/lib/courses/local-time";
@@ -21,6 +22,7 @@ type PlanResponse = {
   plan: ReturnType<typeof generateDailyPlan>;
   contextEvents: TodayPlanContextEvent[];
   summary?: string;
+  checkoff: TodayPlanCheckoff;
   meta: {
     goalsCount: number;
     eventsCount: number;
@@ -123,7 +125,7 @@ export async function generateTodayPlanForUser(input: {
 
   const { data: goalsRows, error: goalsError } = await supabase
     .from("goals")
-    .select("title, description, priority, task_type, minimum_daily_minutes")
+    .select("id, title, description, priority, task_type, minimum_daily_minutes")
     .eq("user_id", userId)
     .is("completed_at", null)
     .order("priority", { ascending: true });
@@ -208,12 +210,27 @@ export async function generateTodayPlanForUser(input: {
     warnings.push(enhanced.warning);
   }
 
+  // Merge today's check-offs by stable item key, so a regenerated plan keeps its marks.
+  const planDate = dateInTimezone(new Date(), timezone);
+  let statuses: Record<string, PlanItemStatus> = {};
+  let acceptedAt: string | null = null;
+  try {
+    const checkoff = await readPlanCheckoff(supabase, userId, planDate);
+    statuses = checkoff.statuses;
+    acceptedAt = checkoff.acceptedAt;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unable to load check-offs.";
+    warnings.push(`Check-off read failed: ${message}`);
+  }
+  const plan = { ...enhanced.plan, items: mergePlanItemStatuses(enhanced.plan.items, statuses) };
+
   return {
     status: 200,
     body: {
-      plan: enhanced.plan,
+      plan,
       contextEvents,
       summary: enhanced.summary,
+      checkoff: { planDate, timezone, acceptedAt },
       meta: {
         goalsCount: goals.length,
         eventsCount: contextEvents.length,

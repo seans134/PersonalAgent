@@ -1,6 +1,8 @@
 export type CalendarEventCategory = "school" | "work" | "study" | "personal" | "unavailable";
 
 export type Goal = {
+  /** The goals row id; keys the goal's plan item for check-off. */
+  id?: string;
   title: string;
   description?: string | null;
   priority: 1 | 2 | 3;
@@ -27,12 +29,18 @@ export type CalendarEvent = {
 
 export type PlannedItemType = "goal" | "focus" | "fitness" | "wellness" | "study" | "fallback";
 
+export type PlanItemStatus = "done" | "skipped";
+
 export type PlannedItem = {
   type: PlannedItemType;
   title: string;
   reason: string;
   startTime: string;
   endTime: string;
+  /** Stable check-off key (see planItemKey); the planner sets it, older cached plans may lack it. */
+  key?: string;
+  /** The student's check-off for today, merged in after planning; null or absent when unchecked. */
+  status?: PlanItemStatus | null;
 };
 
 export type DailyPlan = {

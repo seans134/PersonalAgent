@@ -60,6 +60,8 @@ type MockState = {
   courseItemsError?: string;
   courses?: Array<{ id: string; name: string }>;
   coursesError?: string;
+  planItemStatuses?: Array<{ item_key: string; status: "done" | "skipped" }>;
+  acceptedAt?: string;
 };
 
 function createSupabaseMock(state: MockState) {
@@ -155,6 +157,16 @@ function createSupabaseMock(state: MockState) {
         };
       }
 
+      if (table === "plan_item_statuses") {
+        const query = { select: () => query, eq: () => query, then: (resolve: (value: unknown) => void) => resolve({ data: state.planItemStatuses ?? [], error: null }) };
+        return query;
+      }
+
+      if (table === "plan_acceptances") {
+        const query = { select: () => query, eq: () => query, maybeSingle: async () => ({ data: state.acceptedAt ? { accepted_at: state.acceptedAt } : null, error: null }) };
+        return query;
+      }
+
       throw new Error(`Unexpected table: ${table}`);
     },
   };
@@ -187,6 +199,39 @@ describe("generateTodayPlanForUser", () => {
     expect(result.body.meta.goalsCount).toBe(1);
     expect(result.body.meta.eventsCount).toBe(0);
     expect(Array.isArray(result.body.plan.items)).toBe(true);
+  });
+
+  it("shows saved check-offs and the acceptance on a regenerated plan", async () => {
+    const result = await generateTodayPlanForUser({
+      supabase: createSupabaseMock({
+        goals: [{ title: "Ship roadmap", priority: 1 }],
+        profile: {
+          work_start_time: "09:00",
+          work_end_time: "17:00",
+          no_meeting_start: null,
+          no_meeting_end: null,
+          focus_block_minutes: 60,
+          workout_preference: "none",
+          timezone: "UTC",
+        },
+        planItemStatuses: [{ item_key: "goal:ship-roadmap", status: "done" }],
+        acceptedAt: "2026-10-19T09:00:00.000Z",
+      }) as never,
+      userId: "user-1",
+      // Enhanced copy rewrites titles; the key still matches.
+      enhancePlan: async ({ plan }) => ({ plan: { ...plan, items: plan.items.map((item) => ({ ...item, title: "Rewritten" })) } }),
+    });
+
+    if ("error" in result.body) {
+      throw new Error("Expected successful plan body.");
+    }
+
+    const goal = result.body.plan.items.find((item) => item.key === "goal:ship-roadmap");
+    expect(goal?.status).toBe("done");
+    expect(result.body.checkoff.acceptedAt).toBe("2026-10-19T09:00:00.000Z");
+    expect(result.body.checkoff.planDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(result.body.checkoff.timezone).toBe("UTC");
+    expect(result.body.meta.warnings).toEqual([]);
   });
 
   it("plans with zero goals now that goals are optional", async () => {

@@ -1,13 +1,18 @@
 import { useMemo } from "react";
-import { StyleSheet, Text, View } from "react-native";
-import type { PlannedItem } from "@personal-agent/core/planner/types";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import type { PlannedItem, PlanItemStatus } from "@personal-agent/core/planner/types";
 import type { TodayPlanContextEvent } from "@personal-agent/core/planner/client-types";
 import { useTheme } from "../lib/theme";
 import type { ThemeColors } from "../lib/theme";
 
+export type PlanItemCheckoffHandler = (item: PlannedItem, tapped: PlanItemStatus) => void;
+
 type TimelineProps = {
   contextEvents: TodayPlanContextEvent[];
   items: PlannedItem[];
+  /** Omit to show the plan read-only (a stale or pre-check-off cached plan). */
+  onCheckoff?: PlanItemCheckoffHandler;
+  pendingKeys?: ReadonlySet<string>;
 };
 
 // How an entry maps onto the category color system. Plan items carry their own
@@ -23,6 +28,7 @@ type Entry = {
   subtitle: string;
   category: EntryCategory;
   fixed: boolean;
+  item?: PlannedItem;
 };
 
 function toMinutes(value: string) {
@@ -58,18 +64,58 @@ function categoryColor(colors: ThemeColors, category: EntryCategory): string {
   }
 }
 
+function CheckoffButton({
+  label,
+  active,
+  disabled,
+  onPress,
+}: {
+  label: string;
+  active: boolean;
+  disabled: boolean;
+  onPress: () => void;
+}) {
+  const theme = useTheme();
+  const { colors } = theme;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected: active, disabled }}
+      disabled={disabled}
+      hitSlop={6}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.checkoffButton,
+        {
+          backgroundColor: active ? colors.teal : colors.surface,
+          borderColor: active ? colors.teal : colors.line,
+        },
+        (pressed || disabled) && styles.pressed,
+      ]}
+    >
+      <Text style={theme.text("monoTime", active ? "onTeal" : "inkMuted")}>{label}</Text>
+    </Pressable>
+  );
+}
+
 function MeridianRow({
   entry,
   isFirst,
   isLast,
+  onCheckoff,
+  pending,
 }: {
   entry: Entry;
   isFirst: boolean;
   isLast: boolean;
+  onCheckoff?: PlanItemCheckoffHandler;
+  pending: boolean;
 }) {
   const theme = useTheme();
   const { colors } = theme;
-  const accent = categoryColor(colors, entry.category);
+  const item = entry.item;
+  const status = item?.status ?? null;
+  const accent = status === "skipped" ? colors.inkMuted : categoryColor(colors, entry.category);
 
   return (
     <View style={styles.row}>
@@ -89,11 +135,12 @@ function MeridianRow({
           style={[
             styles.node,
             {
-              backgroundColor: entry.fixed ? colors.surface : accent,
+              backgroundColor: entry.fixed || status === "skipped" ? colors.surface : accent,
               borderColor: accent,
             },
           ]}
         />
+        {status === "done" ? <Text style={[styles.nodeCheck, { color: colors.onTeal }]}>✓</Text> : null}
       </View>
 
       <View
@@ -105,18 +152,37 @@ function MeridianRow({
             borderLeftColor: accent,
             borderStyle: entry.fixed ? "dashed" : "solid",
           },
+          status !== null && styles.cardChecked,
         ]}
       >
         <View style={styles.cardHead}>
-          <Text numberOfLines={1} style={[theme.text("label", "ink"), styles.cardTitle]}>
+          <Text numberOfLines={1} style={[theme.text("label", "ink"), styles.cardTitle, status !== null && styles.titleChecked]}>
             {entry.title}
           </Text>
+          {status === "done" ? <Text style={theme.text("monoTime", "teal")}>Done</Text> : null}
+          {status === "skipped" ? <Text style={theme.text("monoTime", "inkMuted")}>Skipped</Text> : null}
           <Text style={theme.text("monoTime", "inkMuted")}>{durationLabel(entry.startTime, entry.endTime)}</Text>
         </View>
         {entry.subtitle ? (
           <Text numberOfLines={2} style={theme.text("body", "inkMuted")}>
             {entry.subtitle}
           </Text>
+        ) : null}
+        {item && item.key && onCheckoff ? (
+          <View style={styles.checkoffRow}>
+            <CheckoffButton
+              active={status === "done"}
+              disabled={pending}
+              label={status === "done" ? "Undo done" : "Done"}
+              onPress={() => onCheckoff(item, "done")}
+            />
+            <CheckoffButton
+              active={status === "skipped"}
+              disabled={pending}
+              label={status === "skipped" ? "Undo skip" : "Skip"}
+              onPress={() => onCheckoff(item, "skipped")}
+            />
+          </View>
         ) : null}
       </View>
     </View>
@@ -136,7 +202,7 @@ function NowMarker({ label }: { label: string }) {
   );
 }
 
-export function TodayPlanTimeline({ contextEvents, items }: TimelineProps) {
+export function TodayPlanTimeline({ contextEvents, items, onCheckoff, pendingKeys }: TimelineProps) {
   const theme = useTheme();
   const { colors } = theme;
 
@@ -150,6 +216,7 @@ export function TodayPlanTimeline({ contextEvents, items }: TimelineProps) {
       subtitle: item.reason,
       category: item.type,
       fixed: false,
+      item,
     }));
     const eventEntries: Entry[] = contextEvents.map((event) => ({
       key: `event-${event.id}`,
@@ -181,6 +248,8 @@ export function TodayPlanTimeline({ contextEvents, items }: TimelineProps) {
         isFirst={index === 0}
         isLast={index === entries.length - 1}
         key={entry.key}
+        onCheckoff={onCheckoff}
+        pending={entry.item?.key ? Boolean(pendingKeys?.has(entry.item.key)) : false}
       />,
     );
   });
@@ -260,6 +329,35 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     flex: 1,
+  },
+  cardChecked: {
+    opacity: 0.7,
+  },
+  titleChecked: {
+    textDecorationLine: "line-through",
+  },
+  nodeCheck: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 8,
+    textAlign: "center",
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  checkoffRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 8,
+  },
+  checkoffButton: {
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  pressed: {
+    opacity: 0.7,
   },
   nowRow: {
     flexDirection: "row",

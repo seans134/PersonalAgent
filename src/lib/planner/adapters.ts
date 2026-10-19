@@ -1,6 +1,7 @@
 import type { Goal, PlannerPreferences } from "./types";
 
 export type GoalRow = {
+  id?: string | null;
   title: string;
   description?: string | null;
   priority: number;
@@ -61,6 +62,7 @@ function normalizeClockTime(value: string): string {
 export function toPlannerGoals(rows: GoalRow[]): Goal[] {
   return rows
     .map((row) => ({
+      ...(row.id ? { id: row.id } : {}),
       title: row.title.trim(),
       description: row.description?.trim() || null,
       priority: normalizePriority(row.priority),
