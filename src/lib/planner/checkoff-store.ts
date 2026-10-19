@@ -67,7 +67,8 @@ export async function writePlanItemStatus(
         item_key: input.itemKey,
         item_type: input.itemType,
         status: input.status,
-        minutes: input.status === "done" ? (input.minutes ?? null) : null,
+        // Only done study blocks record minutes (the parser also rejects minutes on other types).
+        minutes: input.status === "done" && input.itemType === "study" ? (input.minutes ?? null) : null,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "user_id,plan_date,item_key" },

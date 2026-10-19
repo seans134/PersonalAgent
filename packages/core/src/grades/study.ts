@@ -47,12 +47,19 @@ export const STUDY_RAMP_LEAD_DAYS: Record<StudyItem["kind"], number> = {
   assignment: 7,
 };
 
+/** How many days ahead Today plans study (deriveStudyTasks' default horizon). */
+export const STUDY_HORIZON_DAYS = 7;
+
 export const STUDY_BLOCK_MIN_MINUTES = 15;
 export const STUDY_BLOCK_MAX_MINUTES = 120;
 
 export type StudyRampDay = {
   localDate: string;
-  /** 1-based position in the ramp; the day before the due date is day leadDays. */
+  /**
+   * 1-based position in the ramp; the day before the due date is day leadDays.
+   * 0 marks a block outside the ramp: the last block on the due date itself, or a
+   * finish_first item's front-loaded block today before its ramp starts.
+   */
   dayNumber: number;
   minutes: number;
   isToday: boolean;
@@ -67,6 +74,8 @@ export type StudyRamp = {
   /** Study already checked off on earlier days. */
   doneMinutes: number;
   remainingMinutes: number;
+  /** Remaining minutes that don't fit before the due date at the daily cap (120 min per day). */
+  unscheduledMinutes: number;
   /** Today onward, only days with study; empty once the item is due, past, or fully studied. */
   days: StudyRampDay[];
 };
@@ -101,6 +110,12 @@ function allocateByWeight(total: number, weights: number[]): number[] {
   return shares;
 }
 
+/** Leftover after allocation, rounded to 5 minutes (rounding noise is not "unscheduled"). */
+function unscheduledFrom(total: number, shares: number[]): number {
+  const left = total - shares.reduce((sum, share) => sum + share, 0);
+  return Math.max(0, Math.round(left / 5) * 5);
+}
+
 function roundBlock(minutes: number): number {
   return clamp(Math.round(minutes / 5) * 5, STUDY_BLOCK_MIN_MINUTES, STUDY_BLOCK_MAX_MINUTES);
 }
@@ -114,6 +129,8 @@ function shiftLocalDate(localDate: string, days: number): string {
  * spread over the days from today to the day before it's due, heavier toward the due date.
  * Each day is 15-120 minutes in 5-minute steps; when the remaining effort is too small to
  * give every day 15 minutes, the earliest days drop out so the total stays close to it.
+ * Effort beyond 120 minutes a day is reported as unscheduledMinutes, not planned.
+ * Due today: the ramp is over, and what's left becomes one block today with dayNumber 0.
  */
 export function studyRamp(
   item: Pick<StudyItem, "id" | "kind" | "dueLocalDate" | "estimatedEffortHours">,
@@ -127,12 +144,14 @@ export function studyRamp(
   const ramp = { itemId: item.id, kind: item.kind, leadDays, effortMinutes, doneMinutes: done, remainingMinutes };
   const daysUntilDue = diffInDays(item.dueLocalDate, todayLocalDate);
 
-  if (daysUntilDue < 0 || remainingMinutes <= 0) return { ...ramp, days: [] };
+  if (daysUntilDue < 0 || remainingMinutes <= 0) return { ...ramp, unscheduledMinutes: 0, days: [] };
   if (daysUntilDue === 0) {
-    // Due today: whatever is left goes into one last block.
+    // Due today: outside the ramp (dayNumber 0); whatever is left goes into one last block.
+    const minutes = roundBlock(remainingMinutes);
     return {
       ...ramp,
-      days: [{ localDate: todayLocalDate, dayNumber: leadDays, minutes: roundBlock(remainingMinutes), isToday: true }],
+      unscheduledMinutes: unscheduledFrom(remainingMinutes, [Math.min(remainingMinutes, STUDY_BLOCK_MAX_MINUTES)]),
+      days: [{ localDate: todayLocalDate, dayNumber: 0, minutes, isToday: true }],
     };
   }
 
@@ -148,7 +167,7 @@ export function studyRamp(
     const localDate = shiftLocalDate(item.dueLocalDate, dayNumber - leadDays - 1);
     return { localDate, dayNumber, minutes: roundBlock(shares[index]), isToday: localDate === todayLocalDate };
   });
-  return { ...ramp, days };
+  return { ...ramp, unscheduledMinutes: unscheduledFrom(remainingMinutes, shares), days };
 }
 
 /** Today's block from the item's ramp, in minutes (0 when today is not a study day for it). */
@@ -160,6 +179,27 @@ function priorityFor(item: StudyItem, todayLocalDate: string): 1 | 2 | 3 {
   if (item.focusMode === "finish_first") return 1;
   const daysUntilDue = Math.max(1, diffInDays(item.dueLocalDate, todayLocalDate));
   return daysUntilDue <= 1 ? 1 : daysUntilDue <= 3 ? 2 : 3;
+}
+
+/**
+ * Today's block for an item with study left, or 0 for none: today's ramp day, or for finish_first
+ * a front-loaded block (at least 45 minutes, about twice its share, capped at what's left).
+ */
+function todayBlockMinutes(item: StudyItem, ramp: StudyRamp, todayLocalDate: string): number {
+  const rampMinutes = todayRampMinutes(ramp);
+  if (item.focusMode !== "finish_first") return rampMinutes;
+  const daysUntilDue = Math.max(1, diffInDays(item.dueLocalDate, todayLocalDate));
+  const share = rampMinutes > 0 ? rampMinutes : Math.round(ramp.remainingMinutes / daysUntilDue);
+  const upToRemaining = Math.ceil(ramp.remainingMinutes / 5) * 5;
+  const frontLoaded = Math.round(Math.max(45, share * 2) / 5) * 5;
+  return clamp(Math.min(frontLoaded, upToRemaining), STUDY_BLOCK_MIN_MINUTES, STUDY_BLOCK_MAX_MINUTES);
+}
+
+/** Whether any unscored item not yet past due is finish_first (deferred items wait while one is). */
+function hasActiveFinishFirst(items: StudyItem[], todayLocalDate: string): boolean {
+  return items.some(
+    (item) => item.focusMode === "finish_first" && item.scoreEarned === null && diffInDays(item.dueLocalDate, todayLocalDate) >= 0,
+  );
 }
 
 function studyReason(item: StudyItem, ramp: StudyRamp, todayLocalDate: string): string {
@@ -181,30 +221,23 @@ function studyReason(item: StudyItem, ramp: StudyRamp, todayLocalDate: string): 
 export function deriveStudyTasks(
   items: StudyItem[],
   todayLocalDate: string,
-  horizonDays = 7,
+  horizonDays = STUDY_HORIZON_DAYS,
   doneMinutesByItemId: Record<string, number> = {},
 ): StudyTask[] {
   const active = items.filter((item) => item.scoreEarned === null && diffInDays(item.dueLocalDate, todayLocalDate) >= 0);
-  const hasActiveFinishFirst = active.some((item) => item.focusMode === "finish_first");
+  const finishFirstActive = hasActiveFinishFirst(active, todayLocalDate);
 
   const planned = active.flatMap((item) => {
     // An explicit estimate of 0 (or less) means "no study needed"; null falls back to the kind default.
     if (item.estimatedEffortHours !== null && !(item.estimatedEffortHours > 0)) return [];
-    if (item.focusMode === "deferred" && hasActiveFinishFirst) return [];
+    if (item.focusMode === "deferred" && finishFirstActive) return [];
     const daysUntilDue = Math.max(1, diffInDays(item.dueLocalDate, todayLocalDate));
     if (daysUntilDue > horizonDays) return [];
 
     const ramp = studyRamp(item, todayLocalDate, doneMinutesByItemId[item.id] ?? 0);
     if (ramp.remainingMinutes <= 0) return [];
-    const rampMinutes = todayRampMinutes(ramp);
-    if (item.focusMode === "finish_first") {
-      const share = rampMinutes > 0 ? rampMinutes : Math.round(ramp.remainingMinutes / daysUntilDue);
-      const upToRemaining = Math.ceil(ramp.remainingMinutes / 5) * 5;
-      const frontLoaded = Math.round(Math.max(45, share * 2) / 5) * 5;
-      const durationMinutes = clamp(Math.min(frontLoaded, upToRemaining), STUDY_BLOCK_MIN_MINUTES, STUDY_BLOCK_MAX_MINUTES);
-      return [{ item, ramp, durationMinutes }];
-    }
-    return rampMinutes > 0 ? [{ item, ramp, durationMinutes: rampMinutes }] : [];
+    const durationMinutes = todayBlockMinutes(item, ramp, todayLocalDate);
+    return durationMinutes > 0 ? [{ item, ramp, durationMinutes }] : [];
   });
 
   planned.sort((a, b) => {
@@ -230,21 +263,47 @@ export function deriveStudyTasks(
 
 /**
  * Study ramps to show on unscored, upcoming exams and quizzes (course item detail on web and mobile),
- * keyed by item id. Items with an explicit estimate of 0, or nothing left to study, are left out.
+ * keyed by item id, matching what Today plans: deferred items are left out while any finish_first
+ * item is active, and a finish_first item's today block (within Today's horizon) has its front-loaded
+ * length, added as a dayNumber 0 block when its ramp hasn't started. Items with an explicit estimate
+ * of 0, or nothing left to study, are left out. Pass all the student's items (any kind, any course),
+ * since a finish_first item anywhere holds deferred ones back.
  */
 export function upcomingStudyRamps(
   items: StudyItem[],
   todayLocalDate: string,
   doneMinutesByItemId: Record<string, number> = {},
 ): Record<string, StudyRamp> {
+  const finishFirstActive = hasActiveFinishFirst(items, todayLocalDate);
   const ramps: Record<string, StudyRamp> = {};
   for (const item of items) {
     if (item.kind === "assignment" || item.scoreEarned !== null) continue;
     if (item.estimatedEffortHours !== null && !(item.estimatedEffortHours > 0)) continue;
+    if (item.focusMode === "deferred" && finishFirstActive) continue;
     const ramp = studyRamp(item, todayLocalDate, doneMinutesByItemId[item.id] ?? 0);
-    if (ramp.days.length > 0) ramps[item.id] = ramp;
+    if (ramp.days.length === 0) continue;
+    const daysUntilDue = diffInDays(item.dueLocalDate, todayLocalDate);
+    if (item.focusMode === "finish_first" && daysUntilDue <= STUDY_HORIZON_DAYS) {
+      const minutes = todayBlockMinutes(item, ramp, todayLocalDate);
+      const rest = ramp.days.filter((day) => !day.isToday);
+      const today = ramp.days.find((day) => day.isToday);
+      ramps[item.id] = {
+        ...ramp,
+        days: [{ localDate: todayLocalDate, dayNumber: today?.dayNumber ?? 0, minutes, isToday: true }, ...rest],
+      };
+      continue;
+    }
+    ramps[item.id] = ramp;
   }
   return ramps;
+}
+
+/** Plain note for effort that won't fit before the due date, or null when it all fits. */
+export function studyRampOverflowNote(ramp: Pick<StudyRamp, "kind" | "unscheduledMinutes">): string | null {
+  if (ramp.unscheduledMinutes <= 0) return null;
+  const target = ramp.kind === "exam" ? "the exam" : ramp.kind === "quiz" ? "the quiz" : "the due date";
+  const cap = formatStudyMinutes(STUDY_BLOCK_MAX_MINUTES);
+  return `${formatStudyMinutes(ramp.unscheduledMinutes)} won't fit before ${target} at ${cap} a day. Start studying earlier.`;
 }
 
 /** Course detail payload (web page and GET /api/mobile/courses/[id] studyPlans): ramps by item id. */

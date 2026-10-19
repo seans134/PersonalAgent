@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
-import { formatStudyMinutes, studyRampDayLabel, type StudyRamp } from "@personal-agent/core";
+import { formatStudyMinutes, studyRampDayLabel, studyRampOverflowNote, type StudyRamp } from "@personal-agent/core";
 import type { CourseCategoryRow, CourseItemRow } from "@/lib/courses/types";
 import { deleteItem, setItemGrade } from "../actions";
 import { ItemForm } from "./item-form";
@@ -47,6 +47,7 @@ function DeleteButton() {
 
 /** The upcoming days of an exam or quiz's study ramp, from the same core function as the Today plan. */
 function StudyPlanList({ ramp, todayLocalDate }: { ramp: StudyRamp; todayLocalDate: string }) {
+  const overflow = studyRampOverflowNote(ramp);
   return (
     <div className="basis-full border-t border-line pt-2">
       <p className="text-xs font-medium text-ink-muted">
@@ -67,6 +68,7 @@ function StudyPlanList({ ramp, todayLocalDate }: { ramp: StudyRamp; todayLocalDa
           </li>
         ))}
       </ol>
+      {overflow ? <p className="mt-1 text-xs text-danger">{overflow}</p> : null}
     </div>
   );
 }

@@ -20,6 +20,7 @@ import {
   parsePercentInput,
   projectFinalGrade,
   studyRampDayLabel,
+  studyRampOverflowNote,
   type CourseStudyPlans,
   type GradeCategory,
   type GradedItem,
@@ -753,6 +754,7 @@ function ItemCard({
 function StudyPlanList({ ramp, todayLocalDate }: { ramp: StudyRamp; todayLocalDate: string }) {
   const theme = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
+  const overflow = studyRampOverflowNote(ramp);
 
   return (
     <View accessibilityLabel="Study plan" style={styles.studyPlan}>
@@ -771,6 +773,7 @@ function StudyPlanList({ ramp, todayLocalDate }: { ramp: StudyRamp; todayLocalDa
           </View>
         ))}
       </View>
+      {overflow ? <Text style={styles.studyPlanOverflow}>{overflow}</Text> : null}
     </View>
   );
 }
@@ -1154,6 +1157,9 @@ function makeStyles(theme: Theme) {
     },
     studyPlanDayTextToday: {
       ...theme.text("monoTime", "ink"),
+    },
+    studyPlanOverflow: {
+      ...theme.text("label", "danger"),
     },
     itemFooter: {
       alignItems: "center",

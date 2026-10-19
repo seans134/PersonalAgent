@@ -6,6 +6,7 @@ import {
   formatStudyMinutes,
   studyRamp,
   studyRampDayLabel,
+  studyRampOverflowNote,
   todayRampMinutes,
   upcomingStudyRamps,
   type StudyItem,
@@ -250,11 +251,31 @@ describe("studyRamp", () => {
   });
 
   it("puts what's left into one block on the due date and nothing after", () => {
-    expect(studyRamp(exam, "2026-08-14").days).toEqual([
-      { localDate: "2026-08-14", dayNumber: 7, minutes: 120, isToday: true },
-    ]);
+    const dueToday = studyRamp(exam, "2026-08-14");
+    expect(dueToday.days).toEqual([{ localDate: "2026-08-14", dayNumber: 0, minutes: 120, isToday: true }]);
+    expect(dueToday.unscheduledMinutes).toBe(240);
     expect(studyRamp(exam, "2026-08-15").days).toEqual([]);
     expect(studyRamp(exam, "2026-08-10", 360).days).toEqual([]);
+  });
+});
+
+describe("unscheduled study", () => {
+  const exam = { id: "exam", kind: "exam" as const, estimatedEffortHours: 12, dueLocalDate: "2026-08-14" };
+
+  it("reports effort beyond 120 minutes a day instead of dropping it silently", () => {
+    const ramp = studyRamp(exam, "2026-08-11"); // 3 days left, 720 min
+    expect(ramp.days.map((day) => day.minutes)).toEqual([120, 120, 120]);
+    expect(ramp.unscheduledMinutes).toBe(360);
+    expect(studyRampOverflowNote(ramp)).toBe("6 h won't fit before the exam at 2 h a day. Start studying earlier.");
+  });
+
+  it("reports nothing when it all fits", () => {
+    const ramp = studyRamp(exam, "2026-08-07");
+    expect(ramp.unscheduledMinutes).toBe(0);
+    expect(studyRampOverflowNote(ramp)).toBeNull();
+    expect(studyRampOverflowNote({ kind: "quiz", unscheduledMinutes: 150 })).toBe(
+      "2 h 30 min won't fit before the quiz at 2 h a day. Start studying earlier.",
+    );
   });
 });
 
@@ -279,6 +300,31 @@ describe("upcomingStudyRamps", () => {
     );
     expect(Object.keys(ramps).sort()).toEqual(["exam", "quiz"]);
     expect(ramps.exam.days.map((day) => day.dayNumber)).toEqual([3, 4, 5, 6, 7]);
+  });
+
+  it("holds deferred items back while a finish_first item is active, like Today", () => {
+    const items = [
+      item({ id: "deferred", focusMode: "deferred" }),
+      item({ id: "ff-hw", kind: "assignment", focusMode: "finish_first" }),
+    ];
+    expect(Object.keys(upcomingStudyRamps(items, "2026-08-07"))).toEqual([]);
+    expect(Object.keys(upcomingStudyRamps([items[0]], "2026-08-07"))).toEqual(["deferred"]);
+  });
+
+  it("shows a finish_first item's front-loaded block today, matching Today's block", () => {
+    const ff = item({ id: "ff", kind: "quiz", focusMode: "finish_first" }); // quiz in 5 days, ramp not started
+    const ramps = upcomingStudyRamps([ff], "2026-08-07");
+    const [task] = deriveStudyTasks([ff], "2026-08-07");
+    expect(ramps.ff.days[0]).toEqual({ localDate: "2026-08-07", dayNumber: 0, minutes: task.durationMinutes, isToday: true });
+    expect(ramps.ff.days.slice(1).map((day) => day.dayNumber)).toEqual([1, 2, 3]);
+
+    const inRamp = item({ id: "ff", focusMode: "finish_first" }); // exam in 5 days, day 3 of 7
+    const [inRampTask] = deriveStudyTasks([inRamp], "2026-08-07");
+    expect(upcomingStudyRamps([inRamp], "2026-08-07").ff.days[0]).toMatchObject({
+      dayNumber: 3,
+      minutes: inRampTask.durationMinutes,
+      isToday: true,
+    });
   });
 });
 

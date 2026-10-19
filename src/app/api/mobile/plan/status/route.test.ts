@@ -149,6 +149,8 @@ describe("PUT /api/mobile/plan/status", () => {
     expect(upserts[0]).toMatchObject({ status: "done", minutes: 45 });
     expect(upserts[1]).toMatchObject({ status: "skipped", minutes: null });
     expect((await PUT(request("PUT", statusUrl, { ...valid, minutes: -5 }))).status).toBe(400);
+    const goalWithMinutes = { ...valid, itemKey: "goal:read", itemType: "goal", minutes: 30 };
+    expect((await PUT(request("PUT", statusUrl, goalWithMinutes))).status).toBe(400);
   });
 
   it("accepts tomorrow but rejects dates outside today ±1 day", async () => {

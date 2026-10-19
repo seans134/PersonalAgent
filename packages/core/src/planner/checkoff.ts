@@ -234,6 +234,9 @@ export function parsePlanItemStatusRequest(body: unknown): ParseResult<PlanItemS
   if (minutes !== null && (typeof minutes !== "number" || !Number.isInteger(minutes) || minutes < 1 || minutes > PLAN_ITEM_MINUTES_MAX)) {
     return { ok: false, error: `minutes must be a whole number from 1 to ${PLAN_ITEM_MINUTES_MAX}, or null.` };
   }
+  if (minutes !== null && record.itemType !== "study") {
+    return { ok: false, error: "minutes can only be sent for study items." };
+  }
   return {
     ok: true,
     value: { planDate: record.planDate, itemKey: record.itemKey, itemType: record.itemType, status: record.status, minutes },

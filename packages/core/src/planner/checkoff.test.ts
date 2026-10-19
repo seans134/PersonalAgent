@@ -158,6 +158,8 @@ describe("request parsing", () => {
     expect(parsePlanItemStatusRequest({ ...body, minutes: 12.5 }).ok).toBe(false);
     expect(parsePlanItemStatusRequest({ ...body, minutes: 24 * 60 + 1 }).ok).toBe(false);
     expect(parsePlanItemStatusRequest({ ...body, minutes: "30" }).ok).toBe(false);
+    expect(parsePlanItemStatusRequest({ ...body, itemKey: "goal:read", itemType: "goal", minutes: 30 }).ok).toBe(false);
+    expect(parsePlanItemStatusRequest({ ...body, itemKey: "goal:read", itemType: "goal", minutes: null }).ok).toBe(true);
   });
 
   it("rejects bad status writes", () => {
