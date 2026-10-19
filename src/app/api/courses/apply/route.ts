@@ -5,6 +5,7 @@ import { getAuthenticatedRequestClient } from "@/lib/supabase/request";
 
 export const runtime = "nodejs";
 
+// Mobile app depends on this response shape (re-exported as /api/mobile/courses/import/apply) — see src/app/api/mobile-contract.test.ts before changing the envelope.
 export async function POST(request: NextRequest) {
   const auth = await getAuthenticatedRequestClient(request);
 

@@ -441,7 +441,8 @@ async function fetchJson<T>(
     ...init,
     headers: {
       Authorization: `Bearer ${accessToken}`,
-      ...(init.body ? { "Content-Type": "application/json" } : {}),
+      // FormData bodies must let fetch set the multipart boundary itself.
+      ...(typeof init.body === "string" ? { "Content-Type": "application/json" } : {}),
       ...init.headers,
     },
   });
@@ -455,7 +456,10 @@ async function fetchJson<T>(
 
   if (!response.ok) {
     const errorBody = body as { error?: string } | null;
-    const error = new Error(errorBody?.error ?? `${fallbackError} (status ${response.status})`);
+    // A 413 can come from the platform before our handler runs, without a JSON body.
+    const statusMessage =
+      response.status === 413 ? SYLLABUS_TOO_LARGE_MESSAGE : `${fallbackError} (status ${response.status})`;
+    const error = new Error(errorBody?.error ?? statusMessage);
     captureEvent("api_request_failed", { path, status: response.status });
     if (response.status >= 500) captureException(error, { path, status: response.status });
     throw error;
@@ -968,4 +972,80 @@ export async function deleteMobileItem(accessToken: string, courseId: string, it
     { method: "DELETE", body: JSON.stringify({ itemId }) },
     "Unable to remove item.",
   );
+}
+
+// Syllabus import: draft/result shapes mirror src/lib/courses/syllabus-parse.ts and the
+// /api/courses/{parse,apply} envelopes (pinned in src/app/api/mobile-contract.test.ts).
+export type MobileSyllabusItemKind = "assignment" | "quiz" | "exam";
+
+export type MobileSyllabusDraft = {
+  course: { name: string; code: string | null; term: string | null; target_grade: number | null };
+  categories: Array<{ name: string; weight: number; position: number }>;
+  items: Array<{
+    kind: MobileSyllabusItemKind;
+    title: string;
+    // Links to a category by name; apply resolves it to an id after inserting categories.
+    categoryName: string | null;
+    // Items without a due date can't be saved; they arrive with include: false.
+    due_at: string | null;
+    score_max: number;
+    include: boolean;
+  }>;
+  warnings: string[];
+};
+
+// React Native upload part; size (bytes) is optional but lets us reject oversize files before uploading.
+export type MobileSyllabusImportFile = { uri: string; name: string; type: string; size?: number | null };
+
+export type MobileSyllabusParseResponse = { draft: MobileSyllabusDraft };
+
+export type MobileSyllabusApplyInput = { draft: MobileSyllabusDraft };
+
+export type MobileSyllabusApplyResult = { courseId: string; applied: { categories: number; items: number } };
+
+// Mirrors the parse route's limit (Vercel caps request bodies around 4.5 MB).
+export const SYLLABUS_MAX_UPLOAD_BYTES = 4.5 * 1024 * 1024;
+const SYLLABUS_TOO_LARGE_MESSAGE =
+  "That file is too large to upload. Please use a syllabus under 4.5 MB, or paste the text instead.";
+
+export async function parseSyllabusImport(
+  accessToken: string,
+  file: MobileSyllabusImportFile | null,
+  text?: string,
+): Promise<MobileSyllabusParseResponse> {
+  if (file?.size && file.size > SYLLABUS_MAX_UPLOAD_BYTES) {
+    throw new Error(SYLLABUS_TOO_LARGE_MESSAGE);
+  }
+
+  const body = new FormData();
+  if (file) {
+    // React Native's FormData takes a { uri, name, type } descriptor in place of a Blob.
+    body.append("file", { uri: file.uri, name: file.name, type: file.type } as unknown as Blob);
+  }
+  if (text?.trim()) {
+    body.append("text", text.trim());
+  }
+
+  return fetchJson<MobileSyllabusParseResponse>(
+    "/api/mobile/courses/import/parse",
+    accessToken,
+    { method: "POST", body },
+    "Unable to parse syllabus.",
+  );
+}
+
+export async function applySyllabusImport(accessToken: string, draft: MobileSyllabusDraft) {
+  const input: MobileSyllabusApplyInput = { draft };
+  const response = await fetchJson<MobileSyllabusApplyResult>(
+    "/api/mobile/courses/import/apply",
+    accessToken,
+    { method: "POST", body: JSON.stringify(input) },
+    "Unable to create course.",
+  );
+  captureEvent("course_created", {
+    source: "syllabus_import",
+    categories: response.applied.categories,
+    items: response.applied.items,
+  });
+  return response;
 }

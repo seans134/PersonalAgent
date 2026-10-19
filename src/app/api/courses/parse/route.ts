@@ -6,7 +6,13 @@ import { getAuthenticatedRequestClient } from "@/lib/supabase/request";
 
 export const runtime = "nodejs";
 
-const MAX_FILE_BYTES = 15 * 1024 * 1024; // 15 MB; note Vercel serverless bodies cap around 4.5 MB.
+// Vercel rejects serverless request bodies over ~4.5 MB before the handler runs, so cap uploads
+// there and answer with a readable 413 instead of letting clients hit an opaque platform error.
+const MAX_UPLOAD_BYTES = 4.5 * 1024 * 1024;
+// Multipart framing and the optional pasted text ride along with the file in the request body.
+const MULTIPART_OVERHEAD_BYTES = 64 * 1024;
+const TOO_LARGE_MESSAGE =
+  "That file is too large to upload. Please use a syllabus under 4.5 MB, or paste the text instead.";
 const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 // Gemini reads these natively as inlineData; docx is extracted to text first.
 const INLINE_MIME_TYPES = new Set(["application/pdf", "image/png", "image/jpeg", "image/webp", "image/heic", "image/heif"]);
@@ -24,11 +30,11 @@ function inferMimeType(file: File): string {
   return "application/octet-stream";
 }
 
-async function fileToParts(file: File): Promise<GeminiPart[]> {
-  if (file.size > MAX_FILE_BYTES) {
-    throw new Error("That file is too large. Please upload a syllabus under 15 MB.");
-  }
+function tooLarge() {
+  return NextResponse.json({ error: TOO_LARGE_MESSAGE }, { status: 413 });
+}
 
+async function fileToParts(file: File): Promise<GeminiPart[]> {
   const mimeType = inferMimeType(file);
   const buffer = Buffer.from(await file.arrayBuffer());
 
@@ -48,11 +54,17 @@ async function fileToParts(file: File): Promise<GeminiPart[]> {
   throw new Error("Unsupported file type. Upload a PDF, image, or Word (.docx) file, or paste the text instead.");
 }
 
+// Mobile app depends on this response shape (re-exported as /api/mobile/courses/import/parse) — see src/app/api/mobile-contract.test.ts before changing the envelope.
 export async function POST(request: NextRequest) {
   const auth = await getAuthenticatedRequestClient(request);
 
   if (!auth) {
     return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+  }
+
+  const contentLength = Number(request.headers.get("content-length"));
+  if (Number.isFinite(contentLength) && contentLength > MAX_UPLOAD_BYTES + MULTIPART_OVERHEAD_BYTES) {
+    return tooLarge();
   }
 
   try {
@@ -61,6 +73,10 @@ export async function POST(request: NextRequest) {
     const pastedText = typeof form.get("text") === "string" ? (form.get("text") as string).trim() : "";
 
     let parts: GeminiPart[];
+    if (file instanceof File && file.size > MAX_UPLOAD_BYTES) {
+      return tooLarge();
+    }
+
     if (file instanceof File && file.size > 0) {
       parts = await fileToParts(file);
     } else if (pastedText.length > 0) {

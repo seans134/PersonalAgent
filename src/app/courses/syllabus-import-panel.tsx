@@ -13,6 +13,10 @@ type ParseResponse = { draft: SyllabusDraft } | { error: string };
 type ApplyResponse = { courseId: string; applied: { categories: number; items: number } } | { error: string };
 
 const KIND_OPTIONS: SyllabusItemKind[] = ["assignment", "quiz", "exam"];
+// Mirrors the parse route's limit (Vercel caps request bodies around 4.5 MB).
+const MAX_UPLOAD_BYTES = 4.5 * 1024 * 1024;
+const TOO_LARGE_MESSAGE =
+  "That file is too large to upload. Please use a syllabus under 4.5 MB, or paste the text instead.";
 
 function isErrorResponse(value: ParseResponse | ApplyResponse): value is { error: string } {
   return "error" in value;
@@ -123,6 +127,10 @@ export function SyllabusImportPanel({ geminiConfigured }: { geminiConfigured: bo
     setIsParsing(true);
 
     try {
+      if (file && file.size > MAX_UPLOAD_BYTES) {
+        throw new Error(TOO_LARGE_MESSAGE);
+      }
+
       const body = new FormData();
       if (file) {
         body.append("file", file);
@@ -132,6 +140,10 @@ export function SyllabusImportPanel({ geminiConfigured }: { geminiConfigured: bo
       }
 
       const response = await fetch("/api/courses/parse", { method: "POST", body });
+      if (response.status === 413) {
+        // The platform may reject the body before our handler runs, so don't rely on a JSON reply.
+        throw new Error(TOO_LARGE_MESSAGE);
+      }
       const payload = (await response.json()) as ParseResponse;
 
       if (!response.ok || isErrorResponse(payload)) {
