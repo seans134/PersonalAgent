@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
+import { removeSyllabusCategory, renameSyllabusCategory, summarizeSyllabusWeights } from "@personal-agent/core";
 import type {
   SyllabusCategoryDraft,
   SyllabusDraft,
@@ -61,8 +62,7 @@ export function SyllabusImportPanel({ geminiConfigured }: { geminiConfigured: bo
 
   const canParse = geminiConfigured && !isParsing && (Boolean(file) || text.trim().length >= 8);
 
-  const weightSum = draft ? draft.categories.reduce((sum, category) => sum + (Number(category.weight) || 0), 0) : 0;
-  const weightOff = draft !== null && draft.categories.length > 0 && Math.abs(weightSum - 100) > 0.5;
+  const { total: weightSum, isOff: weightOff } = summarizeSyllabusWeights(draft?.categories ?? []);
 
   function updateCourse(field: keyof SyllabusDraft["course"], value: string) {
     setDraft((current) => {
@@ -89,11 +89,12 @@ export function SyllabusImportPanel({ geminiConfigured }: { geminiConfigured: bo
     });
   }
 
+  function renameCategory(index: number, name: string) {
+    setDraft((current) => (current ? renameSyllabusCategory(current, index, name) : current));
+  }
+
   function removeCategory(index: number) {
-    setDraft((current) => {
-      if (!current) return current;
-      return { ...current, categories: current.categories.filter((_, i) => i !== index) };
-    });
+    setDraft((current) => (current ? removeSyllabusCategory(current, index) : current));
   }
 
   function addCategory() {
@@ -315,7 +316,7 @@ export function SyllabusImportPanel({ geminiConfigured }: { geminiConfigured: bo
                 <div className="min-w-[140px] flex-1 space-y-1">
                   <input
                     className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink"
-                    onChange={(event) => updateCategory(index, { name: event.target.value })}
+                    onChange={(event) => renameCategory(index, event.target.value)}
                     placeholder="Category name"
                     value={category.name}
                   />
