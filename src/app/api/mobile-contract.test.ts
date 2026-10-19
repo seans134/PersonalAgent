@@ -13,7 +13,8 @@
  * asserted is the outward shape mobile reads. If you change one of these
  * envelopes, update mobile/lib/api.ts in the same change and adjust this test.
  *
- * Each guarded route carries a comment pointing back here.
+ * Each guarded route carries a comment pointing back here. The same applies to
+ * web routes that `/api/mobile/*` re-exports verbatim (the syllabus import pair).
  */
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -50,6 +51,8 @@ const mocks = vi.hoisted(() => ({
   // onboarding/natural-language
   validateOnboarding: vi.fn(() => ({ profile: {}, goals: [], scheduleBlocks: [] })),
   parseOnboarding: vi.fn(async () => ({ profile: {}, goals: [], scheduleBlocks: [] })),
+  // courses/syllabus-parse (validateSyllabusDraft stays real; it's pure)
+  parseSyllabus: vi.fn(),
 }));
 
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
@@ -63,6 +66,10 @@ vi.mock("@/lib/tracking/natural-language-workout", () => ({
   validateNaturalLanguageWorkoutScheduleDraft: mocks.validateWorkoutSchedule,
   parseNaturalLanguageWorkoutSchedule: mocks.parseWorkoutSchedule,
   parseNaturalLanguageWorkout: mocks.parseWorkout,
+}));
+vi.mock("@/lib/courses/syllabus-parse", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/courses/syllabus-parse")>()),
+  parseSyllabus: mocks.parseSyllabus,
 }));
 vi.mock("@/lib/onboarding/natural-language", () => ({
   validateNaturalLanguageOnboardingDraft: mocks.validateOnboarding,
@@ -189,5 +196,123 @@ describe("mobile contract: leaked /api/tracking/* and /api/onboarding/* routes",
     const { POST } = await import("./tracking/meals/apply/route");
     const res = await POST(post("/api/tracking/meals/apply", { draft: {} }));
     expect(res.status).toBe(401);
+  });
+});
+
+/** Supabase mock for the syllabus apply route: per-table results (courses ends in .single()),
+ *  recording what each table was asked to insert. */
+function makeImportSupabase() {
+  const inserted: Record<string, unknown> = {};
+  const results: Record<string, { data?: unknown; error: unknown }> = {
+    courses: { data: { id: "course-1" }, error: null },
+    course_categories: {
+      data: [
+        { id: "cat-hw", name: "Homework" },
+        { id: "cat-exam", name: "Exams" },
+      ],
+      error: null,
+    },
+    course_items: { error: null },
+  };
+  const from = vi.fn((table: string) => {
+    const builder: Record<string, unknown> = {};
+    builder.insert = vi.fn((rows: unknown) => {
+      inserted[table] = rows;
+      return builder;
+    });
+    builder.select = vi.fn(() => builder);
+    builder.single = vi.fn(() => builder);
+    builder.then = (resolve: (value: unknown) => unknown) => resolve(results[table]);
+    return builder;
+  });
+  return { supabase: { from }, inserted };
+}
+
+function postForm(path: string, form: FormData) {
+  return new NextRequest(`http://localhost${path}`, { method: "POST", body: form });
+}
+
+const syllabusDraft = {
+  course: { name: "Organic Chemistry", code: "CHEM 201", term: "Fall 2026", target_grade: 85 },
+  categories: [
+    { name: "Homework", weight: 40, position: 0 },
+    { name: "Exams", weight: 60, position: 1 },
+  ],
+  items: [
+    { kind: "assignment", title: "PS 1", categoryName: "Homework", due_at: "2026-10-01T16:00:00.000Z", score_max: 10, include: true },
+    { kind: "exam", title: "Midterm", categoryName: "Exams", due_at: "2026-10-20T14:00:00.000Z", score_max: 100, include: true },
+    { kind: "quiz", title: "Pop quiz", categoryName: null, due_at: null, score_max: 100, include: false },
+  ],
+  warnings: [],
+};
+
+describe("mobile contract: /api/mobile/courses/import/*", () => {
+  it("POST /api/mobile/courses/import/parse returns 401 without auth", async () => {
+    mocks.getAuth.mockResolvedValue(null);
+    const { POST } = await import("./mobile/courses/import/parse/route");
+    const form = new FormData();
+    form.append("text", "CHEM 201 syllabus");
+    const res = await POST(postForm("/api/mobile/courses/import/parse", form));
+    expect(res.status).toBe(401);
+  });
+
+  it("POST /api/mobile/courses/import/apply returns 401 without auth", async () => {
+    mocks.getAuth.mockResolvedValue(null);
+    const { POST } = await import("./mobile/courses/import/apply/route");
+    const res = await POST(post("/api/mobile/courses/import/apply", { draft: syllabusDraft }));
+    expect(res.status).toBe(401);
+  });
+
+  it("POST /api/mobile/courses/import/parse returns 400 when no file or text is sent", async () => {
+    authOk();
+    const { POST } = await import("./mobile/courses/import/parse/route");
+    const res = await POST(postForm("/api/mobile/courses/import/parse", new FormData()));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: expect.any(String) });
+    expect(mocks.parseSyllabus).not.toHaveBeenCalled();
+  });
+
+  it("POST /api/mobile/courses/import/parse returns a 413 JSON error for uploads over 4.5 MB", async () => {
+    authOk();
+    const { POST } = await import("./mobile/courses/import/parse/route");
+    const form = new FormData();
+    form.append("file", new File([new Uint8Array(5 * 1024 * 1024)], "syllabus.pdf", { type: "application/pdf" }));
+    const res = await POST(postForm("/api/mobile/courses/import/parse", form));
+    expect(res.status).toBe(413);
+    const body = await res.json();
+    expect(body.error).toMatch(/4\.5 MB/);
+    expect(mocks.parseSyllabus).not.toHaveBeenCalled();
+  });
+
+  it("POST /api/mobile/courses/import/parse returns { draft }", async () => {
+    authOk();
+    mocks.parseSyllabus.mockResolvedValue(syllabusDraft);
+    const { POST } = await import("./mobile/courses/import/parse/route");
+    const form = new FormData();
+    form.append("text", "CHEM 201 syllabus");
+    const res = await POST(postForm("/api/mobile/courses/import/parse", form));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ draft: syllabusDraft });
+  });
+
+  it("POST /api/mobile/courses/import/apply returns { courseId, applied: { categories, items } }", async () => {
+    const { supabase, inserted } = makeImportSupabase();
+    mocks.getAuth.mockResolvedValue({ user: { id: "user-1" }, supabase });
+    const { POST } = await import("./mobile/courses/import/apply/route");
+    const res = await POST(post("/api/mobile/courses/import/apply", { draft: syllabusDraft }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ courseId: "course-1", applied: { categories: 2, items: 2 } });
+    // Dateless items are skipped; category names resolve to the inserted ids.
+    expect(inserted.course_items).toEqual([
+      expect.objectContaining({ course_id: "course-1", category_id: "cat-hw", title: "PS 1" }),
+      expect.objectContaining({ course_id: "course-1", category_id: "cat-exam", title: "Midterm" }),
+    ]);
+  });
+
+  it("serves the same runtime as the web routes", async () => {
+    const parse = await import("./mobile/courses/import/parse/route");
+    const apply = await import("./mobile/courses/import/apply/route");
+    expect(parse.runtime).toBe((await import("./courses/parse/route")).runtime);
+    expect(apply.runtime).toBe((await import("./courses/apply/route")).runtime);
   });
 });
