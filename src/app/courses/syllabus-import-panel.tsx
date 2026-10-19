@@ -4,13 +4,17 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import {
   addSyllabusCategory,
+  analyticsEvents,
   fromSyllabusReview,
   removeSyllabusCategory,
   renameSyllabusCategory,
   summarizeSyllabusWeights,
+  syllabusImportSource,
   toSyllabusReview,
+  type SyllabusImportSource,
   type SyllabusReview,
 } from "@personal-agent/core";
+import { captureEvent } from "@/lib/analytics";
 import type { SyllabusDraft, SyllabusItemKind } from "@/lib/courses/syllabus-parse";
 
 type ParseResponse = { draft: SyllabusDraft } | { error: string };
@@ -70,6 +74,8 @@ export function SyllabusImportPanel({
   const [file, setFile] = useState<File | null>(null);
   const [text, setText] = useState("");
   const [draft, setDraft] = useState<ReviewDraft | null>(null);
+  // Where the draft under review came from, reported when it is applied.
+  const [source, setSource] = useState<SyllabusImportSource>("text");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [isParsing, setIsParsing] = useState(false);
@@ -163,6 +169,7 @@ export function SyllabusImportPanel({
         throw new Error(isErrorResponse(payload) ? payload.error : "Unable to parse syllabus.");
       }
 
+      setSource(syllabusImportSource(file));
       setDraft(toSyllabusReview(payload.draft));
     } catch (parseError) {
       setError(parseError instanceof Error ? parseError.message : "Unable to parse syllabus.");
@@ -192,6 +199,10 @@ export function SyllabusImportPanel({
       if (!response.ok || isErrorResponse(payload)) {
         throw new Error(isErrorResponse(payload) ? payload.error : "Unable to create course.");
       }
+
+      const counts = { categories: payload.applied.categories, items: payload.applied.items };
+      captureEvent(analyticsEvents.courseCreated, { source: "syllabus_import", ...counts });
+      captureEvent(analyticsEvents.syllabusImported, { source, ...counts });
 
       if (afterApply === "stay") {
         setNotice(`Added ${draft.course.name.trim()}. Import another syllabus, or continue when you're done.`);

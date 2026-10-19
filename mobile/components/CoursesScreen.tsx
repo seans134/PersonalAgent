@@ -217,7 +217,7 @@ export function CoursesScreen({ accessToken, onImportSyllabus, onOpenCourse }: C
           <Text style={styles.body}>Loading courses...</Text>
         </View>
       ) : courses.length === 0 ? (
-        <Text style={styles.empty}>No courses yet. Add one above to get started.</Text>
+        <Text style={styles.empty}>No courses yet. Import a syllabus or add a course above to get started.</Text>
       ) : (
         <View style={styles.list}>
           {courses.map((course) => (

@@ -40,7 +40,7 @@ export default async function OnboardingPage({
         <div>
           <h1 className="text-3xl font-semibold tracking-tight text-ink">Weekly rhythm</h1>
           <p className="mt-2 max-w-2xl text-ink-muted">
-            Add recurring habits and protected time that should shape your week outside school and work.
+            Add recurring study blocks and protected time that should shape your week outside class and work.
           </p>
         </div>
         <Link className="text-sm text-ink-muted underline" href="/">

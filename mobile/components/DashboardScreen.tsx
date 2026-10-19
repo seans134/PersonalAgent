@@ -8,7 +8,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { examLabel, examsWithinDays, formatDaysAway } from "@personal-agent/core";
+import { examLabel, examsWithinDays, features, formatDaysAway } from "@personal-agent/core";
 import {
   fetchMobileCourses,
   generateMobileTodayPlan,
@@ -30,11 +30,16 @@ type DashboardScreenProps = {
 
 const legendKeys = [
   { key: "goal", label: "Goal" },
-  { key: "focus", label: "Focus" },
+  { key: "focus", label: "Study" },
   { key: "fitness", label: "Fitness" },
   { key: "wellness", label: "Wellness" },
   { key: "commit", label: "Fixed" },
 ] as const;
+
+// Fitness and wellness items only appear while wellness tracking is on.
+const visibleLegendKeys = features.wellnessTracking
+  ? legendKeys
+  : legendKeys.filter((entry) => entry.key !== "fitness" && entry.key !== "wellness");
 
 function formatGrade(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return "—";
@@ -237,9 +242,9 @@ export function DashboardScreen({ accessToken, onOpenCourse, onOpenCourses }: Da
 
       {!plan ? (
         <View style={[styles.card, styles.heroCard]}>
-          <Text style={theme.text("title", "ink")}>Plan your day</Text>
+          <Text style={theme.text("title", "ink")}>Plan today&apos;s study time</Text>
           <Text style={[theme.text("body", "inkMuted"), styles.heroBody]}>
-            Atlas charts a route through your day from your goals, preferences, and calendar.
+            Atlas fits study time around your classes, deadlines, and exams.
           </Text>
           <Pressable
             disabled={generatingPlan}
@@ -249,7 +254,7 @@ export function DashboardScreen({ accessToken, onOpenCourse, onOpenCourses }: Da
             {generatingPlan ? (
               <ActivityIndicator color={colors.onTeal} />
             ) : (
-              <Text style={theme.text("heading", "onTeal")}>Generate today</Text>
+              <Text style={theme.text("heading", "onTeal")}>Plan my day</Text>
             )}
           </Pressable>
         </View>
@@ -258,7 +263,7 @@ export function DashboardScreen({ accessToken, onOpenCourse, onOpenCourses }: Da
       {plan ? (
         <View style={styles.planSection}>
           <View style={styles.statRow}>
-            <StatTile theme={theme} styles={styles} label="Moves" value={plan.plan.items.length} />
+            <StatTile theme={theme} styles={styles} label="Blocks" value={plan.plan.items.length} />
             <StatTile theme={theme} styles={styles} label="Goals used" value={plan.meta.goalsCount} />
             <StatTile theme={theme} styles={styles} label="Events" value={plan.meta.eventsCount} />
           </View>
@@ -279,9 +284,9 @@ export function DashboardScreen({ accessToken, onOpenCourse, onOpenCourses }: Da
           ) : null}
 
           <View style={styles.sectionHeader}>
-            <Text style={theme.text("title", "ink")}>Your day</Text>
+            <Text style={theme.text("title", "ink")}>Today&apos;s plan</Text>
             <View style={styles.legendRow}>
-              {legendKeys.map((entry) => (
+              {visibleLegendKeys.map((entry) => (
                 <View key={entry.key} style={styles.legendItem}>
                   <View style={[styles.legendNode, { backgroundColor: colors[entry.key] }]} />
                   <Text style={theme.text("monoTime", "inkMuted")}>{entry.label}</Text>
@@ -294,7 +299,7 @@ export function DashboardScreen({ accessToken, onOpenCourse, onOpenCourses }: Da
             <TodayPlanTimeline contextEvents={plan.contextEvents} items={plan.plan.items} />
           ) : (
             <View style={[styles.card, styles.emptyDay]}>
-              <Text style={theme.text("body", "inkMuted")}>No plan items for today yet. Generate a plan to chart your route.</Text>
+              <Text style={theme.text("body", "inkMuted")}>Nothing planned for today yet. Plan your day to see when to study.</Text>
             </View>
           )}
 

@@ -1,8 +1,9 @@
-# Atlas — App Store Connect Submission Package
+# Atlas: Study Planner — App Store Connect Submission Package
 
-Drafted from the current state of this repo on 2026-07-22. Everything under "Copy to submit"
-is ready to paste into App Store Connect. Everything under "Missing before you can submit"
-is a real blocker — go through that list top to bottom.
+Rewritten for the student release on 2026-10-19 (Phase 1: syllabus import, daily study plan, grade math,
+exam reminders). Meal and workout tracking are hidden behind `features.wellnessTracking` and are not part
+of this listing. Everything under "Copy to submit" is ready to paste into App Store Connect. Everything
+under "Missing before you can submit" is a real blocker.
 
 ---
 
@@ -10,47 +11,37 @@ is a real blocker — go through that list top to bottom.
 
 | Field | Value | Source |
 |---|---|---|
-| App name | Atlas | [mobile/app.json](mobile/app.json) |
-| Bundle ID | `com.personalagent.atlas` | [mobile/app.json](mobile/app.json) |
-| URL scheme | `atlas://` | [mobile/app.json](mobile/app.json) |
+| App Store name | Atlas: Study Planner | this file (home-screen name stays "Atlas" in [mobile/app.json](mobile/app.json)) |
+| Bundle ID | `com.personalagent.atlas` (unchanged) | [mobile/app.json](mobile/app.json) |
+| URL scheme | `atlas://` (unchanged) | [mobile/app.json](mobile/app.json) |
 | Version | 1.0.0 (first submission) | [mobile/app.json](mobile/app.json) |
 | EAS project ID | `f7925550-7152-4fa9-b41f-157f565bd834` | [mobile/app.json](mobile/app.json) |
 | Sentry org/project | `atlas-hu` / `atlas` | [mobile/app.json](mobile/app.json) |
 | Platform | iOS (`supportsTablet: true`) + Android | [mobile/app.json](mobile/app.json) |
-| Encryption | `ITSAppUsesNonExemptEncryption: false` already set — standard export-compliance question is pre-answered | [mobile/app.json](mobile/app.json) |
-| In-app purchases | None found (no IAP/RevenueCat dependency) — app is free with no purchases | [mobile/package.json](mobile/package.json) |
+| Encryption | `ITSAppUsesNonExemptEncryption: false` already set | [mobile/app.json](mobile/app.json) |
+| In-app purchases | None — free, no purchases | [mobile/package.json](mobile/package.json) |
 
-**Important:** "Atlas" is an extremely common app name. Search App Store Connect / the App Store for name
-availability before you lock this in — you may need a more specific variant (e.g. "Atlas – Daily Planner").
+"Atlas" alone is a common app name; "Atlas: Study Planner" is more specific, but still check availability in
+App Store Connect before locking it in.
 
 ---
 
-## 2. What the app actually does (from the code)
+## 2. What the app does (student release)
 
-Reading [mobile/components/MobileAppShell.tsx](mobile/components/MobileAppShell.tsx), [MVP_SLICE.md](MVP_SLICE.md),
-and [roadmap.md](roadmap.md), Atlas is a mobile-first personal planning app built on Supabase auth + a Next.js API
-backend, with these real (shipped) features:
+- **Syllabus import** — photograph a syllabus, pick a PDF or Word file, or paste the text. Atlas pulls out the
+  course, grade categories and weights, and dated assignments, quizzes, and exams for the student to review
+  before anything is saved (Gemini-assisted parsing).
+- **Class times** — weekly class blocks and work shifts in the built-in calendar (no calendar account linking).
+- **Daily study plan** — "Plan my day" builds today's study plan around class times, deadlines, and exams.
+  Times are computed deterministically; an optional AI pass only rewrites the wording.
+- **Grade math** — weighted course average, a "what do I need on the rest" status against a target grade, and
+  a what-if projection for the final.
+- **Exam reminders** — local notifications 3 days and 1 day before each course's next exam, at 9:00 device time.
+  On by default; can be turned off in Notification settings.
+- **Account & settings** — password reset via deep link, in-app account deletion.
 
-- **Onboarding** — free-text goals with priority, work/school/sleep/wake schedule, focus-block and workout
-  preferences. Includes a natural-language onboarding panel that parses free text into structured profile data.
-- **Local calendar** — one-off events and recurring weekly schedule blocks (classes, shifts, commitments).
-  No Google Calendar sync (explicitly removed — see `db/drop_google_calendar.sql` and the "Drop Google Calendar"
-  commit); this is a self-contained in-app calendar only.
-- **Daily planner** — `POST /api/plan/today` deterministically builds a today-plan from goals + free calendar
-  time; an optional Gemini pass rewrites the copy/summary but never changes the computed times.
-- **Goals** — add goals, mark achieved, list active vs. completed.
-- **Meals & Meal Coach** — nutrition logs, saved meals, natural-language meal logging, and suggestion panel.
-- **Workouts, Workout Plan & Workout Coach** — training logs, weekly workout schedule, natural-language logging,
-  and suggestions.
-- **Notifications** — locally scheduled reminders for the day's plan and recurring workout/meal items
-  (`expo-notifications`; no server push found — reminders are scheduled on-device).
-- **Account & settings** — password reset via native deep link (`atlas://auth/callback`), in-app account deletion.
-- **Analytics/diagnostics** — PostHog (product events) and Sentry (crash/error) are wired but stay inactive unless
-  their keys are configured; both are documented as privacy-bounded (no goal/meal/note/email content in events).
-
-This is **not** a medical, nutrition, or fitness-credentialed product — the app's own Terms of Use
-([src/app/terms/page.tsx](src/app/terms/page.tsx)) explicitly disclaim medical/professional advice. Keep marketing
-copy consistent with that (no "medical-grade," "doctor-recommended," etc.).
+Atlas does not give academic, medical, or professional advice. Keep marketing copy to what the app does
+(no "guaranteed A's" or similar claims).
 
 ---
 
@@ -58,153 +49,133 @@ copy consistent with that (no "medical-grade," "doctor-recommended," etc.).
 
 ### App name (30 char max)
 ```
-Atlas
+Atlas: Study Planner
 ```
-(4 chars — well under the limit; the constraint is availability, not length.)
+(20 chars)
 
 ### Subtitle (30 char max)
 ```
-Daily plans for real goals
+Syllabus to daily study plan
 ```
-(27 chars)
+(28 chars)
 
 ### Promotional text (170 char max, editable anytime without review)
 ```
-Tell Atlas your goals and your real schedule. It builds today's plan around the time you actually have — then helps you log meals and workouts as you go.
+Snap your syllabus and Atlas builds a daily study plan around your classes, shows what you need on the final, and reminds you before every exam.
 ```
+(144 chars)
 
 ### Description (4000 char max)
 ```
-Atlas turns your goals and your real schedule into a plan for today — not a generic template.
+Atlas turns your syllabi and class schedule into a study plan for today.
 
-HOW IT WORKS
-Tell Atlas what you're working toward (save for a car, learn a language, get stronger — anything),
-your work/school hours, sleep and wake times, and how you like to work. Atlas looks at what's already
-on your calendar and builds a realistic plan for today: a top-priority goal action, a focus block, and
-a health or wellbeing action when you want one — fit into the time you actually have free.
+IMPORT YOUR SYLLABUS
+Take a photo of a syllabus, pick a PDF or Word file, or paste the text. Atlas pulls out the grade
+weights and every dated assignment, quiz, and exam. You review and edit everything before it's saved.
 
-YOUR SCHEDULE, YOUR RULES
-Add one-off events and recurring weekly blocks — classes, shifts, standing commitments — in Atlas's
-built-in calendar. No calendar account linking required. Your plan is generated around what's really
-on your schedule, and never double-books existing events.
+A DAILY STUDY PLAN AROUND YOUR CLASSES
+Add your class times and work shifts once. Tap "Plan my day" and Atlas fits study time into the gaps,
+putting what's due soonest and what counts most first. It never double-books a class.
 
-GOALS THAT STICK AROUND
-Track goals as active or completed, and reopen one if you're not done after all. No streak-shaming,
-no gamified guilt — just a running list of what you're actually trying to do.
+KNOW WHAT YOU NEED ON THE FINAL
+Enter your scores as they come back. Atlas keeps a weighted average for each course and tells you the
+average you need on the remaining work to hit your target grade. Try a what-if score to see where
+you'd finish.
 
-MEAL & WORKOUT COACHING
-Log meals and workouts in plain language, get suggestions based on your goals and schedule, and see
-your workout plan laid out for the week. Everything is optional and additive to the daily plan.
+EXAM REMINDERS
+Atlas reminds you 3 days and 1 day before each exam, so nothing sneaks up on you. Reminders run on
+your device, and you can turn them off any time in Settings.
 
-REMINDERS ON YOUR TERMS
-Turn on local reminders for today's plan and your recurring workout or meal items. Reminders run on
-your device — turn them off anytime from Settings.
-
-PRIVACY BY DESIGN
-Atlas is not a medical or nutrition-credentialed service — it's a planning tool. Your account, goals,
-schedule, and logs are yours: delete your account and its data from Settings whenever you want. Read
-the full privacy policy and terms in-app or at [YOUR_DOMAIN]/privacy and [YOUR_DOMAIN]/terms.
-
-Atlas is under active development. Feedback shapes what ships next.
+YOUR DATA, YOUR CALL
+No ads. Delete your account and its data from Settings whenever you want. Read the privacy policy
+and terms in the app or at [YOUR_DOMAIN]/privacy and [YOUR_DOMAIN]/terms.
 ```
 *(Replace `[YOUR_DOMAIN]` once the production domain is picked — see missing items below.)*
 
 ### Keywords (100 char max, comma-separated, no spaces)
 ```
-daily planner,goal tracker,schedule,routine,productivity,meal log,workout log,habit,coach,calendar
+student,syllabus,homework,exam,grade calculator,final,college,class schedule,assignment,reminder
 ```
+(96 chars. "Atlas", "Study", and "Planner" are already indexed from the name, so they aren't repeated here.)
+
+### Screenshot captions (one per screenshot, in this order)
+1. **Today** — "Your study plan for today, built around your classes"
+2. **Syllabus import** — "Snap a syllabus. Atlas pulls out every deadline"
+3. **Import review** — "Check grade weights and due dates before saving"
+4. **Course detail** — "See what you need on the rest to hit your target"
+5. **Upcoming exams** — "Reminders 3 days and 1 day before each exam"
+6. **Calendar** — "Add class times once. Study time fits around them"
 
 ### What's New (first release)
 ```
-Welcome to Atlas — plan your day around your real goals and schedule.
+Welcome to Atlas: import your syllabi, plan today's studying, and stay ahead of exams.
 ```
 
 ### Category
-- **Primary:** Productivity
-- **Secondary:** Health & Fitness *(reasonable given Meal Coach / Workout Coach; drop this if you'd rather keep
-  the review scope purely productivity-focused — Health & Fitness category can trigger extra App Review scrutiny
-  on health claims, which lines up with the "not medical advice" disclaimer already in your Terms)*
+- **Primary:** Education
+- **Secondary:** Productivity
 
 ### Age rating
-Answer the App Store Connect age-rating questionnaire based on the app's real content:
-- No objectionable content (violence, mature themes, gambling, etc.) → expect **4+**
-- **AI-generated content: Yes** — the planner's summary/wording and the meal/workout coach suggestions are
-  Gemini-generated (see [README.md](README.md) and `MealCoachScreen`/`WorkoutCoachScreen`). Apple added this
-  question to the questionnaire; answer honestly since it's a real, working feature.
-- Unrestricted web access: No
+- No objectionable content → expect **4+**.
+- **AI-generated content: Yes** — syllabus parsing and the plan summary wording use Gemini.
+- Unrestricted web access: No.
 
 ### Pricing
-No pricing tier or IAP code exists in the repo — this reads as intended to ship as a **free app, no
-in-app purchases**. Confirm that's still the intent before setting the price tier to Free in ASC.
+Free, no in-app purchases. Confirm before setting the price tier in ASC.
 
 ---
 
 ## 4. App Privacy ("privacy nutrition label") — draft answers
 
-Based on the data flows actually described in [src/app/privacy/page.tsx](src/app/privacy/page.tsx) and
+Based on [src/app/privacy/page.tsx](src/app/privacy/page.tsx) and
 [mobile/PRODUCTION_ANALYTICS.md](mobile/PRODUCTION_ANALYTICS.md):
 
-**Data used to track you:** None. No ads SDK, no cross-app/cross-site tracking, no ATT prompt needed.
+**Data used to track you:** None. No ads SDK, no cross-app tracking, no ATT prompt needed.
 
 **Data linked to your identity** (tied to the Supabase user ID):
 | Apple category | What | Purpose |
 |---|---|---|
 | Contact Info | Email address | App functionality (auth) |
-| User Content | Goals, calendar events, schedule blocks, daily plans, meal logs, workout logs, notes/feedback to AI features | App functionality |
-| Health & Fitness | Body-profile measurements, meal/workout logs *(check this box even though there's no HealthKit integration — Apple's taxonomy covers self-reported health/fitness data too)* | App functionality |
+| User Content | Courses, grade categories, assignments and scores, calendar events, class times, daily plans, goals | App functionality |
 | Identifiers | User ID (Supabase UUID) | App functionality, analytics |
-| Diagnostics | Crash data, performance data (Sentry — tagged with the Supabase UUID per [PRODUCTION_ANALYTICS.md](mobile/PRODUCTION_ANALYTICS.md)) | App functionality |
-| Usage Data | Product interaction events (PostHog — onboarding completed, plan generated, etc.) | Analytics |
+| Diagnostics | Crash and performance data (Sentry, tagged with the Supabase UUID) | App functionality |
+| Usage Data | Product events (PostHog: onboarding completed, syllabus imported, plan generated, etc.) | Analytics |
 
-**Data not collected:** Location, Contacts, Browsing History, Financial Info, Precise/Coarse location,
-Photos, Search History, Sensitive Info (as Apple defines it), Purchases.
+**Photos / documents:** syllabus photos and files are uploaded only to be parsed and are not kept after the
+course is created. Confirm that still holds for the production deployment; if they are ever stored, declare
+Photos or Videos / Other User Content accordingly.
 
-Note the privacy policy is explicit that PostHog/Sentry stay **disabled** if their keys aren't configured
-in a given build — if you ship a build without those keys set, the label should reflect only what's actually
-active in that build.
+**Not collected:** Location, Contacts, Browsing History, Financial Info, Search History, Sensitive Info,
+Purchases. Health & Fitness is not collected while `features.wellnessTracking` is off.
+
+PostHog and Sentry stay disabled when their keys aren't configured; the label should match what is active
+in the build you submit.
 
 ---
 
 ## 5. Missing before you can submit
 
-These are real gaps, not nice-to-haves:
-
-1. **Production domain isn't set.** [mobile/APP_STORE_METADATA.md](mobile/APP_STORE_METADATA.md) and both
-   `.env.example` files still say `YOUR_DOMAIN` / `your-production-site.example.com`. You need the web app
-   ([README.md](README.md), Next.js) deployed to a real HTTPS domain before Privacy Policy URL, Support URL,
-   and `EXPO_PUBLIC_WEBSITE_URL` can be filled in. The pages themselves (`/privacy`, `/support`, `/terms`) already
-   exist and are ready to deploy as-is.
-2. **Marketing URL** — optional in ASC. Could point at the deployed site's homepage once it exists, or be left blank.
-3. **Screenshots — none exist in this repo.** `mobile/assets/` only has app icons and a splash icon, no device
-   screenshots. You need at minimum a 6.7" (iPhone 15/16 Pro Max class) screenshot set; iPad screenshots too since
-   `supportsTablet: true`. Easiest path: run the app (`npx expo start`, or an EAS build) through the Dashboard,
-   Onboarding, Calendar, Goals, and Meal/Workout Coach screens and capture real screenshots — don't fabricate UI.
-4. **App Store 1024×1024 icon** — `mobile/assets/icon.png` exists for the app itself; confirm it (or an EAS-generated
-   variant) meets the App Store Connect marketing-icon spec (1024×1024, no alpha/transparency, no rounded corners
-   baked in).
-5. **`eas.json` submit config is empty** — [mobile/eas.json](mobile/eas.json) has `"submit": { "production": {} }`
-   with no `appleId`, `ascAppId`, or `appleTeamId`. Needed before `eas submit -p ios` will work.
-6. **Apple Developer Program enrollment** — confirm the account is enrolled (paid, $99/yr) and the bundle ID
-   `com.personalagent.atlas` is registered in the Apple Developer portal.
-7. **App Review test account** — Atlas requires Supabase email/password sign-in with no guest mode found in the
-   code. App Review will need a working demo account (email + password) in the App Review notes, since reviewers
-   can't complete your onboarding flow otherwise.
-8. **EAS/Sentry secrets for production** — [mobile/PRODUCTION_ANALYTICS.md](mobile/PRODUCTION_ANALYTICS.md) and
-   [mobile/PRODUCTION_AUTH.md](mobile/PRODUCTION_AUTH.md) list required EAS environment variables
-   (`EXPO_PUBLIC_POSTHOG_API_KEY`, `EXPO_PUBLIC_SENTRY_DSN`, `SENTRY_AUTH_TOKEN`, `EXPO_PUBLIC_AUTH_REDIRECT_URL`,
-   Supabase redirect URL allow-list) — confirm these are actually set in the EAS production environment, not just documented.
-9. **Category decision** — pick Productivity-only vs. Productivity + Health & Fitness (see §3) before filling
-   out ASC, since it affects the age-rating and review flow.
-10. **Support email vs. issue tracker** — [src/app/support/page.tsx](src/app/support/page.tsx) falls back to a
-    public GitHub issue tracker (`github.com/seans134/PersonalAgent/issues/new`) if `NEXT_PUBLIC_SUPPORT_EMAIL`
-    isn't set. A public issue tracker as your only support channel is unusual for an App Store listing — decide
-    whether to set a real support email for the production deployment.
+1. **Production domain.** Fill in Privacy Policy URL, Support URL, and `EXPO_PUBLIC_WEBSITE_URL` once the web app
+   is on its production HTTPS domain (see [mobile/APP_STORE_METADATA.md](mobile/APP_STORE_METADATA.md)).
+2. **Screenshots.** None exist in the repo. Capture the six screens listed above from a real build on a 6.7"
+   iPhone, plus iPad screenshots since `supportsTablet: true`. Use a demo account with realistic courses.
+3. **App Store 1024×1024 icon** — confirm `mobile/assets/icon.png` meets the marketing-icon spec (no alpha,
+   no baked-in rounded corners).
+4. **`eas.json` submit config** — [mobile/eas.json](mobile/eas.json) needs `appleId`, `ascAppId`, and
+   `appleTeamId` before `eas submit -p ios`.
+5. **Apple Developer Program enrollment** and the bundle ID registered in the developer portal.
+6. **App Review demo account** — sign-in is email/password only; give reviewers an account that already has a
+   course, class times, and an upcoming exam so every feature is visible.
+7. **EAS production secrets** — `EXPO_PUBLIC_POSTHOG_API_KEY`, `EXPO_PUBLIC_SENTRY_DSN`, `SENTRY_AUTH_TOKEN`,
+   `EXPO_PUBLIC_AUTH_REDIRECT_URL`, and the Supabase redirect allow-list (see
+   [mobile/PRODUCTION_ANALYTICS.md](mobile/PRODUCTION_ANALYTICS.md) and [mobile/PRODUCTION_AUTH.md](mobile/PRODUCTION_AUTH.md)).
+8. **Support channel** — [src/app/support/page.tsx](src/app/support/page.tsx) falls back to the public GitHub
+   issue tracker when `NEXT_PUBLIC_SUPPORT_EMAIL` isn't set. Set a real support email for production.
 
 ---
 
 ## 6. Not blockers, just flag
 
-- Account deletion is implemented in-app (Settings → Delete Account), which satisfies Apple's mandatory
-  account-deletion requirement — good, nothing to do there.
-- `ITSAppUsesNonExemptEncryption: false` is already set in [mobile/app.json](mobile/app.json), so the export-compliance
-  question in ASC should be pre-answered as "No" for standard HTTPS-only encryption use.
+- In-app account deletion (Settings → Delete Account) satisfies Apple's account-deletion requirement.
+- The App Store name ("Atlas: Study Planner") and the home-screen name ("Atlas") differ on purpose: the
+  longer name would be truncated under the icon.

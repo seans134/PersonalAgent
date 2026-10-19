@@ -58,7 +58,7 @@ export default async function CoursesPage({
           ))}
         </div>
       ) : (
-        <p className="text-ink-muted">No courses yet. Add one above to get started.</p>
+        <p className="text-ink-muted">No courses yet. Import a syllabus or add a course above to get started.</p>
       )}
 
       {archivedCourses.length > 0 ? (

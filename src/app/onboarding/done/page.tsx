@@ -1,14 +1,25 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { analyticsEvents, hasCoursesReady } from "@personal-agent/core";
 import { completeOnboarding } from "@/app/onboarding/actions";
 import { OnboardingProgress } from "@/components/onboarding-progress";
+import { TrackEvents } from "@/components/track-event";
 import { isOnboardingComplete } from "@/lib/onboarding/status";
 import { createClient } from "@/lib/supabase/server";
+
+// Same events and properties as mobile's completeMobileOnboarding.
+function completionEvents(progress: { courseCount: number; classTimeCount: number }) {
+  const counts = { courses: progress.courseCount, class_times: progress.classTimeCount };
+  return [
+    { event: analyticsEvents.onboardingCompleted, properties: { ...counts, skipped_setup: !hasCoursesReady(progress) } },
+    ...(hasCoursesReady(progress) ? [{ event: analyticsEvents.coursesReady, properties: counts }] : []),
+  ];
+}
 
 export default async function OnboardingDonePage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; completed?: string }>;
 }) {
   const params = await searchParams;
   const supabase = await createClient();
@@ -36,6 +47,8 @@ export default async function OnboardingDonePage({
       .eq("category", "school"),
   ]);
 
+  const progress = { courseCount: courseCount ?? 0, classTimeCount: classTimeCount ?? 0 };
+
   return (
     <main className="mx-auto min-h-screen w-full max-w-3xl px-6 py-12">
       <div className="mb-8">
@@ -43,15 +56,18 @@ export default async function OnboardingDonePage({
         <h1 className="text-3xl font-semibold tracking-tight text-ink">You&apos;re set</h1>
         <p className="mt-2 max-w-2xl text-ink-muted">
           Head to Today and tap{" "}
-          <span className="font-medium text-ink">Generate today</span> to chart your first study plan.
+          <span className="font-medium text-ink">Plan my day</span> to get your first study plan.
         </p>
       </div>
 
       {params.error ? <p className="mb-4 text-sm text-danger">{params.error}</p> : null}
+      {params.completed === "1" ? (
+        <TrackEvents events={completionEvents(progress)} replaceUrl="/onboarding/done" />
+      ) : null}
 
       <OnboardingProgress
         currentStep="done"
-        progress={{ courseCount: courseCount ?? 0, classTimeCount: classTimeCount ?? 0 }}
+        progress={progress}
       />
 
       <section className="rounded-2xl border border-line bg-surface p-6 shadow-sm">

@@ -13,6 +13,7 @@ import {
   View,
 } from "react-native";
 import {
+  analyticsEvents,
   describeNeeded,
   formatGradePercent,
   parsePercentInput,
@@ -20,6 +21,7 @@ import {
   type GradeCategory,
   type GradedItem,
 } from "@personal-agent/core";
+import { captureEvent } from "../lib/analytics";
 import { BulletBar } from "./BulletBar";
 import { CourseItemModal } from "./CourseItemModal";
 import { Icon } from "./Icon";
@@ -298,6 +300,9 @@ export function CourseDetailScreen({ accessToken, courseId, onBack }: CourseDeta
   );
 }
 
+// Courses whose needed-score status has been reported this app session (at most once each).
+const neededScoreViewedCourses = new Set<string>();
+
 // Tolerance matching packages/core needed.ts: below this there is no ungraded work left.
 const WHAT_IF_EPS = 1e-9;
 
@@ -327,6 +332,12 @@ function GradeSummarySection({
     return { categories: gradeCategories, items: gradedItems };
   }, [categories, items]);
   const neededCopy = describeNeeded(needed);
+  const neededShown = neededCopy !== null;
+  useEffect(() => {
+    if (!neededShown || neededScoreViewedCourses.has(course.id)) return;
+    neededScoreViewedCourses.add(course.id);
+    captureEvent(analyticsEvents.neededScoreViewed, { status: needed.status });
+  }, [course.id, neededShown, needed.status]);
   const lowFinish = projectFinalGrade(gradeInputs.categories, gradeInputs.items, 0);
   const highFinish = projectFinalGrade(gradeInputs.categories, gradeInputs.items, 100);
   const hasRemaining = lowFinish !== null && highFinish !== null && highFinish - lowFinish > WHAT_IF_EPS;
