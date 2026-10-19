@@ -68,18 +68,24 @@ function parsePosition(formData: FormData) {
 // Courses
 // ---------------------------------------------------------------------------
 
+// Onboarding step 1 reuses the create-course form and wants the student back on it.
+const CREATE_COURSE_RETURN_PATHS = new Set(["/courses", "/onboarding/courses"]);
+
 export async function createCourse(formData: FormData) {
   const { supabase, user } = await requireUser();
 
+  const returnToRaw = String(formData.get("return_to") ?? "/courses").trim();
+  const returnTo = CREATE_COURSE_RETURN_PATHS.has(returnToRaw) ? returnToRaw : "/courses";
+
   const name = String(formData.get("name") ?? "").trim();
   if (!name) {
-    redirect("/courses?error=Course%20name%20is%20required");
+    redirect(`${returnTo}?error=Course%20name%20is%20required`);
   }
 
   const targetRaw = String(formData.get("target_grade") ?? "").trim();
   const target = targetRaw ? Number(targetRaw) : null;
   if (target !== null && (!Number.isFinite(target) || target < 0 || target > 100)) {
-    redirect("/courses?error=Target%20grade%20must%20be%200-100");
+    redirect(`${returnTo}?error=Target%20grade%20must%20be%200-100`);
   }
 
   const { error } = await supabase.from("courses").insert({
@@ -92,12 +98,13 @@ export async function createCourse(formData: FormData) {
   });
 
   if (error) {
-    redirect(`/courses?error=${encodeURIComponent(error.message)}`);
+    redirect(`${returnTo}?error=${encodeURIComponent(error.message)}`);
   }
 
   revalidatePath("/");
   revalidatePath("/courses");
-  redirect("/courses");
+  revalidatePath(returnTo);
+  redirect(returnTo);
 }
 
 export async function updateCourse(formData: FormData) {

@@ -4,3 +4,4 @@ export * from "./grades";
 export * from "./habits";
 export * from "./features";
 export * from "./syllabus";
+export * from "./onboarding";

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { markOnboardingComplete } from "@/lib/onboarding/status";
 import { createClient } from "@/lib/supabase/server";
 
 const VALID_WORKOUT_PREFERENCES = new Set(["none", "light", "moderate", "intense"]);
@@ -53,6 +54,10 @@ export async function saveOnboarding(formData: FormData) {
   redirect("/goals");
 }
 
+/**
+ * Reaching Done (by finishing step 2 or skipping it) marks onboarding complete,
+ * whether or not a course and class times were added.
+ */
 export async function completeOnboarding() {
   const supabase = await createClient();
 
@@ -64,18 +69,13 @@ export async function completeOnboarding() {
     redirect("/auth");
   }
 
-  const { error } = await supabase.from("user_profiles").upsert(
-    {
-      user_id: user.id,
-      onboarding_completed_at: new Date().toISOString(),
-    },
-    { onConflict: "user_id" },
-  );
-
-  if (error) {
-    redirect(`/goals?error=${encodeURIComponent(error.message)}`);
+  try {
+    await markOnboardingComplete(supabase, user.id);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unable to finish onboarding.";
+    redirect(`/onboarding/schedule?error=${encodeURIComponent(message)}`);
   }
 
   revalidatePath("/");
-  redirect("/");
+  redirect("/onboarding/done");
 }

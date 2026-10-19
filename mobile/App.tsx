@@ -39,6 +39,7 @@ import { OnboardingScreen } from "./components/OnboardingScreen";
 import { NotificationSettingsScreen } from "./components/NotificationSettingsScreen";
 import { ResetPasswordScreen } from "./components/ResetPasswordScreen";
 import { SyllabusImportScreen } from "./components/SyllabusImportScreen";
+import { WeeklyRhythmScreen } from "./components/WeeklyRhythmScreen";
 import { WorkoutCoachScreen } from "./components/WorkoutCoachScreen";
 import { WorkoutPlanScreen } from "./components/WorkoutPlanScreen";
 import { WorkoutsScreen } from "./components/WorkoutsScreen";
@@ -46,7 +47,19 @@ import { getMobileEnv } from "./lib/env";
 import { ThemeProvider, useTheme } from "./lib/theme";
 import { handleAuthDeepLink } from "./lib/auth-deep-link";
 import { captureEvent, identifyAnalyticsUser, resetAnalyticsUser, Sentry } from "./lib/analytics";
+import { fetchMobileOnboardingStatus } from "./lib/api";
 import { supabase } from "./lib/supabase";
+
+// After a fresh sign-in (or sign-up), students who haven't finished onboarding
+// start at step 1; everyone else lands on Today. Restored sessions are left alone.
+async function screenAfterSignIn(accessToken: string): Promise<MobileScreen> {
+  try {
+    const status = await fetchMobileOnboardingStatus(accessToken);
+    return status.completed ? "dashboard" : "onboarding";
+  } catch {
+    return "dashboard";
+  }
+}
 
 function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -97,6 +110,14 @@ function App() {
       if (event === "PASSWORD_RECOVERY") setIsRecoveringPassword(true);
       if (nextSession) {
         setActiveScreen("dashboard");
+      }
+      if (event === "SIGNED_IN" && nextSession) {
+        // Defer the API call out of the auth callback, as Supabase recommends.
+        setTimeout(() => {
+          void screenAfterSignIn(nextSession.access_token).then((screen) => {
+            if (screen === "onboarding") setActiveScreen("onboarding");
+          });
+        }, 0);
       }
     });
 
@@ -262,8 +283,17 @@ function App() {
     if (activeScreen === "onboarding") {
       return (
         <View style={styles.tabBody}>
-          <DetailHeader onBack={() => setActiveScreen("more")} title="Onboarding" />
+          <DetailHeader onBack={() => setActiveScreen("more")} title="Setup" />
           <OnboardingScreen accessToken={token} onComplete={() => setActiveScreen("dashboard")} />
+        </View>
+      );
+    }
+
+    if (activeScreen === "weeklyRhythm") {
+      return (
+        <View style={styles.tabBody}>
+          <DetailHeader onBack={() => setActiveScreen("more")} title="Weekly rhythm" />
+          <WeeklyRhythmScreen accessToken={token} />
         </View>
       );
     }

@@ -2,34 +2,39 @@ import { useMemo } from "react";
 import { useTheme } from "../lib/theme";
 import type { Theme } from "../lib/theme";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-
-export type OnboardingStep = 1 | 2 | 3;
-
-const steps: Array<{ step: OnboardingStep; label: string }> = [
-  { step: 1, label: "School & work" },
-  { step: 2, label: "Weekly rhythm" },
-  { step: 3, label: "Goals" },
-];
+import {
+  ONBOARDING_STEPS,
+  isOnboardingStepComplete,
+  type OnboardingProgressInput,
+  type OnboardingStepKey,
+} from "@personal-agent/core";
 
 export function OnboardingProgress({
   currentStep,
+  progress,
   onSelectStep,
 }: {
-  currentStep: OnboardingStep;
-  onSelectStep: (step: OnboardingStep) => void;
+  currentStep: OnboardingStepKey;
+  /** Saved course and class-time counts; they decide which steps show a check. */
+  progress: OnboardingProgressInput;
+  onSelectStep: (step: OnboardingStepKey) => void;
 }) {
   const theme = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   return (
     <View style={styles.row}>
-      {steps.map(({ step, label }) => {
-        const isCurrent = step === currentStep;
-        const isComplete = step < currentStep;
+      {ONBOARDING_STEPS.map(({ key, number, label }) => {
+        const isCurrent = key === currentStep;
+        // A skipped step stays unchecked; Done is never "complete" until the student is there.
+        const isComplete = !isCurrent && key !== "done" && isOnboardingStepComplete(key, progress);
 
         return (
           <Pressable
-            key={step}
-            onPress={() => onSelectStep(step)}
+            accessibilityLabel={`Step ${number}: ${label}`}
+            accessibilityRole="button"
+            accessibilityState={{ selected: isCurrent }}
+            key={key}
+            onPress={() => onSelectStep(key)}
             style={[
               styles.step,
               isCurrent ? styles.stepCurrent : isComplete ? styles.stepComplete : styles.stepPending,
@@ -51,11 +56,11 @@ export function OnboardingProgress({
                       : styles.badgeTextPending,
                 ]}
               >
-                {step}
+                {isComplete ? "✓" : number}
               </Text>
             </View>
             <Text
-              numberOfLines={1}
+              numberOfLines={2}
               style={[
                 styles.label,
                 isCurrent ? styles.labelCurrent : isComplete ? styles.labelComplete : styles.labelPending,

@@ -372,7 +372,48 @@ export async function saveMobileOnboarding(accessToken: string, input: MobileOnb
     { method: "POST", body: JSON.stringify(input) },
     "Unable to save onboarding.",
   );
-  captureEvent("onboarding_completed", { goals_created: body.goalsCreated ?? 0 });
+  // onboarding_completed now fires from completeMobileOnboarding when a student reaches Done.
+  captureEvent("planner_profile_saved", { goals_created: body.goalsCreated ?? 0 });
+  return body;
+}
+
+export type MobileOnboardingStatus = {
+  completed: boolean;
+  completedAt: string | null;
+};
+
+export type MobileOnboardingCompleteResult = {
+  completedAt: string;
+  alreadyCompleted: boolean;
+};
+
+export async function fetchMobileOnboardingStatus(accessToken: string): Promise<MobileOnboardingStatus> {
+  return fetchJson<MobileOnboardingStatus>(
+    "/api/mobile/onboarding/complete",
+    accessToken,
+    { method: "GET" },
+    "Unable to load onboarding status.",
+  );
+}
+
+/** Marks onboarding complete on reaching Done (finished or skipped). Safe to call again. */
+export async function completeMobileOnboarding(
+  accessToken: string,
+  progress: { courseCount: number; classTimeCount: number },
+): Promise<MobileOnboardingCompleteResult> {
+  const body = await fetchJson<MobileOnboardingCompleteResult>(
+    "/api/mobile/onboarding/complete",
+    accessToken,
+    { method: "POST" },
+    "Unable to finish onboarding.",
+  );
+  if (!body.alreadyCompleted) {
+    captureEvent("onboarding_completed", {
+      courses: progress.courseCount,
+      class_times: progress.classTimeCount,
+      skipped_setup: progress.courseCount === 0 || progress.classTimeCount === 0,
+    });
+  }
   return body;
 }
 

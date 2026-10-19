@@ -26,14 +26,14 @@ type CoursesScreenProps = {
   onOpenCourse: (id: string) => void;
 };
 
-type CourseFormState = {
+export type CourseFormState = {
   name: string;
   code: string;
   term: string;
   targetGrade: string;
 };
 
-const emptyForm: CourseFormState = {
+export const emptyCourseForm: CourseFormState = {
   name: "",
   code: "",
   term: "",
@@ -50,7 +50,7 @@ function formatShortDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-function inputFromForm(form: CourseFormState): MobileCourseInput {
+export function courseInputFromForm(form: CourseFormState): MobileCourseInput {
   const targetGrade = Number(form.targetGrade);
   return {
     name: form.name,
@@ -64,7 +64,7 @@ export function CoursesScreen({ accessToken, onImportSyllabus, onOpenCourse }: C
   const theme = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const [courses, setCourses] = useState<MobileCourseSummary[]>([]);
-  const [form, setForm] = useState<CourseFormState>(emptyForm);
+  const [form, setForm] = useState<CourseFormState>(emptyCourseForm);
   const [showForm, setShowForm] = useState(false);
   const [message, setMessage] = useState<{ text: string; tone: "info" | "error" } | null>(null);
   const [loading, setLoading] = useState(false);
@@ -105,7 +105,7 @@ export function CoursesScreen({ accessToken, onImportSyllabus, onOpenCourse }: C
 
   function closeForm() {
     setShowForm(false);
-    setForm(emptyForm);
+    setForm(emptyCourseForm);
   }
 
   async function submitCourse() {
@@ -113,8 +113,8 @@ export function CoursesScreen({ accessToken, onImportSyllabus, onOpenCourse }: C
     setMessage(null);
 
     try {
-      await createMobileCourse(accessToken, inputFromForm(form));
-      setForm(emptyForm);
+      await createMobileCourse(accessToken, courseInputFromForm(form));
+      setForm(emptyCourseForm);
       setShowForm(false);
       setMessage({ text: "Course added.", tone: "info" });
       await loadCourses();
@@ -234,7 +234,8 @@ export function CoursesScreen({ accessToken, onImportSyllabus, onOpenCourse }: C
   );
 }
 
-function CourseForm({
+/** Shared with onboarding step 1's "add a course manually". */
+export function CourseForm({
   form,
   onChange,
 }: {

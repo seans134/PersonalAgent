@@ -1,5 +1,11 @@
-import { useCallback, useEffect, useState, useMemo } from "react";
-import { features } from "@personal-agent/core";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  countClassTimeBlocks,
+  nextOnboardingStep,
+  onboardingStepNumber,
+  type OnboardingProgressInput,
+  type OnboardingStepKey,
+} from "@personal-agent/core";
 import { useTheme } from "../lib/theme";
 import type { Theme } from "../lib/theme";
 import {
@@ -9,116 +15,169 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
+import { CourseForm, courseInputFromForm, emptyCourseForm, type CourseFormState } from "./CoursesScreen";
 import { NaturalLanguageOnboardingPanel } from "./NaturalLanguageOnboardingPanel";
-import { OnboardingProgress, type OnboardingStep } from "./OnboardingProgress";
+import { OnboardingProgress } from "./OnboardingProgress";
+import { SyllabusImportScreen } from "./SyllabusImportScreen";
 import { WeeklyScheduleGrid } from "./WeeklyScheduleGrid";
 import {
+  completeMobileOnboarding,
+  createMobileCourse,
   fetchMobileCalendar,
-  saveMobileOnboarding,
-  type MobileOnboardingInput,
+  fetchMobileCourses,
+  type MobileCourseSummary,
   type MobileScheduleBlock,
 } from "../lib/api";
 import { tapHaptic } from "../lib/haptics";
 
 type OnboardingScreenProps = {
   accessToken: string;
+  /** Leaves onboarding for Today. */
   onComplete: () => void;
 };
 
-const workoutOptions: MobileOnboardingInput["workoutPreference"][] = [
-  "none",
-  "light",
-  "moderate",
-  "intense",
-];
-
-const stepCopy: Record<OnboardingStep, { title: string; body: string }> = {
-  1: {
-    title: "Add school and work",
-    body: "Start with the fixed commitments Atlas has to plan around: classes, labs, and shifts.",
+const stepCopy: Record<OnboardingStepKey, { title: string; body: string }> = {
+  courses: {
+    title: "Add your courses",
+    body: "Import each syllabus and Atlas pulls in the grade weights and due dates it needs to plan your studying.",
   },
-  2: {
-    title: "Build your weekly rhythm",
-    body: "Add recurring habits and protected time that shape your week outside school and work.",
+  class_times: {
+    title: "When are your classes?",
+    body: "Tap open times on the week to add lectures, labs, and tutorials. Add work shifts too, so study time fits around them.",
   },
-  3: {
-    title: "Set your goals",
-    body: "Describe the outcomes Atlas should plan around, then save your planner profile.",
+  done: {
+    title: "You're set",
+    body: "Head to Today and tap Generate today to chart your first study plan.",
   },
 };
 
 export function OnboardingScreen({ accessToken, onComplete }: OnboardingScreenProps) {
   const theme = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
-  const [step, setStep] = useState<OnboardingStep>(1);
+  // null until the first load picks where to resume.
+  const [step, setStep] = useState<OnboardingStepKey | null>(null);
+  const [courses, setCourses] = useState<MobileCourseSummary[]>([]);
   const [blocks, setBlocks] = useState<MobileScheduleBlock[]>([]);
-  const [loadingBlocks, setLoadingBlocks] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [blocksError, setBlocksError] = useState("");
+  const [loadError, setLoadError] = useState("");
+  const [notice, setNotice] = useState("");
 
-  const [workStartTime, setWorkStartTime] = useState("09:00");
-  const [workEndTime, setWorkEndTime] = useState("17:00");
-  const [focusBlockMinutes, setFocusBlockMinutes] = useState("60");
-  const [workoutPreference, setWorkoutPreference] =
-    useState<MobileOnboardingInput["workoutPreference"]>("light");
-  const [goalTitle, setGoalTitle] = useState("");
-  const [goalDescription, setGoalDescription] = useState("");
-  const [minimumDailyMinutes, setMinimumDailyMinutes] = useState("30");
-  const [message, setMessage] = useState<string | undefined>();
-  const [saving, setSaving] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [showCourseForm, setShowCourseForm] = useState(false);
+  const [courseForm, setCourseForm] = useState<CourseFormState>(emptyCourseForm);
+  const [savingCourse, setSavingCourse] = useState(false);
+  const [courseError, setCourseError] = useState("");
 
-  const loadBlocks = useCallback(async () => {
+  const [completing, setCompleting] = useState(false);
+  const [completeError, setCompleteError] = useState("");
+
+  const progress: OnboardingProgressInput = {
+    courseCount: courses.length,
+    classTimeCount: countClassTimeBlocks(blocks),
+  };
+
+  const loadData = useCallback(async (): Promise<OnboardingProgressInput | null> => {
     try {
-      setBlocksError("");
-      const calendar = await fetchMobileCalendar(accessToken);
+      setLoadError("");
+      const [courseResult, calendar] = await Promise.all([
+        fetchMobileCourses(accessToken),
+        fetchMobileCalendar(accessToken),
+      ]);
+      setCourses(courseResult.courses);
       setBlocks(calendar.scheduleBlocks);
+      return {
+        courseCount: courseResult.courses.length,
+        classTimeCount: countClassTimeBlocks(calendar.scheduleBlocks),
+      };
     } catch (error) {
-      setBlocksError(error instanceof Error ? error.message : "Unable to load schedule blocks.");
-    } finally {
-      setLoadingBlocks(false);
+      setLoadError(error instanceof Error ? error.message : "Unable to load your courses and schedule.");
+      return null;
     }
   }, [accessToken]);
 
+  const finish = useCallback(
+    async (current: OnboardingProgressInput) => {
+      setCompleting(true);
+      setCompleteError("");
+      try {
+        await completeMobileOnboarding(accessToken, current);
+      } catch (error) {
+        setCompleteError(error instanceof Error ? error.message : "Unable to finish onboarding.");
+      }
+      setCompleting(false);
+    },
+    [accessToken],
+  );
+
   useEffect(() => {
-    void loadBlocks();
-  }, [loadBlocks]);
+    const timeout = setTimeout(() => {
+      void (async () => {
+        const loaded = await loadData();
+        // Resume at the first step still missing its data.
+        const initial = loaded ? nextOnboardingStep(loaded) : "courses";
+        setStep(initial);
+        if (initial === "done" && loaded) await finish(loaded);
+      })();
+    }, 0);
+
+    return () => clearTimeout(timeout);
+  }, [loadData, finish]);
 
   async function handleRefresh() {
     setRefreshing(true);
-    await loadBlocks();
+    await loadData();
     setRefreshing(false);
   }
 
-  function goToStep(nextStep: OnboardingStep) {
+  function goToStep(nextStep: OnboardingStepKey) {
     tapHaptic();
+    setNotice("");
     setStep(nextStep);
+    // Reaching Done marks onboarding complete, whether the student finished or skipped.
+    if (nextStep === "done") void finish(progress);
   }
 
-  async function submit() {
-    setMessage(undefined);
-    setSaving(true);
+  async function submitCourse() {
+    setSavingCourse(true);
+    setCourseError("");
 
     try {
-      await saveMobileOnboarding(accessToken, {
-        workStartTime,
-        workEndTime,
-        focusBlockMinutes: Number(focusBlockMinutes),
-        workoutPreference,
-        goalTitle,
-        goalDescription,
-        goalPriority: 1,
-        goalTaskType: "focus",
-        minimumDailyMinutes: Number(minimumDailyMinutes),
-      });
-      onComplete();
+      await createMobileCourse(accessToken, courseInputFromForm(courseForm));
+      setNotice(`Added ${courseForm.name.trim()}.`);
+      setCourseForm(emptyCourseForm);
+      setShowCourseForm(false);
+      await loadData();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to save onboarding.");
+      setCourseError(error instanceof Error ? error.message : "Unable to save course.");
     }
 
-    setSaving(false);
+    setSavingCourse(false);
+  }
+
+  if (importing) {
+    return (
+      <SyllabusImportScreen
+        accessToken={accessToken}
+        backLabel="Setup"
+        onBack={() => setImporting(false)}
+        onImported={() => {
+          // Stay in onboarding so the student can import the next syllabus.
+          setImporting(false);
+          setNotice("Course added. Import another syllabus, or continue when you're done.");
+          void loadData();
+        }}
+      />
+    );
+  }
+
+  if (step === null) {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator color={theme.colors.teal} />
+      </View>
+    );
   }
 
   const copy = stepCopy[step];
@@ -137,183 +196,157 @@ export function OnboardingScreen({ accessToken, onComplete }: OnboardingScreenPr
       }
     >
       <View style={styles.header}>
-        <Text style={styles.eyebrow}>Step {step} of 3</Text>
+        <Text style={styles.eyebrow}>Step {onboardingStepNumber(step)} of 3</Text>
         <Text style={styles.title}>{copy.title}</Text>
         <Text style={styles.body}>{copy.body}</Text>
       </View>
 
-      <OnboardingProgress currentStep={step} onSelectStep={goToStep} />
+      <OnboardingProgress currentStep={step} onSelectStep={goToStep} progress={progress} />
 
-      {blocksError ? <Text style={styles.error}>{blocksError}</Text> : null}
+      {loadError ? <Text style={styles.error}>{loadError}</Text> : null}
+      {notice ? <Text style={styles.notice}>{notice}</Text> : null}
 
-      {step === 1 ? (
+      {step === "courses" ? (
+        <>
+          <View style={styles.panel}>
+            <Text style={styles.panelTitle}>Your courses</Text>
+            {courses.length > 0 ? (
+              courses.map((course) => {
+                const meta = [course.code, course.term].filter(Boolean).join(" · ");
+                return (
+                  <View key={course.id} style={styles.courseRow}>
+                    <Text style={styles.courseName}>{course.name}</Text>
+                    {meta ? <Text style={styles.panelBody}>{meta}</Text> : null}
+                  </View>
+                );
+              })
+            ) : (
+              <Text style={styles.panelBody}>No courses yet. Import a syllabus to add your first one.</Text>
+            )}
+          </View>
+
+          <Pressable onPress={() => setImporting(true)} style={styles.primaryButton}>
+            <Text style={styles.primaryText}>{courses.length > 0 ? "Import another syllabus" : "Import a syllabus"}</Text>
+          </Pressable>
+
+          {showCourseForm ? (
+            <View style={styles.panel}>
+              <Text style={styles.panelTitle}>Add a course manually</Text>
+              <CourseForm
+                form={courseForm}
+                onChange={(key, value) => setCourseForm((current) => ({ ...current, [key]: value }))}
+              />
+              {courseError ? <Text style={styles.error}>{courseError}</Text> : null}
+              <View style={styles.navRow}>
+                <Pressable
+                  onPress={() => {
+                    setShowCourseForm(false);
+                    setCourseForm(emptyCourseForm);
+                    setCourseError("");
+                  }}
+                  style={styles.secondaryButton}
+                >
+                  <Text style={styles.secondaryText}>Cancel</Text>
+                </Pressable>
+                <Pressable
+                  disabled={savingCourse || !courseForm.name.trim()}
+                  onPress={submitCourse}
+                  style={({ pressed }) => [
+                    styles.primaryButton,
+                    styles.flexButton,
+                    (pressed || savingCourse || !courseForm.name.trim()) && styles.buttonPressed,
+                  ]}
+                >
+                  {savingCourse ? (
+                    <ActivityIndicator color={theme.colors.surface} />
+                  ) : (
+                    <Text style={styles.primaryText}>Add course</Text>
+                  )}
+                </Pressable>
+              </View>
+            </View>
+          ) : (
+            <Pressable onPress={() => setShowCourseForm(true)} style={styles.secondaryButton}>
+              <Text style={styles.secondaryText}>Add a course manually</Text>
+            </Pressable>
+          )}
+
+          <Pressable onPress={() => goToStep("class_times")} style={styles.primaryButton}>
+            <Text style={styles.primaryText}>Continue to class times</Text>
+          </Pressable>
+          {courses.length === 0 ? (
+            <Pressable hitSlop={8} onPress={() => goToStep("class_times")} style={styles.linkButton}>
+              <Text style={styles.linkText}>Skip for now</Text>
+            </Pressable>
+          ) : null}
+        </>
+      ) : null}
+
+      {step === "class_times" ? (
         <>
           <NaturalLanguageOnboardingPanel
             accessToken={accessToken}
             mode="school_work"
-            onApplied={loadBlocks}
+            onApplied={() => {
+              void loadData();
+            }}
           />
-          {loadingBlocks ? (
-            <ActivityIndicator color={theme.colors.teal} />
-          ) : (
-            <WeeklyScheduleGrid
-              accessToken={accessToken}
-              blocks={blocks}
-              categories={["school", "work"]}
-              defaultCategory="school"
-              onChanged={loadBlocks}
-              visibleCategories={["school", "work"]}
-            />
-          )}
-          <Pressable onPress={() => goToStep(2)} style={styles.primaryButton}>
-            <Text style={styles.primaryText}>Continue to weekly rhythm</Text>
-          </Pressable>
-        </>
-      ) : null}
-
-      {step === 2 ? (
-        <>
-          <NaturalLanguageOnboardingPanel
+          <WeeklyScheduleGrid
             accessToken={accessToken}
-            mode="weekly_rhythm"
-            onApplied={loadBlocks}
+            blocks={blocks}
+            categories={["school", "work"]}
+            defaultCategory="school"
+            onChanged={async () => {
+              await loadData();
+            }}
+            visibleCategories={["school", "work"]}
           />
-          {loadingBlocks ? (
-            <ActivityIndicator color={theme.colors.teal} />
-          ) : (
-            <WeeklyScheduleGrid
-              accessToken={accessToken}
-              blocks={blocks}
-              categories={["study", "personal", "unavailable"]}
-              defaultCategory="study"
-              onChanged={loadBlocks}
-              visibleCategories={["school", "work", "study", "personal", "unavailable"]}
-            />
-          )}
           <View style={styles.navRow}>
-            <Pressable onPress={() => goToStep(1)} style={styles.secondaryButton}>
+            <Pressable onPress={() => goToStep("courses")} style={styles.secondaryButton}>
               <Text style={styles.secondaryText}>Back</Text>
             </Pressable>
-            <Pressable onPress={() => goToStep(3)} style={styles.primaryButton}>
-              <Text style={styles.primaryText}>Continue to goals</Text>
+            <Pressable onPress={() => goToStep("done")} style={[styles.primaryButton, styles.flexButton]}>
+              <Text style={styles.primaryText}>Continue</Text>
             </Pressable>
           </View>
+          {progress.classTimeCount === 0 ? (
+            <Pressable hitSlop={8} onPress={() => goToStep("done")} style={styles.linkButton}>
+              <Text style={styles.linkText}>Skip for now</Text>
+            </Pressable>
+          ) : null}
         </>
       ) : null}
 
-      {step === 3 ? (
+      {step === "done" ? (
         <>
-          <NaturalLanguageOnboardingPanel
-            accessToken={accessToken}
-            mode="goals"
-            onApplied={loadBlocks}
-          />
-
           <View style={styles.panel}>
-            <Text style={styles.panelTitle}>Planner profile</Text>
             <Text style={styles.panelBody}>
-              These answers create your planner profile and first active goal.
+              You can add more courses, change class times, or set optional goals and a weekly rhythm any time from
+              More.
             </Text>
-
-            <Text style={styles.label}>Work start</Text>
-            <TextInput
-              onChangeText={setWorkStartTime}
-              placeholder="09:00"
-              placeholderTextColor={theme.colors.inkMuted}
-              style={styles.input}
-              value={workStartTime}
-            />
-            <Text style={styles.label}>Work end</Text>
-            <TextInput
-              onChangeText={setWorkEndTime}
-              placeholder="17:00"
-              placeholderTextColor={theme.colors.inkMuted}
-              style={styles.input}
-              value={workEndTime}
-            />
-            <Text style={styles.label}>Focus block minutes</Text>
-            <TextInput
-              keyboardType="number-pad"
-              onChangeText={setFocusBlockMinutes}
-              placeholder="60"
-              placeholderTextColor={theme.colors.inkMuted}
-              style={styles.input}
-              value={focusBlockMinutes}
-            />
-
-            {features.wellnessTracking ? (
-              <>
-                <Text style={styles.label}>Workout preference</Text>
-                <View style={styles.optionRow}>
-                  {workoutOptions.map((option) => (
-                    <Pressable
-                      key={option}
-                      onPress={() => setWorkoutPreference(option)}
-                      style={[styles.option, workoutPreference === option && styles.optionSelected]}
-                    >
-                      <Text
-                        style={[
-                          styles.optionText,
-                          workoutPreference === option && styles.optionTextSelected,
-                        ]}
-                      >
-                        {option}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-              </>
-            ) : null}
-
-            <Text style={styles.label}>Top goal</Text>
-            <TextInput
-              onChangeText={setGoalTitle}
-              placeholder="Finish project proposal"
-              placeholderTextColor={theme.colors.inkMuted}
-              style={styles.input}
-              value={goalTitle}
-            />
-            <Text style={styles.label}>Why it matters</Text>
-            <TextInput
-              multiline
-              onChangeText={setGoalDescription}
-              placeholder="This unlocks the next milestone."
-              placeholderTextColor={theme.colors.inkMuted}
-              style={[styles.input, styles.textArea]}
-              value={goalDescription}
-            />
-            <Text style={styles.label}>Minimum minutes today</Text>
-            <TextInput
-              keyboardType="number-pad"
-              onChangeText={setMinimumDailyMinutes}
-              placeholder="30"
-              placeholderTextColor={theme.colors.inkMuted}
-              style={styles.input}
-              value={minimumDailyMinutes}
-            />
           </View>
-
-          {message ? <Text style={styles.error}>{message}</Text> : null}
-
-          <View style={styles.navRow}>
-            <Pressable onPress={() => goToStep(2)} style={styles.secondaryButton}>
-              <Text style={styles.secondaryText}>Back</Text>
-            </Pressable>
-            <Pressable
-              disabled={saving}
-              onPress={submit}
-              style={({ pressed }) => [
-                styles.primaryButton,
-                (pressed || saving) && styles.buttonPressed,
-              ]}
-            >
-              {saving ? (
-                <ActivityIndicator color={theme.colors.surface} />
-              ) : (
-                <Text style={styles.primaryText}>Save Onboarding</Text>
-              )}
-            </Pressable>
-          </View>
+          {completeError ? (
+            <>
+              <Text style={styles.error}>{completeError}</Text>
+              <Pressable onPress={() => void finish(progress)} style={styles.secondaryButton}>
+                <Text style={styles.secondaryText}>Try again</Text>
+              </Pressable>
+            </>
+          ) : null}
+          <Pressable
+            disabled={completing}
+            onPress={() => {
+              tapHaptic();
+              onComplete();
+            }}
+            style={({ pressed }) => [styles.primaryButton, (pressed || completing) && styles.buttonPressed]}
+          >
+            {completing ? (
+              <ActivityIndicator color={theme.colors.surface} />
+            ) : (
+              <Text style={styles.primaryText}>Go to Today</Text>
+            )}
+          </Pressable>
         </>
       ) : null}
     </ScrollView>
@@ -323,110 +356,103 @@ export function OnboardingScreen({ accessToken, onComplete }: OnboardingScreenPr
 function makeStyles(theme: Theme) {
   const { colors } = theme;
   return StyleSheet.create({
-  content: {
-    gap: 16,
-    padding: 18,
-    paddingBottom: 40,
-  },
-  header: {
-    gap: 8,
-  },
-  eyebrow: {
-    ...theme.text("monoLabel", "teal"),
-  },
-  title: {
-    ...theme.text("displayLg", "ink"),
-  },
-  body: {
-    ...theme.text("bodyLg", "inkMuted"),
-  },
-  panel: {
-    backgroundColor: colors.surface,
-    borderColor: colors.line,
-    borderRadius: 8,
-    borderWidth: 1,
-    gap: 8,
-    padding: 16,
-  },
-  panelTitle: {
-    ...theme.text("heading", "ink"),
-  },
-  panelBody: {
-    ...theme.text("body", "inkMuted"),
-  },
-  label: {
-    ...theme.text("label", "ink"),
-    marginTop: 8,
-  },
-  input: {
-    ...theme.text("bodyLg", "ink"),
-    backgroundColor: colors.paper,
-    borderColor: colors.line,
-    borderRadius: 8,
-    borderWidth: 1,
-    minHeight: 50,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  textArea: {
-    minHeight: 88,
-    textAlignVertical: "top",
-  },
-  optionRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  option: {
-    borderColor: colors.line,
-    borderRadius: 8,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  optionSelected: {
-    backgroundColor: colors.teal,
-    borderColor: colors.teal,
-  },
-  optionText: {
-    ...theme.text("label", "ink"),
-  },
-  optionTextSelected: {
-    color: colors.surface,
-  },
-  navRow: {
-    flexDirection: "row",
-    gap: 10,
-  },
-  error: {
-    ...theme.text("body", "danger"),
-  },
-  primaryButton: {
-    alignItems: "center",
-    backgroundColor: colors.teal,
-    borderRadius: 8,
-    flex: 1,
-    justifyContent: "center",
-    minHeight: 52,
-    paddingHorizontal: 14,
-  },
-  secondaryButton: {
-    alignItems: "center",
-    borderColor: colors.line,
-    borderRadius: 8,
-    borderWidth: 1,
-    justifyContent: "center",
-    minHeight: 52,
-    paddingHorizontal: 20,
-  },
-  secondaryText: {
-    ...theme.text("body", "ink"),
-  },
-  buttonPressed: {
-    opacity: 0.78,
-  },
-  primaryText: {
-    ...theme.text("heading", "surface"),
-  },
-});
+    content: {
+      gap: 16,
+      padding: 18,
+      paddingBottom: 40,
+    },
+    loading: {
+      alignItems: "center",
+      flex: 1,
+      justifyContent: "center",
+      padding: 24,
+    },
+    header: {
+      gap: 8,
+    },
+    eyebrow: {
+      ...theme.text("monoLabel", "teal"),
+    },
+    title: {
+      ...theme.text("displayLg", "ink"),
+    },
+    body: {
+      ...theme.text("bodyLg", "inkMuted"),
+    },
+    panel: {
+      backgroundColor: colors.surface,
+      borderColor: colors.line,
+      borderRadius: 8,
+      borderWidth: 1,
+      gap: 8,
+      padding: 16,
+    },
+    panelTitle: {
+      ...theme.text("heading", "ink"),
+    },
+    panelBody: {
+      ...theme.text("body", "inkMuted"),
+    },
+    courseRow: {
+      borderTopColor: colors.line,
+      borderTopWidth: 1,
+      gap: 2,
+      paddingTop: 8,
+    },
+    courseName: {
+      ...theme.text("label", "ink"),
+    },
+    navRow: {
+      flexDirection: "row",
+      gap: 10,
+    },
+    error: {
+      ...theme.text("body", "danger"),
+    },
+    notice: {
+      ...theme.text("label", "teal"),
+      backgroundColor: colors.surface2,
+      borderColor: colors.line,
+      borderRadius: 8,
+      borderWidth: 1,
+      padding: 10,
+    },
+    primaryButton: {
+      alignItems: "center",
+      backgroundColor: colors.teal,
+      borderRadius: 8,
+      justifyContent: "center",
+      minHeight: 52,
+      paddingHorizontal: 14,
+    },
+    flexButton: {
+      flex: 1,
+    },
+    secondaryButton: {
+      alignItems: "center",
+      borderColor: colors.line,
+      borderRadius: 8,
+      borderWidth: 1,
+      justifyContent: "center",
+      minHeight: 52,
+      paddingHorizontal: 20,
+    },
+    secondaryText: {
+      ...theme.text("body", "ink"),
+    },
+    linkButton: {
+      alignItems: "center",
+      paddingVertical: 6,
+    },
+    linkText: {
+      ...theme.text("body", "inkMuted"),
+      textDecorationLine: "underline",
+    },
+    buttonPressed: {
+      opacity: 0.78,
+    },
+    primaryText: {
+      ...theme.text("heading", "surface"),
+    },
+  });
 }

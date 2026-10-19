@@ -27,7 +27,7 @@ export async function signIn(_: AuthActionState, formData: FormData) {
     redirect("/");
   }
 
-  redirect("/onboarding/schedule");
+  redirect("/onboarding/courses");
 }
 
 export async function updatePassword(_: AuthActionState, formData: FormData) {
@@ -81,5 +81,6 @@ export async function signUp(_: AuthActionState, formData: FormData) {
     return { error: error.message };
   }
 
-  redirect("/onboarding/schedule");
+  // New accounts start the syllabus-first flow at step 1.
+  redirect("/onboarding/courses");
 }

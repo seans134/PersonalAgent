@@ -17,7 +17,7 @@ export default async function AuthPage({
   } = await supabase.auth.getUser();
 
   if (user) {
-    redirect((await isOnboardingComplete(supabase, user.id)) ? "/" : "/onboarding/schedule");
+    redirect((await isOnboardingComplete(supabase, user.id)) ? "/" : "/onboarding/courses");
   }
 
   return (
@@ -26,7 +26,7 @@ export default async function AuthPage({
         <div className="space-y-4">
           <h1 className="text-3xl font-semibold tracking-tight text-ink">Atlas</h1>
           <p className="text-ink-muted">
-            Sign in or create an account to add school, work, goals, and planning preferences.
+            Sign in or create an account to add your courses and class times and get a daily study plan.
           </p>
           {params.ok ? (
             <p className="rounded-lg border border-success bg-surface2 px-3 py-2 text-sm text-success">{params.ok}</p>

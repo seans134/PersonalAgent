@@ -12,8 +12,9 @@ type MoreMenuScreenProps = {
 
 const allItems: Array<{ screen: MobileScreen; label: string; subtitle: string }> = [
   { screen: "insights", label: "Insights", subtitle: "How your meals and workouts are trending" },
-  { screen: "goals", label: "Goals", subtitle: "Active outcomes Atlas plans around" },
-  { screen: "onboarding", label: "Onboarding", subtitle: "Schedule, profile, and first goals" },
+  { screen: "goals", label: "Goals", subtitle: "Optional outcomes Atlas plans around" },
+  { screen: "onboarding", label: "Setup", subtitle: "Courses and class times" },
+  { screen: "weeklyRhythm", label: "Weekly rhythm", subtitle: "Study habits, protected time, and work hours" },
   { screen: "notifications", label: "Notifications", subtitle: "Reminder schedule" },
   { screen: "settings", label: "Settings & Legal", subtitle: "Support and account" },
 ];

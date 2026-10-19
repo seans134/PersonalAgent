@@ -1,27 +1,42 @@
 import Link from "next/link";
+import {
+  ONBOARDING_STEPS,
+  isOnboardingStepComplete,
+  onboardingStepNumber,
+  type OnboardingProgressInput,
+  type OnboardingStepKey,
+} from "@personal-agent/core";
 
-type OnboardingStep = {
-  href: string;
-  label: string;
+const STEP_HREFS: Record<OnboardingStepKey, string> = {
+  courses: "/onboarding/courses",
+  class_times: "/onboarding/schedule",
+  done: "/onboarding/done",
 };
 
-const STEPS: OnboardingStep[] = [
-  { href: "/onboarding/schedule", label: "School & work" },
-  { href: "/onboarding", label: "Weekly rhythm" },
-  { href: "/goals", label: "Goals" },
-];
+export function OnboardingProgress({
+  currentStep,
+  progress,
+}: {
+  currentStep: OnboardingStepKey;
+  /** Saved course and class-time counts; when given, they decide which steps show a check. */
+  progress?: OnboardingProgressInput;
+}) {
+  const currentNumber = onboardingStepNumber(currentStep);
 
-export function OnboardingProgress({ currentStep }: { currentStep: 1 | 2 | 3 }) {
   return (
     <nav aria-label="Onboarding progress" className="mb-8">
       <ol className="grid gap-2 sm:grid-cols-3">
-        {STEPS.map((step, index) => {
-          const stepNumber = (index + 1) as 1 | 2 | 3;
-          const isCurrent = stepNumber === currentStep;
-          const isComplete = stepNumber < currentStep;
+        {ONBOARDING_STEPS.map((step) => {
+          const isCurrent = step.key === currentStep;
+          // With saved data on hand, a skipped step stays unchecked; otherwise fall back to position.
+          const isComplete =
+            !isCurrent &&
+            (progress && step.key !== "done"
+              ? isOnboardingStepComplete(step.key, progress)
+              : step.number < currentNumber);
 
           return (
-            <li key={step.href}>
+            <li key={step.key}>
               <Link
                 aria-current={isCurrent ? "step" : undefined}
                 className={[
@@ -32,10 +47,10 @@ export function OnboardingProgress({ currentStep }: { currentStep: 1 | 2 | 3 }) 
                       ? "border-line bg-surface text-ink"
                       : "border-line bg-surface text-ink-muted",
                 ].join(" ")}
-                href={step.href}
+                href={STEP_HREFS[step.key]}
               >
                 <span className="flex size-6 items-center justify-center rounded-full border border-current text-xs">
-                  {stepNumber}
+                  {isComplete ? "✓" : step.number}
                 </span>
                 <span className="font-medium">{step.label}</span>
               </Link>

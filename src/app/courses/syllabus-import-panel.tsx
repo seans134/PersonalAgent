@@ -57,13 +57,21 @@ function localInputToIso(value: string): string | null {
   return date.toISOString();
 }
 
-export function SyllabusImportPanel({ geminiConfigured }: { geminiConfigured: boolean }) {
+export function SyllabusImportPanel({
+  geminiConfigured,
+  afterApply = "open-course",
+}: {
+  geminiConfigured: boolean;
+  /** "stay" clears the form and refreshes the page so onboarding can import several syllabi in a row. */
+  afterApply?: "open-course" | "stay";
+}) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [text, setText] = useState("");
   const [draft, setDraft] = useState<ReviewDraft | null>(null);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [isParsing, setIsParsing] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
 
@@ -127,6 +135,7 @@ export function SyllabusImportPanel({ geminiConfigured }: { geminiConfigured: bo
 
   async function handleParse() {
     setError("");
+    setNotice("");
     setDraft(null);
     setIsParsing(true);
 
@@ -182,6 +191,17 @@ export function SyllabusImportPanel({ geminiConfigured }: { geminiConfigured: bo
 
       if (!response.ok || isErrorResponse(payload)) {
         throw new Error(isErrorResponse(payload) ? payload.error : "Unable to create course.");
+      }
+
+      if (afterApply === "stay") {
+        setNotice(`Added ${draft.course.name.trim()}. Import another syllabus, or continue when you're done.`);
+        setDraft(null);
+        setFile(null);
+        setText("");
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        setIsApplying(false);
+        router.refresh();
+        return;
       }
 
       router.push(`/courses/${payload.courseId}`);
@@ -249,6 +269,7 @@ export function SyllabusImportPanel({ geminiConfigured }: { geminiConfigured: bo
         {file ? <span className="text-xs text-ink-muted">{file.name}</span> : null}
       </div>
 
+      {notice ? <p className="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-teal">{notice}</p> : null}
       {error ? <p className="rounded-lg border border-danger bg-surface px-3 py-2 text-sm text-danger">{error}</p> : null}
 
       {draft ? (
