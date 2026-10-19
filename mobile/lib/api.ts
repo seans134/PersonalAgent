@@ -4,6 +4,7 @@ import type { CalendarEvent } from "@personal-agent/core/calendar";
 import {
   analyticsEvents,
   hasCoursesReady,
+  type CourseSharePreview,
   type CourseStudyPlans,
   type NeededScore,
   type PlanAcceptResponse,
@@ -1070,6 +1071,51 @@ export async function fetchMobileCourseDetail(accessToken: string, id: string): 
     { method: "GET" },
     "Unable to load course.",
   );
+}
+
+/** A course's share link; joinedCount counts classmates who added it from any of its links. */
+export type MobileCourseShare = { url: string; createdAt: string; joinedCount: number };
+
+/** GET /api/mobile/courses/:id/share: the active link, or null when the course isn't shared. */
+export async function fetchMobileCourseShare(accessToken: string, courseId: string) {
+  return fetchJson<{ share: MobileCourseShare | null }>(
+    `/api/mobile/courses/${courseId}/share`, accessToken, { method: "GET" }, "Unable to load sharing.",
+  );
+}
+
+/** POST /api/mobile/courses/:id/share: returns the active link, creating one if needed. */
+export async function createMobileCourseShare(accessToken: string, courseId: string) {
+  const response = await fetchJson<{ share: MobileCourseShare; created: boolean }>(
+    `/api/mobile/courses/${courseId}/share`, accessToken, { method: "POST" }, "Unable to share course.",
+  );
+  if (response.created) captureEvent(analyticsEvents.courseShared);
+  return response;
+}
+
+/** DELETE /api/mobile/courses/:id/share: the link stops working; classmates keep courses they added. */
+export async function stopMobileCourseShare(accessToken: string, courseId: string) {
+  return fetchJson<{ ok: true }>(
+    `/api/mobile/courses/${courseId}/share`, accessToken, { method: "DELETE" }, "Unable to stop sharing.",
+  );
+}
+
+/** GET /api/mobile/courses/join/:token: what a share link adds. ownCourseId is set when it's the student's own course. */
+export async function fetchMobileSharedCoursePreview(accessToken: string, token: string) {
+  return fetchJson<{ preview: CourseSharePreview; ownCourseId: string | null }>(
+    `/api/mobile/courses/join/${encodeURIComponent(token)}`, accessToken, { method: "GET" }, "This course link isn't active.",
+  );
+}
+
+/** POST /api/mobile/courses/join: adds the shared course (or returns the one already added). */
+export async function joinMobileSharedCourse(accessToken: string, token: string) {
+  const response = await fetchJson<{ courseId: string; created: boolean; itemCount: number }>(
+    "/api/mobile/courses/join", accessToken, { method: "POST", body: JSON.stringify({ token }) }, "Unable to add course.",
+  );
+  if (response.created) {
+    captureEvent(analyticsEvents.courseJoined, { item_count: response.itemCount });
+    void refreshExamReminders(accessToken);
+  }
+  return response;
 }
 
 /** GET /api/mobile/semester: the week-by-week semester timeline; `term` picks one of `terms`. */

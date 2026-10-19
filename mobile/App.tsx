@@ -23,6 +23,7 @@ import { CoursesScreen } from "./components/CoursesScreen";
 import { SemesterScreen } from "./components/SemesterScreen";
 import { DashboardScreen } from "./components/DashboardScreen";
 import { GoalsScreen } from "./components/GoalsScreen";
+import { JoinCourseScreen } from "./components/JoinCourseScreen";
 import { MealCoachScreen } from "./components/MealCoachScreen";
 import {
   DetailHeader,
@@ -48,6 +49,7 @@ import { WorkoutsScreen } from "./components/WorkoutsScreen";
 import { getMobileEnv } from "./lib/env";
 import { ThemeProvider, useTheme } from "./lib/theme";
 import { handleAuthDeepLink } from "./lib/auth-deep-link";
+import { parseJoinLink } from "@personal-agent/core";
 import { captureEvent, identifyAnalyticsUser, resetAnalyticsUser, Sentry } from "./lib/analytics";
 import { fetchMobileOnboardingStatus } from "./lib/api";
 import { cancelExamReminders, endExamReminderSession } from "./lib/notifications";
@@ -75,6 +77,9 @@ function App() {
   const [semesterTerm, setSemesterTerm] = useState<string | null>(null);
   const [isRecoveringPassword, setIsRecoveringPassword] = useState(false);
   const [authLinkMessage, setAuthLinkMessage] = useState<string | undefined>();
+  // Token from a course share link (atlas://join/<token>). Held across sign-in/sign-up, then
+  // the join screen shows over whatever screen the student is on until they add or close it.
+  const [pendingJoinToken, setPendingJoinToken] = useState<string | null>(null);
   // Set by AuthScreen and the auth deep-link handler. supabase-js also emits
   // SIGNED_IN for restored sessions, setSession and (on web) tab refocus, so
   // only a flagged SIGNED_IN counts as the user signing in.
@@ -93,6 +98,11 @@ function App() {
   useEffect(() => {
     async function processLink(url: string | null) {
       if (!url) return;
+      const joinToken = parseJoinLink(url);
+      if (joinToken) {
+        setPendingJoinToken(joinToken);
+        return;
+      }
       const result = await handleAuthDeepLink(url, () => {
         userSignInRef.current = true;
       });
@@ -199,6 +209,23 @@ function App() {
 
   function renderSignedInScreen() {
     const token = session!.access_token;
+
+    if (pendingJoinToken) {
+      return (
+        <View style={styles.tabBody}>
+          <JoinCourseScreen
+            accessToken={token}
+            key={pendingJoinToken}
+            onClose={() => setPendingJoinToken(null)}
+            onJoined={(courseId) => {
+              setPendingJoinToken(null);
+              openCourse(courseId);
+            }}
+            token={pendingJoinToken}
+          />
+        </View>
+      );
+    }
 
     if (activeScreen === "scheduleImport") return <ScheduleImportScreen accessToken={token} onBack={() => setActiveScreen("calendar")} />;
 
@@ -419,7 +446,10 @@ function App() {
     return (
       <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.paper }]}>
         <AuthScreen
-          initialMessage={authLinkMessage}
+          initialMessage={
+            authLinkMessage ?? (pendingJoinToken ? "Sign in or create an account to add the shared course." : undefined)
+          }
+          key={pendingJoinToken ? "join" : "auth"}
           onSignInAttempt={(pending) => {
             userSignInRef.current = pending;
           }}

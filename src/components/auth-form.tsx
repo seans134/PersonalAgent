@@ -9,9 +9,11 @@ type AuthFormProps = {
   actionLabel: string;
   action: (state: ActionState, formData: FormData) => Promise<ActionState>;
   requirePasswordConfirmation?: boolean;
+  /** Same-origin path to return to after auth (e.g. /join/<token>). */
+  next?: string | null;
 };
 
-export function AuthForm({ title, actionLabel, action, requirePasswordConfirmation = false }: AuthFormProps) {
+export function AuthForm({ title, actionLabel, action, requirePasswordConfirmation = false, next }: AuthFormProps) {
   const [state, formAction, pending] = useActionState(action, undefined);
   const [clientError, setClientError] = useState<string>();
 
@@ -37,6 +39,7 @@ export function AuthForm({ title, actionLabel, action, requirePasswordConfirmati
       onSubmit={handleSubmit}
     >
       <h2 className="text-lg font-semibold text-ink">{title}</h2>
+      {next ? <input name="next" type="hidden" value={next} /> : null}
       <div className="space-y-2">
         <label className="block text-sm font-medium text-ink-muted" htmlFor={`${actionLabel}-email`}>
           Email

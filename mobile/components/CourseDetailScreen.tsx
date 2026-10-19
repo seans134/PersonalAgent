@@ -30,6 +30,7 @@ import { captureEvent } from "../lib/analytics";
 import { BulletBar } from "./BulletBar";
 import { CourseItemModal } from "./CourseItemModal";
 import { Icon } from "./Icon";
+import { ShareCourseSection } from "./ShareCourseSection";
 import {
   deleteMobileCategory,
   deleteMobileItem,
@@ -279,6 +280,12 @@ export function CourseDetailScreen({ accessToken, courseId, onBack, backLabel = 
               grade={detail.grade}
               items={detail.items}
               needed={detail.needed}
+            />
+            <ShareCourseSection
+              accessToken={accessToken}
+              archived={Boolean(detail.course.archived_at)}
+              courseId={courseId}
+              courseName={detail.course.name}
             />
             <CategoriesSection
               categories={detail.categories}

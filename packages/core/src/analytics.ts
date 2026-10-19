@@ -15,6 +15,10 @@ export const analyticsEvents = {
   scheduleAdded: "schedule_added",
   // Properties: week_count, crunch_week_count.
   semesterViewed: "semester_viewed",
+  // A share link was created for a course (no properties).
+  courseShared: "course_shared",
+  // A classmate added a shared course. Properties: item_count.
+  courseJoined: "course_joined",
 } as const;
 
 export type AnalyticsEventName = (typeof analyticsEvents)[keyof typeof analyticsEvents];
