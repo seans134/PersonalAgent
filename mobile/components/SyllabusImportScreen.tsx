@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTheme } from "../lib/theme";
 import type { Theme } from "../lib/theme";
 import {
@@ -12,11 +12,15 @@ import {
   View,
 } from "react-native";
 import {
+  addSyllabusCategory,
+  countNamedSyllabusCategories,
   countSyllabusItemsToApply,
+  fromSyllabusReview,
   isSyllabusItemApplied,
   removeSyllabusCategory,
   renameSyllabusCategory,
   summarizeSyllabusWeights,
+  toSyllabusReview,
 } from "@personal-agent/core";
 import { Icon } from "./Icon";
 import {
@@ -45,12 +49,16 @@ const KIND_OPTIONS: Array<{ value: MobileSyllabusItemKind; label: string }> = [
 // Same minimum the web panel uses before it lets pasted text through.
 const MIN_TEXT_LENGTH = 8;
 
+// A date with no time counts as due at the end of that day.
+const DEFAULT_DUE_TIME = "23:59";
+
 // Review keeps numbers and dates as text so partial input ("12.", "2026-09-") isn't lost while typing.
-type ReviewCategory = { name: string; weight: string };
+// Items link to categories by a stable key (see toSyllabusReview), not by name.
+type ReviewCategory = { key: string; name: string; weight: string };
 type ReviewItem = {
   kind: MobileSyllabusItemKind;
   title: string;
-  categoryName: string | null;
+  categoryKey: string | null;
   dueDate: string;
   dueTime: string;
   score_max: number;
@@ -66,19 +74,24 @@ type ReviewState = {
   warnings: string[];
 };
 
-function reviewFromDraft(draft: MobileSyllabusDraft): ReviewState {
+function reviewFromDraft(parsed: MobileSyllabusDraft): ReviewState {
+  const draft = toSyllabusReview(parsed);
   return {
     name: draft.course.name,
     code: draft.course.code ?? "",
     term: draft.course.term ?? "",
     targetGrade: draft.course.target_grade !== null ? String(draft.course.target_grade) : "",
-    categories: draft.categories.map((category) => ({ name: category.name, weight: String(category.weight) })),
+    categories: draft.categories.map((category) => ({
+      key: category.key,
+      name: category.name,
+      weight: String(category.weight),
+    })),
     items: draft.items.map((item) => {
       const due = splitIso(item.due_at);
       return {
         kind: item.kind,
         title: item.title,
-        categoryName: item.categoryName,
+        categoryKey: item.categoryKey,
         dueDate: due.date,
         dueTime: due.time,
         score_max: item.score_max,
@@ -95,8 +108,14 @@ function parseNumber(text: string): number | null {
   return Number.isFinite(value) ? value : null;
 }
 
+function dueAtFromReview(item: ReviewItem): string | null {
+  const date = item.dueDate.trim();
+  if (!date) return null;
+  return combineToIso(date, item.dueTime.trim() || DEFAULT_DUE_TIME);
+}
+
 function draftFromReview(review: ReviewState): MobileSyllabusDraft {
-  return {
+  return fromSyllabusReview({
     course: {
       name: review.name.trim(),
       code: review.code.trim() || null,
@@ -104,23 +123,24 @@ function draftFromReview(review: ReviewState): MobileSyllabusDraft {
       target_grade: parseNumber(review.targetGrade),
     },
     categories: review.categories.map((category, position) => ({
+      key: category.key,
       name: category.name.trim(),
       weight: parseNumber(category.weight) ?? 0,
       position,
     })),
     items: review.items.map((item) => {
-      const dueAt = combineToIso(item.dueDate.trim(), item.dueTime.trim());
+      const dueAt = dueAtFromReview(item);
       return {
         kind: item.kind,
         title: item.title.trim(),
-        categoryName: item.categoryName?.trim() || null,
+        categoryKey: item.categoryKey,
         due_at: dueAt,
         score_max: item.score_max,
         include: isSyllabusItemApplied({ include: item.include, due_at: dueAt }),
       };
     }),
     warnings: review.warnings,
-  };
+  });
 }
 
 export function SyllabusImportScreen({ accessToken, onBack, onImported }: SyllabusImportScreenProps) {
@@ -132,47 +152,74 @@ export function SyllabusImportScreen({ accessToken, onBack, onImported }: Syllab
   const [review, setReview] = useState<ReviewState | null>(null);
   const [error, setError] = useState("");
   const [applying, setApplying] = useState(false);
+  const [picking, setPicking] = useState(false);
+  // Refs guard against double taps landing before the busy state re-renders,
+  // and against a slow apply navigating after the student has left this screen.
+  const busyRef = useRef(false);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const isParsing = parsingLabel !== null;
   const draft = useMemo(() => (review ? draftFromReview(review) : null), [review]);
   const weights = summarizeSyllabusWeights(draft?.categories ?? []);
   const itemsToApply = draft ? countSyllabusItemsToApply(draft.items) : 0;
+  const categoryCount = review ? countNamedSyllabusCategories(review.categories) : 0;
 
-  async function runParse(label: string, file: MobileSyllabusImportFile | null, pastedText?: string) {
-    setError("");
+  async function parse(label: string, file: MobileSyllabusImportFile | null, pastedText?: string) {
     setParsingLabel(label);
 
     try {
       const result = await parseSyllabusImport(accessToken, file, pastedText);
-      setReview(reviewFromDraft(result.draft));
+      if (mountedRef.current) setReview(reviewFromDraft(result.draft));
     } catch (parseError) {
-      setError(parseError instanceof Error ? parseError.message : "Unable to parse syllabus.");
+      if (mountedRef.current) setError(parseError instanceof Error ? parseError.message : "Unable to parse syllabus.");
     }
 
-    setParsingLabel(null);
+    if (mountedRef.current) setParsingLabel(null);
+  }
+
+  async function parseText() {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setError("");
+    await parse("Pasted text", null, text);
+    busyRef.current = false;
   }
 
   async function pickAndParse(pick: () => Promise<MobileSyllabusImportFile | null>) {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setPicking(true);
     setError("");
-    let file: MobileSyllabusImportFile | null;
+
     try {
-      file = await pick();
+      const file = await pick();
+      if (file && mountedRef.current) {
+        setPicking(false);
+        await parse(file.name, file);
+      }
     } catch (pickError) {
-      setError(pickError instanceof Error ? pickError.message : "Unable to open that file.");
-      return;
+      if (mountedRef.current) setError(pickError instanceof Error ? pickError.message : "Unable to open that file.");
     }
-    if (!file) return;
-    await runParse(file.name, file);
+
+    busyRef.current = false;
+    if (mountedRef.current) setPicking(false);
   }
 
   function updateReview(patch: Partial<ReviewState>) {
     setReview((current) => (current ? { ...current, ...patch } : current));
   }
 
-  function updateCategoryWeight(index: number, weight: string) {
+  function updateCategoryWeight(key: string, weight: string) {
     setReview((current) =>
       current
-        ? { ...current, categories: current.categories.map((c, i) => (i === index ? { ...c, weight } : c)) }
+        ? { ...current, categories: current.categories.map((c) => (c.key === key ? { ...c, weight } : c)) }
         : current,
     );
   }
@@ -204,13 +251,13 @@ export function SyllabusImportScreen({ accessToken, onBack, onImported }: Syllab
 
     try {
       const result = await applySyllabusImport(accessToken, draft);
-      onImported(result.courseId);
+      if (mountedRef.current) onImported(result.courseId);
       return;
     } catch (applyError) {
-      setError(applyError instanceof Error ? applyError.message : "Unable to create course.");
+      if (mountedRef.current) setError(applyError instanceof Error ? applyError.message : "Unable to create course.");
     }
 
-    setApplying(false);
+    if (mountedRef.current) setApplying(false);
   }
 
   return (
@@ -219,9 +266,11 @@ export function SyllabusImportScreen({ accessToken, onBack, onImported }: Syllab
         <Pressable
           accessibilityLabel="Back to courses"
           accessibilityRole="button"
+          accessibilityState={{ disabled: applying }}
+          disabled={applying}
           hitSlop={8}
           onPress={onBack}
-          style={styles.backButton}
+          style={[styles.backButton, applying && styles.buttonPressed]}
         >
           <Icon color={theme.colors.teal} name="back" size={20} strokeWidth={2.2} />
           <Text style={styles.backText}>Courses</Text>
@@ -273,10 +322,12 @@ export function SyllabusImportScreen({ accessToken, onBack, onImported }: Syllab
               </View>
               {weights.isOff ? <Text style={styles.warningText}>Weights should add up to 100%.</Text> : null}
               <View style={styles.form}>
-                {review.categories.map((category, index) => (
-                  <View key={index} style={styles.categoryRow}>
+                {review.categories.map((category) => (
+                  <View key={category.key} style={styles.categoryRow}>
                     <TextInput
-                      onChangeText={(name) => setReview((current) => (current ? renameSyllabusCategory(current, index, name) : current))}
+                      onChangeText={(name) =>
+                        setReview((current) => (current ? renameSyllabusCategory(current, category.key, name) : current))
+                      }
                       placeholder="Category name"
                       placeholderTextColor={theme.colors.inkMuted}
                       style={[styles.input, styles.categoryName]}
@@ -285,7 +336,7 @@ export function SyllabusImportScreen({ accessToken, onBack, onImported }: Syllab
                     <TextInput
                       accessibilityLabel={`${category.name || "Category"} weight percent`}
                       keyboardType="decimal-pad"
-                      onChangeText={(weight) => updateCategoryWeight(index, weight)}
+                      onChangeText={(weight) => updateCategoryWeight(category.key, weight)}
                       placeholder="%"
                       placeholderTextColor={theme.colors.inkMuted}
                       style={[styles.input, styles.categoryWeight]}
@@ -294,7 +345,7 @@ export function SyllabusImportScreen({ accessToken, onBack, onImported }: Syllab
                     <Pressable
                       accessibilityLabel={`Remove ${category.name || "category"}`}
                       hitSlop={6}
-                      onPress={() => setReview((current) => (current ? removeSyllabusCategory(current, index) : current))}
+                      onPress={() => setReview((current) => (current ? removeSyllabusCategory(current, category.key) : current))}
                       style={styles.removeButton}
                     >
                       <Text style={styles.removeText}>Remove</Text>
@@ -302,7 +353,9 @@ export function SyllabusImportScreen({ accessToken, onBack, onImported }: Syllab
                   </View>
                 ))}
                 <Pressable
-                  onPress={() => updateReview({ categories: [...review.categories, { name: "", weight: "0" }] })}
+                  onPress={() =>
+                    setReview((current) => (current ? addSyllabusCategory(current, { name: "", weight: "0" }) : current))
+                  }
                   style={styles.smallButton}
                 >
                   <Text style={styles.smallButtonText}>Add category</Text>
@@ -343,7 +396,7 @@ export function SyllabusImportScreen({ accessToken, onBack, onImported }: Syllab
             ) : null}
 
             <Text style={styles.panelBody}>
-              Creates the course with {review.categories.length} categor{review.categories.length === 1 ? "y" : "ies"} and{" "}
+              Creates the course with {categoryCount} categor{categoryCount === 1 ? "y" : "ies"} and{" "}
               {itemsToApply} item{itemsToApply === 1 ? "" : "s"}.
             </Text>
             <View style={styles.actionRow}>
@@ -371,9 +424,19 @@ export function SyllabusImportScreen({ accessToken, onBack, onImported }: Syllab
               and dated assignments for you to review before saving. One file per import.
             </Text>
             <View style={styles.form}>
-              <SourceButton label="Take photo" onPress={() => void pickAndParse(takeSyllabusPhoto)} />
-              <SourceButton label="Choose photo" onPress={() => void pickAndParse(chooseSyllabusPhoto)} />
-              <SourceButton label="Choose PDF or Word doc" onPress={() => void pickAndParse(chooseSyllabusDocument)} />
+              <SourceButton disabled={picking} label="Take photo" onPress={() => void pickAndParse(takeSyllabusPhoto)} />
+              <SourceButton disabled={picking} label="Choose photo" onPress={() => void pickAndParse(chooseSyllabusPhoto)} />
+              <SourceButton
+                disabled={picking}
+                label="Choose PDF or Word doc"
+                onPress={() => void pickAndParse(chooseSyllabusDocument)}
+              />
+              {picking ? (
+                <View style={styles.loadingRow}>
+                  <ActivityIndicator color={theme.colors.teal} />
+                  <Text style={styles.panelBody}>Preparing your file...</Text>
+                </View>
+              ) : null}
               {!showPaste ? (
                 <Pressable hitSlop={8} onPress={() => setShowPaste(true)} style={styles.linkButton}>
                   <Text style={styles.secondaryText}>Paste text instead</Text>
@@ -391,11 +454,11 @@ export function SyllabusImportScreen({ accessToken, onBack, onImported }: Syllab
                     value={text}
                   />
                   <Pressable
-                    disabled={text.trim().length < MIN_TEXT_LENGTH}
-                    onPress={() => void runParse("Pasted text", null, text)}
+                    disabled={picking || text.trim().length < MIN_TEXT_LENGTH}
+                    onPress={() => void parseText()}
                     style={({ pressed }) => [
                       styles.primaryButton,
-                      (pressed || text.trim().length < MIN_TEXT_LENGTH) && styles.buttonPressed,
+                      (pressed || picking || text.trim().length < MIN_TEXT_LENGTH) && styles.buttonPressed,
                     ]}
                   >
                     <Text style={styles.primaryText}>Parse text</Text>
@@ -410,14 +473,16 @@ export function SyllabusImportScreen({ accessToken, onBack, onImported }: Syllab
   );
 }
 
-function SourceButton({ label, onPress }: { label: string; onPress: () => void }) {
+function SourceButton({ disabled, label, onPress }: { disabled: boolean; label: string; onPress: () => void }) {
   const theme = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityState={{ disabled }}
+      disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => [styles.sourceButton, pressed && styles.buttonPressed]}
+      style={({ pressed }) => [styles.sourceButton, (pressed || disabled) && styles.buttonPressed]}
     >
       <Text style={styles.sourceText}>{label}</Text>
     </Pressable>
@@ -496,7 +561,7 @@ function ItemEditor({
           <TextInput
             autoCapitalize="none"
             onChangeText={(dueTime) => onChange({ dueTime })}
-            placeholder="HH:MM"
+            placeholder={DEFAULT_DUE_TIME}
             placeholderTextColor={theme.colors.inkMuted}
             style={styles.input}
             value={item.dueTime}
@@ -506,14 +571,14 @@ function ItemEditor({
 
       <Text style={styles.subLabel}>Category</Text>
       <View style={styles.wrapRow}>
-        <Choice active={!item.categoryName} label="None" onPress={() => onChange({ categoryName: null })} />
-        {categories.map((category, index) =>
+        <Choice active={!item.categoryKey} label="None" onPress={() => onChange({ categoryKey: null })} />
+        {categories.map((category) =>
           category.name.trim() ? (
             <Choice
-              active={item.categoryName === category.name}
-              key={index}
+              active={item.categoryKey === category.key}
+              key={category.key}
               label={category.name}
-              onPress={() => onChange({ categoryName: category.name })}
+              onPress={() => onChange({ categoryKey: category.key })}
             />
           ) : null,
         )}
