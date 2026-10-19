@@ -17,9 +17,10 @@ function SubmitButton() {
   );
 }
 
-export function NewCourseForm() {
+export function NewCourseForm({ returnTo }: { returnTo?: "/onboarding/courses" } = {}) {
   return (
     <form action={createCourse} className="space-y-4 rounded-2xl border border-line bg-surface p-6 shadow-sm">
+      {returnTo ? <input name="return_to" type="hidden" value={returnTo} /> : null}
       <div>
         <h2 className="text-lg font-semibold text-ink">Add course</h2>
         <p className="mt-1 text-sm text-ink-muted">Create a course to start tracking grades and deadlines.</p>

@@ -18,7 +18,14 @@ import { supabase } from "../lib/supabase";
 
 type AuthMode = "sign-in" | "sign-up";
 
-export function AuthScreen({ initialMessage }: { initialMessage?: string }) {
+export function AuthScreen({
+  initialMessage,
+  onSignInAttempt,
+}: {
+  initialMessage?: string;
+  /** true just before a sign-in/sign-up request, false if it ends without a session. */
+  onSignInAttempt?: (pending: boolean) => void;
+}) {
   const theme = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const [mode, setMode] = useState<AuthMode>("sign-in");
@@ -51,9 +58,14 @@ export function AuthScreen({ initialMessage }: { initialMessage?: string }) {
     };
 
     const { authRedirectUrl } = getMobileEnv();
-    const { error } = mode === "sign-in"
+    // Flag the sign-in before the request: SIGNED_IN fires before it resolves.
+    onSignInAttempt?.(true);
+    const { data, error } = mode === "sign-in"
       ? await supabase.auth.signInWithPassword(credentials)
       : await supabase.auth.signUp({ ...credentials, options: { emailRedirectTo: authRedirectUrl } });
+
+    // Sign-up awaiting email confirmation returns no session; the confirmation link flags its own sign-in.
+    if (error || !data.session) onSignInAttempt?.(false);
 
     if (error) {
       setMessage(error.message);

@@ -20,6 +20,7 @@ export type MobileScreen =
   | "syllabusImport"
   | "insights"
   | "onboarding"
+  | "weeklyRhythm"
   | "notifications"
   | "settings";
 
@@ -41,6 +42,7 @@ export const screenToTab: Record<MobileScreen, MobileTab> = {
   syllabusImport: "courses",
   insights: "more",
   onboarding: "more",
+  weeklyRhythm: "more",
   notifications: "more",
   settings: "more",
 };

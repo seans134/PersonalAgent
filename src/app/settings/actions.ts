@@ -2,14 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { siteUrl } from "@/lib/site-url";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 const VALID_WORKOUT_PREFERENCES = new Set(["none", "light", "moderate", "intense"]);
-
-function siteUrl() {
-  return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-}
 
 function parseOptionalTime(formData: FormData, key: string) {
   const raw = String(formData.get(key) ?? "").trim();

@@ -199,6 +199,36 @@ describe("generateTodayPlanForUser", () => {
     expect(Array.isArray(result.body.plan.items)).toBe(true);
   });
 
+  it("plans with zero goals now that goals are optional", async () => {
+    const result = await generateTodayPlanForUser({
+      supabase: createSupabaseMock({
+        goals: [],
+        profile: {
+          work_start_time: "09:00",
+          work_end_time: "17:00",
+          no_meeting_start: null,
+          no_meeting_end: null,
+          focus_block_minutes: 60,
+          workout_preference: "none",
+        },
+        scheduleBlocks: [
+          { id: "class-1", title: "CHEM 201 lecture", days_of_week: [0, 1, 2, 3, 4, 5, 6], start_time: "10:00", end_time: "11:00" },
+        ],
+      }) as never,
+      userId: "user-1",
+      enhancePlan: async ({ plan }) => ({ plan }),
+    });
+
+    expect(result.status).toBe(200);
+
+    if ("error" in result.body) {
+      throw new Error("Expected successful plan body.");
+    }
+
+    expect(result.body.meta.goalsCount).toBe(0);
+    expect(Array.isArray(result.body.plan.items)).toBe(true);
+  });
+
   it("includes local schedule blocks as context events and planner busy time", async () => {
     const result = await generateTodayPlanForUser({
       supabase: createSupabaseMock({

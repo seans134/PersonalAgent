@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { isOnboardingComplete } from "@/lib/onboarding/status";
+import { siteUrl } from "@/lib/site-url";
 import { createClient } from "@/lib/supabase/server";
 
 type AuthActionState = { error?: string } | undefined;
@@ -27,7 +28,7 @@ export async function signIn(_: AuthActionState, formData: FormData) {
     redirect("/");
   }
 
-  redirect("/onboarding/schedule");
+  redirect("/onboarding/courses");
 }
 
 export async function updatePassword(_: AuthActionState, formData: FormData) {
@@ -75,11 +76,21 @@ export async function signUp(_: AuthActionState, formData: FormData) {
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signUp({ email, password });
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    // The confirmation link signs them in and starts the syllabus-first flow at step 1.
+    options: { emailRedirectTo: `${siteUrl()}/auth/callback?next=/onboarding/courses` },
+  });
 
   if (error) {
     return { error: error.message };
   }
 
-  redirect("/onboarding/schedule");
+  if (!data.session) {
+    redirect(`/auth?ok=${encodeURIComponent("Check your email to confirm your account. The link brings you back to set up your courses.")}`);
+  }
+
+  // New accounts start the syllabus-first flow at step 1.
+  redirect("/onboarding/courses");
 }

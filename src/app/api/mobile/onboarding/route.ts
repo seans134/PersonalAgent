@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createBearerClient, getBearerToken } from "@/lib/supabase/bearer";
+import { getAuthenticatedRequestClient } from "@/lib/supabase/request";
 
 const VALID_WORKOUT_PREFERENCES = new Set(["none", "light", "moderate", "intense"]);
 const VALID_TASK_TYPES = new Set(["general", "focus", "fitness", "wellness", "admin"]);
@@ -34,6 +35,42 @@ function numberValue(value: unknown, fallback: number, min: number, max: number)
   return Math.max(min, Math.min(max, Math.round(number)));
 }
 
+type ProfileRow = {
+  work_start_time: string | null;
+  work_end_time: string | null;
+  focus_block_minutes: number | null;
+  workout_preference: string | null;
+};
+
+/** GET -> { profile } with the saved planner preferences, or null before a profile exists. */
+export async function GET(request: NextRequest) {
+  const auth = await getAuthenticatedRequestClient(request);
+  if (!auth) return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+
+  const { data, error } = await auth.supabase
+    .from("user_profiles")
+    .select("work_start_time, work_end_time, focus_block_minutes, workout_preference")
+    .eq("user_id", auth.user.id)
+    .maybeSingle();
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  const row = data as ProfileRow | null;
+  return NextResponse.json({
+    profile: row
+      ? {
+          // Postgres time columns come back as HH:MM:SS.
+          workStartTime: (row.work_start_time ?? "09:00").slice(0, 5),
+          workEndTime: (row.work_end_time ?? "17:00").slice(0, 5),
+          focusBlockMinutes: row.focus_block_minutes ?? 60,
+          workoutPreference: row.workout_preference ?? "none",
+        }
+      : null,
+  });
+}
+
 export async function POST(request: NextRequest) {
   const accessToken = getBearerToken(request);
 
@@ -66,10 +103,12 @@ export async function POST(request: NextRequest) {
   }
 
   const focusBlockMinutes = numberValue(payload.focusBlockMinutes, 60, 15, 240);
+  // Omitted (wellness tracking off) leaves the saved preference untouched.
   const workoutPreference = stringValue(payload.workoutPreference);
-  const normalizedWorkoutPreference = VALID_WORKOUT_PREFERENCES.has(workoutPreference)
-    ? workoutPreference
-    : "none";
+  const workoutPreferenceUpdate =
+    payload.workoutPreference === undefined
+      ? {}
+      : { workout_preference: VALID_WORKOUT_PREFERENCES.has(workoutPreference) ? workoutPreference : "none" };
 
   const { error: profileError } = await supabase.from("user_profiles").upsert(
     {
@@ -77,7 +116,7 @@ export async function POST(request: NextRequest) {
       work_start_time: workStartTime,
       work_end_time: workEndTime,
       focus_block_minutes: focusBlockMinutes,
-      workout_preference: normalizedWorkoutPreference,
+      ...workoutPreferenceUpdate,
     },
     { onConflict: "user_id" },
   );

@@ -36,6 +36,8 @@ import { chooseSyllabusDocument, chooseSyllabusPhoto, takeSyllabusPhoto } from "
 type SyllabusImportScreenProps = {
   accessToken: string;
   onBack: () => void;
+  /** Label on the back button; onboarding returns to its course step rather than Courses. */
+  backLabel?: string;
   /** Called with the new course's id after a successful apply. */
   onImported: (courseId: string) => void;
 };
@@ -143,7 +145,12 @@ function draftFromReview(review: ReviewState): MobileSyllabusDraft {
   });
 }
 
-export function SyllabusImportScreen({ accessToken, onBack, onImported }: SyllabusImportScreenProps) {
+export function SyllabusImportScreen({
+  accessToken,
+  onBack,
+  backLabel = "Courses",
+  onImported,
+}: SyllabusImportScreenProps) {
   const theme = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const [text, setText] = useState("");
@@ -264,7 +271,7 @@ export function SyllabusImportScreen({ accessToken, onBack, onImported }: Syllab
     <View style={styles.screen}>
       <View style={styles.header}>
         <Pressable
-          accessibilityLabel="Back to courses"
+          accessibilityLabel={`Back to ${backLabel.toLowerCase()}`}
           accessibilityRole="button"
           accessibilityState={{ disabled: applying }}
           disabled={applying}
@@ -273,7 +280,7 @@ export function SyllabusImportScreen({ accessToken, onBack, onImported }: Syllab
           style={[styles.backButton, applying && styles.buttonPressed]}
         >
           <Icon color={theme.colors.teal} name="back" size={20} strokeWidth={2.2} />
-          <Text style={styles.backText}>Courses</Text>
+          <Text style={styles.backText}>{backLabel}</Text>
         </Pressable>
         <Text numberOfLines={1} style={styles.headerTitle}>
           Import syllabus

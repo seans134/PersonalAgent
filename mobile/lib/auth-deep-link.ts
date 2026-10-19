@@ -7,7 +7,11 @@ export type AuthDeepLinkResult = {
   error?: string;
 };
 
-export async function handleAuthDeepLink(url: string): Promise<AuthDeepLinkResult> {
+/**
+ * `onSignIn` runs just before a non-recovery link creates a session (e.g. an
+ * email confirmation), so the app can treat it as a real sign-in.
+ */
+export async function handleAuthDeepLink(url: string, onSignIn?: () => void): Promise<AuthDeepLinkResult> {
   const parameters = parseAuthDeepLink(url);
 
   if (parameters.error) {
@@ -15,6 +19,8 @@ export async function handleAuthDeepLink(url: string): Promise<AuthDeepLinkResul
   }
 
   const recovery = parameters.recovery;
+  const willCreateSession = Boolean(parameters.code || (parameters.accessToken && parameters.refreshToken));
+  if (willCreateSession && !recovery) onSignIn?.();
 
   if (parameters.code) {
     const { error } = await supabase.auth.exchangeCodeForSession(parameters.code);
