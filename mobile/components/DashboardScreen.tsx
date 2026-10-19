@@ -17,6 +17,7 @@ import {
   isCheckoffForToday,
   localPlanDate,
   mergePlanItemStatuses,
+  checkoffMinutesFor,
   nextPlanItemStatus,
   planCheckoffCounts,
   type PlannedItem,
@@ -267,7 +268,13 @@ export function DashboardScreen({ accessToken, onOpenCourse, onOpenCourses }: Da
     try {
       await setMobilePlanItemStatus(
         accessToken,
-        { planDate: current.checkoff.planDate, itemKey: key, itemType: item.type, status },
+        {
+          planDate: current.checkoff.planDate,
+          itemKey: key,
+          itemType: item.type,
+          status,
+          minutes: checkoffMinutesFor(item, status),
+        },
         planCheckoffCounts(planRef.current?.plan.items ?? []),
       );
       saved = true;

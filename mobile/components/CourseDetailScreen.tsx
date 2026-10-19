@@ -16,10 +16,15 @@ import {
   analyticsEvents,
   describeNeeded,
   formatGradePercent,
+  formatStudyMinutes,
   parsePercentInput,
   projectFinalGrade,
+  studyRampDayLabel,
+  studyRampOverflowNote,
+  type CourseStudyPlans,
   type GradeCategory,
   type GradedItem,
+  type StudyRamp,
 } from "@personal-agent/core";
 import { captureEvent } from "../lib/analytics";
 import { BulletBar } from "./BulletBar";
@@ -284,6 +289,7 @@ export function CourseDetailScreen({ accessToken, courseId, onBack }: CourseDeta
               onDeleteItem={handleDeleteItem}
               onEditItem={(item) => setItemModal({ open: true, initial: item })}
               onGrade={handleGrade}
+              studyPlans={detail.studyPlans ?? null}
             />
           </>
         ) : null}
@@ -617,12 +623,14 @@ function ItemsSection({
   onEditItem,
   onDeleteItem,
   onGrade,
+  studyPlans,
 }: {
   groups: Array<{ key: string; name: string; items: CourseItemRow[] }>;
   onAdd: () => void;
   onEditItem: (item: CourseItemRow) => void;
   onDeleteItem: (item: CourseItemRow) => void;
   onGrade: (item: CourseItemRow, scoreEarned: number | null) => Promise<void>;
+  studyPlans: CourseStudyPlans | null;
 }) {
   const theme = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
@@ -649,6 +657,8 @@ function ItemsSection({
                     onDelete={() => onDeleteItem(item)}
                     onEdit={() => onEditItem(item)}
                     onGrade={onGrade}
+                    studyPlan={item.score_earned === null ? studyPlans?.byItemId[item.id] ?? null : null}
+                    todayLocalDate={studyPlans?.todayLocalDate ?? null}
                   />
                 ))}
               </View>
@@ -667,11 +677,15 @@ function ItemCard({
   onEdit,
   onDelete,
   onGrade,
+  studyPlan,
+  todayLocalDate,
 }: {
   item: CourseItemRow;
   onEdit: () => void;
   onDelete: () => void;
   onGrade: (item: CourseItemRow, scoreEarned: number | null) => Promise<void>;
+  studyPlan: StudyRamp | null;
+  todayLocalDate: string | null;
 }) {
   const theme = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
@@ -709,6 +723,8 @@ function ItemCard({
         <Text style={styles.itemTime}>{timeLabel}</Text>
       </Pressable>
 
+      {studyPlan && todayLocalDate ? <StudyPlanList ramp={studyPlan} todayLocalDate={todayLocalDate} /> : null}
+
       <View style={styles.itemFooter}>
         <View style={styles.gradeRow}>
           <TextInput
@@ -730,6 +746,34 @@ function ItemCard({
           <Text style={styles.itemDeleteText}>Delete</Text>
         </Pressable>
       </View>
+    </View>
+  );
+}
+
+/** The upcoming days of an exam or quiz's study ramp, from the same core function as the Today plan. */
+function StudyPlanList({ ramp, todayLocalDate }: { ramp: StudyRamp; todayLocalDate: string }) {
+  const theme = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
+  const overflow = studyRampOverflowNote(ramp);
+
+  return (
+    <View accessibilityLabel="Study plan" style={styles.studyPlan}>
+      <Text style={styles.studyPlanLabel}>
+        Study plan
+        {ramp.doneMinutes > 0
+          ? ` · ${formatStudyMinutes(ramp.doneMinutes)} done, ${formatStudyMinutes(ramp.remainingMinutes)} to go`
+          : ""}
+      </Text>
+      <View style={styles.studyPlanDays}>
+        {ramp.days.map((day) => (
+          <View key={day.localDate} style={[styles.studyPlanDay, day.isToday ? styles.studyPlanDayToday : null]}>
+            <Text style={day.isToday ? styles.studyPlanDayTextToday : styles.studyPlanDayText}>
+              {studyRampDayLabel(day.localDate, todayLocalDate)} · {formatStudyMinutes(day.minutes)}
+            </Text>
+          </View>
+        ))}
+      </View>
+      {overflow ? <Text style={styles.studyPlanOverflow}>{overflow}</Text> : null}
     </View>
   );
 }
@@ -1081,6 +1125,41 @@ function makeStyles(theme: Theme) {
     },
     itemTime: {
       ...theme.text("monoTime", "inkMuted"),
+    },
+    studyPlan: {
+      borderTopColor: colors.line,
+      borderTopWidth: 1,
+      gap: 6,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+    },
+    studyPlanLabel: {
+      ...theme.text("label", "inkMuted"),
+    },
+    studyPlanDays: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 6,
+    },
+    studyPlanDay: {
+      backgroundColor: colors.surface,
+      borderColor: colors.line,
+      borderRadius: 6,
+      borderWidth: 1,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+    },
+    studyPlanDayToday: {
+      borderColor: colors.teal,
+    },
+    studyPlanDayText: {
+      ...theme.text("monoTime", "inkMuted"),
+    },
+    studyPlanDayTextToday: {
+      ...theme.text("monoTime", "ink"),
+    },
+    studyPlanOverflow: {
+      ...theme.text("label", "danger"),
     },
     itemFooter: {
       alignItems: "center",

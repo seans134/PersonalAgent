@@ -139,6 +139,20 @@ describe("PUT /api/mobile/plan/status", () => {
     expect(upsert?.args[1]).toEqual({ onConflict: "user_id,plan_date,item_key" });
   });
 
+  it("records the minutes of a done study block and none for a skip", async () => {
+    const { client, calls } = supabaseMock({ ...profile, plan_item_statuses: { data: null, error: null } });
+    getAuthMock.mockResolvedValue({ supabase: client, user: { id: "user-1" } });
+    const { PUT } = await import("./route");
+    expect((await PUT(request("PUT", statusUrl, { ...valid, minutes: 45 }))).status).toBe(200);
+    expect((await PUT(request("PUT", statusUrl, { ...valid, status: "skipped", minutes: 45 }))).status).toBe(200);
+    const upserts = calls.filter((call) => call.method === "upsert").map((call) => call.args[0]);
+    expect(upserts[0]).toMatchObject({ status: "done", minutes: 45 });
+    expect(upserts[1]).toMatchObject({ status: "skipped", minutes: null });
+    expect((await PUT(request("PUT", statusUrl, { ...valid, minutes: -5 }))).status).toBe(400);
+    const goalWithMinutes = { ...valid, itemKey: "goal:read", itemType: "goal", minutes: 30 };
+    expect((await PUT(request("PUT", statusUrl, goalWithMinutes))).status).toBe(400);
+  });
+
   it("accepts tomorrow but rejects dates outside today ±1 day", async () => {
     const { client } = supabaseMock({ ...profile, plan_item_statuses: { data: null, error: null } });
     getAuthMock.mockResolvedValue({ supabase: client, user: { id: "user-1" } });

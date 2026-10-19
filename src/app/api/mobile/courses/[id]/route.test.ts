@@ -1,13 +1,15 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getAuthMock, getCourseDetailMock } = vi.hoisted(() => ({
+const { getAuthMock, getCourseDetailMock, studyPlansMock } = vi.hoisted(() => ({
   getAuthMock: vi.fn(),
   getCourseDetailMock: vi.fn(),
+  studyPlansMock: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/request", () => ({ getAuthenticatedRequestClient: getAuthMock }));
 vi.mock("@/lib/courses/queries", () => ({ getCourseDetail: getCourseDetailMock }));
+vi.mock("@/lib/courses/study-plans", () => ({ studyPlansForCourseItems: studyPlansMock }));
 
 const course = {
   id: "c1", user_id: "u1", name: "Organic Chemistry", code: null, color: null, term: null,
@@ -35,6 +37,7 @@ describe("GET /api/mobile/courses/[id]", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getAuthMock.mockResolvedValue({ supabase: {}, user: { id: "u1" } });
+    studyPlansMock.mockResolvedValue({ todayLocalDate: "2026-09-25", byItemId: {} });
   });
 
   it("returns 401 when unauthenticated", async () => {
@@ -52,11 +55,24 @@ describe("GET /api/mobile/courses/[id]", () => {
     const response = await callGet("c1");
     expect(response.status).toBe(200);
     const body = await response.json();
-    expect(Object.keys(body).sort()).toEqual(["categories", "course", "grade", "items", "needed"]);
+    expect(Object.keys(body).sort()).toEqual(["categories", "course", "grade", "items", "needed", "studyPlans"]);
     expect(body.grade.average).toBeCloseTo(80, 9);
     expect(body.needed.status).toBe("needed");
     expect(body.needed.neededPercent).toBeCloseTo(90, 9);
     expect(body.needed.remainingWeight).toBeCloseTo(50, 9);
+  });
+
+  it("includes the study plan for upcoming exams and quizzes", async () => {
+    const items = [item("hw1", "hw", 80), { ...item("final", "exam", null), kind: "exam" }];
+    getCourseDetailMock.mockResolvedValue({ course, categories: [category("hw", 50), category("exam", 50)], items });
+    const ramp = {
+      itemId: "final", kind: "exam", leadDays: 7, effortMinutes: 360, doneMinutes: 0, remainingMinutes: 360,
+      days: [{ localDate: "2026-09-30", dayNumber: 7, minutes: 75, isToday: false }],
+    };
+    studyPlansMock.mockResolvedValue({ todayLocalDate: "2026-09-25", byItemId: { final: ramp } });
+    const body = await (await callGet("c1")).json();
+    expect(studyPlansMock).toHaveBeenCalledWith({}, "u1", items);
+    expect(body.studyPlans).toEqual({ todayLocalDate: "2026-09-25", byItemId: { final: ramp } });
   });
 
   it("returns 404 for a missing course", async () => {

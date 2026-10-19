@@ -40,55 +40,296 @@ function kindNoun(kind: StudyItem["kind"]): string {
   return kind === "exam" ? "Exam" : kind === "quiz" ? "Quiz" : "Due";
 }
 
-export function deriveStudyTasks(items: StudyItem[], todayLocalDate: string, horizonDays = 7): StudyTask[] {
-  const active = items.filter((item) => item.scoreEarned === null && diffInDays(item.dueLocalDate, todayLocalDate) >= 0);
-  const hasActiveFinishFirst = active.some((item) => item.focusMode === "finish_first");
+/** How many days before the due date study starts, by kind. The last ramp day is the day before it's due. */
+export const STUDY_RAMP_LEAD_DAYS: Record<StudyItem["kind"], number> = {
+  exam: 7,
+  quiz: 3,
+  assignment: 7,
+};
 
-  const eligible = active.filter((item) => {
+/** How many days ahead Today plans study (deriveStudyTasks' default horizon). */
+export const STUDY_HORIZON_DAYS = 7;
+
+export const STUDY_BLOCK_MIN_MINUTES = 15;
+export const STUDY_BLOCK_MAX_MINUTES = 120;
+
+export type StudyRampDay = {
+  localDate: string;
+  /**
+   * 1-based position in the ramp; the day before the due date is day leadDays.
+   * 0 marks a block outside the ramp: the last block on the due date itself, or a
+   * finish_first item's front-loaded block today before its ramp starts.
+   */
+  dayNumber: number;
+  minutes: number;
+  isToday: boolean;
+};
+
+export type StudyRamp = {
+  itemId: string;
+  kind: StudyItem["kind"];
+  /** Length of the full ramp in days ("day 5 of 7"). */
+  leadDays: number;
+  effortMinutes: number;
+  /** Study already checked off on earlier days. */
+  doneMinutes: number;
+  remainingMinutes: number;
+  /** Remaining minutes that don't fit before the due date at the daily cap (120 min per day). */
+  unscheduledMinutes: number;
+  /** Today onward, only days with study; empty once the item is due, past, or fully studied. */
+  days: StudyRampDay[];
+};
+
+/**
+ * Relative weight of a ramp day. Exams and quizzes ramp linearly from 1x on the first day
+ * to 3x on the day before; assignments stay even.
+ */
+function rampWeight(kind: StudyItem["kind"], dayNumber: number, leadDays: number): number {
+  if (kind === "assignment" || leadDays <= 1) return 1;
+  return 1 + (2 * (dayNumber - 1)) / (leadDays - 1);
+}
+
+/** Splits total by weight, capping each share at the max block and handing the excess to the uncapped days. */
+function allocateByWeight(total: number, weights: number[]): number[] {
+  const shares = weights.map(() => 0);
+  let open = weights.map((_, index) => index);
+  let left = total;
+  while (open.length > 0 && left > 0) {
+    const weightSum = open.reduce((sum, index) => sum + weights[index], 0);
+    const capped = open.filter((index) => (left * weights[index]) / weightSum > STUDY_BLOCK_MAX_MINUTES);
+    if (capped.length === 0) {
+      for (const index of open) shares[index] = (left * weights[index]) / weightSum;
+      break;
+    }
+    for (const index of capped) {
+      shares[index] = STUDY_BLOCK_MAX_MINUTES;
+      left -= STUDY_BLOCK_MAX_MINUTES;
+    }
+    open = open.filter((index) => !capped.includes(index));
+  }
+  return shares;
+}
+
+/** Leftover after allocation, rounded to 5 minutes (rounding noise is not "unscheduled"). */
+function unscheduledFrom(total: number, shares: number[]): number {
+  const left = total - shares.reduce((sum, share) => sum + share, 0);
+  return Math.max(0, Math.round(left / 5) * 5);
+}
+
+function roundBlock(minutes: number): number {
+  return clamp(Math.round(minutes / 5) * 5, STUDY_BLOCK_MIN_MINUTES, STUDY_BLOCK_MAX_MINUTES);
+}
+
+function shiftLocalDate(localDate: string, days: number): string {
+  return new Date(Date.parse(`${localDate}T00:00:00Z`) + days * DAY_MS).toISOString().slice(0, 10);
+}
+
+/**
+ * The study ramp for one item: its remaining effort (estimate minus study already done)
+ * spread over the days from today to the day before it's due, heavier toward the due date.
+ * Each day is 15-120 minutes in 5-minute steps; when the remaining effort is too small to
+ * give every day 15 minutes, the earliest days drop out so the total stays close to it.
+ * Effort beyond 120 minutes a day is reported as unscheduledMinutes, not planned.
+ * Due today: the ramp is over, and what's left becomes one block today with dayNumber 0.
+ */
+export function studyRamp(
+  item: Pick<StudyItem, "id" | "kind" | "dueLocalDate" | "estimatedEffortHours">,
+  todayLocalDate: string,
+  doneMinutes = 0,
+): StudyRamp {
+  const leadDays = STUDY_RAMP_LEAD_DAYS[item.kind];
+  const effortMinutes = Math.round(effortHoursFor(item) * 60);
+  const done = Math.max(0, Math.round(doneMinutes));
+  const remainingMinutes = Math.max(0, effortMinutes - done);
+  const ramp = { itemId: item.id, kind: item.kind, leadDays, effortMinutes, doneMinutes: done, remainingMinutes };
+  const daysUntilDue = diffInDays(item.dueLocalDate, todayLocalDate);
+
+  if (daysUntilDue < 0 || remainingMinutes <= 0) return { ...ramp, unscheduledMinutes: 0, days: [] };
+  if (daysUntilDue === 0) {
+    // Due today: outside the ramp (dayNumber 0); whatever is left goes into one last block.
+    const minutes = roundBlock(remainingMinutes);
+    return {
+      ...ramp,
+      unscheduledMinutes: unscheduledFrom(remainingMinutes, [Math.min(remainingMinutes, STUDY_BLOCK_MAX_MINUTES)]),
+      days: [{ localDate: todayLocalDate, dayNumber: 0, minutes, isToday: true }],
+    };
+  }
+
+  let dayNumbers: number[] = [];
+  for (let day = Math.max(1, leadDays - daysUntilDue + 1); day <= leadDays; day += 1) dayNumbers.push(day);
+  let shares = allocateByWeight(remainingMinutes, dayNumbers.map((day) => rampWeight(item.kind, day, leadDays)));
+  while (dayNumbers.length > 1 && shares[0] < STUDY_BLOCK_MIN_MINUTES) {
+    dayNumbers = dayNumbers.slice(1);
+    shares = allocateByWeight(remainingMinutes, dayNumbers.map((day) => rampWeight(item.kind, day, leadDays)));
+  }
+
+  const days = dayNumbers.map((dayNumber, index) => {
+    const localDate = shiftLocalDate(item.dueLocalDate, dayNumber - leadDays - 1);
+    return { localDate, dayNumber, minutes: roundBlock(shares[index]), isToday: localDate === todayLocalDate };
+  });
+  return { ...ramp, unscheduledMinutes: unscheduledFrom(remainingMinutes, shares), days };
+}
+
+/** Today's block from the item's ramp, in minutes (0 when today is not a study day for it). */
+export function todayRampMinutes(ramp: StudyRamp): number {
+  return ramp.days.find((day) => day.isToday)?.minutes ?? 0;
+}
+
+function priorityFor(item: StudyItem, todayLocalDate: string): 1 | 2 | 3 {
+  if (item.focusMode === "finish_first") return 1;
+  const daysUntilDue = Math.max(1, diffInDays(item.dueLocalDate, todayLocalDate));
+  return daysUntilDue <= 1 ? 1 : daysUntilDue <= 3 ? 2 : 3;
+}
+
+/**
+ * Today's block for an item with study left, or 0 for none: today's ramp day, or for finish_first
+ * a front-loaded block (at least 45 minutes, about twice its share, capped at what's left).
+ */
+function todayBlockMinutes(item: StudyItem, ramp: StudyRamp, todayLocalDate: string): number {
+  const rampMinutes = todayRampMinutes(ramp);
+  if (item.focusMode !== "finish_first") return rampMinutes;
+  const daysUntilDue = Math.max(1, diffInDays(item.dueLocalDate, todayLocalDate));
+  const share = rampMinutes > 0 ? rampMinutes : Math.round(ramp.remainingMinutes / daysUntilDue);
+  const upToRemaining = Math.ceil(ramp.remainingMinutes / 5) * 5;
+  const frontLoaded = Math.round(Math.max(45, share * 2) / 5) * 5;
+  return clamp(Math.min(frontLoaded, upToRemaining), STUDY_BLOCK_MIN_MINUTES, STUDY_BLOCK_MAX_MINUTES);
+}
+
+/** Whether any unscored item not yet past due is finish_first (deferred items wait while one is). */
+function hasActiveFinishFirst(items: StudyItem[], todayLocalDate: string): boolean {
+  return items.some(
+    (item) => item.focusMode === "finish_first" && item.scoreEarned === null && diffInDays(item.dueLocalDate, todayLocalDate) >= 0,
+  );
+}
+
+function studyReason(item: StudyItem, ramp: StudyRamp, todayLocalDate: string): string {
+  const daysUntilDue = diffInDays(item.dueLocalDate, todayLocalDate);
+  const daysWord = daysUntilDue <= 0 ? "today" : daysUntilDue === 1 ? "tomorrow" : `in ${daysUntilDue} days`;
+  const today = ramp.days.find((day) => day.isToday);
+  const detail =
+    item.kind !== "assignment" && today && daysUntilDue > 0
+      ? `day ${today.dayNumber} of ${ramp.leadDays} of your study ramp.`
+      : "reserving study time.";
+  return `${item.courseName} · ${kindNoun(item.kind)} ${daysWord} · ${detail}`;
+}
+
+/**
+ * Today's study blocks. Each item's block is today's day of its study ramp; finish_first items
+ * are front-loaded (at least 45 minutes, about twice their share) and run even before their ramp
+ * starts. doneMinutesByItemId is study already checked off on earlier days, keyed by item id.
+ */
+export function deriveStudyTasks(
+  items: StudyItem[],
+  todayLocalDate: string,
+  horizonDays = STUDY_HORIZON_DAYS,
+  doneMinutesByItemId: Record<string, number> = {},
+): StudyTask[] {
+  const active = items.filter((item) => item.scoreEarned === null && diffInDays(item.dueLocalDate, todayLocalDate) >= 0);
+  const finishFirstActive = hasActiveFinishFirst(active, todayLocalDate);
+
+  const planned = active.flatMap((item) => {
     // An explicit estimate of 0 (or less) means "no study needed"; null falls back to the kind default.
-    if (item.estimatedEffortHours !== null && !(item.estimatedEffortHours > 0)) return false;
-    if (item.focusMode === "deferred" && hasActiveFinishFirst) return false;
+    if (item.estimatedEffortHours !== null && !(item.estimatedEffortHours > 0)) return [];
+    if (item.focusMode === "deferred" && finishFirstActive) return [];
     const daysUntilDue = Math.max(1, diffInDays(item.dueLocalDate, todayLocalDate));
-    return daysUntilDue <= horizonDays;
+    if (daysUntilDue > horizonDays) return [];
+
+    const ramp = studyRamp(item, todayLocalDate, doneMinutesByItemId[item.id] ?? 0);
+    if (ramp.remainingMinutes <= 0) return [];
+    const durationMinutes = todayBlockMinutes(item, ramp, todayLocalDate);
+    return durationMinutes > 0 ? [{ item, ramp, durationMinutes }] : [];
   });
 
-  const sortedEligible = [...eligible].sort((a, b) => {
-    const aFF = a.focusMode === "finish_first" ? 0 : 1;
-    const bFF = b.focusMode === "finish_first" ? 0 : 1;
+  planned.sort((a, b) => {
+    const aFF = a.item.focusMode === "finish_first" ? 0 : 1;
+    const bFF = b.item.focusMode === "finish_first" ? 0 : 1;
     if (aFF !== bFF) return aFF - bFF;
-
-    const daysAUntilDue = Math.max(1, diffInDays(a.dueLocalDate, todayLocalDate));
-    const daysBUntilDue = Math.max(1, diffInDays(b.dueLocalDate, todayLocalDate));
-
-    // NOTE: keep this priority formula in sync with the other occurrence in this file.
-    const aPriority: 1 | 2 | 3 = a.focusMode === "finish_first" ? 1 : daysAUntilDue <= 1 ? 1 : daysAUntilDue <= 3 ? 2 : 3;
-    const bPriority: 1 | 2 | 3 = b.focusMode === "finish_first" ? 1 : daysBUntilDue <= 1 ? 1 : daysBUntilDue <= 3 ? 2 : 3;
-
+    const aPriority = priorityFor(a.item, todayLocalDate);
+    const bPriority = priorityFor(b.item, todayLocalDate);
     if (aPriority !== bPriority) return aPriority - bPriority;
-
-    if (a.dueLocalDate !== b.dueLocalDate) return a.dueLocalDate < b.dueLocalDate ? -1 : 1;
+    if (a.item.dueLocalDate !== b.item.dueLocalDate) return a.item.dueLocalDate < b.item.dueLocalDate ? -1 : 1;
     return 0;
   });
 
-  const tasks: StudyTask[] = sortedEligible.map((item) => {
-    const daysUntilDue = Math.max(1, diffInDays(item.dueLocalDate, todayLocalDate));
-    const evenShare = Math.round((effortHoursFor(item) * 60) / daysUntilDue);
-    const isFinishFirst = item.focusMode === "finish_first";
-    const durationMinutes = isFinishFirst
-      ? clamp(Math.max(45, evenShare * 2), 15, 120)
-      : clamp(evenShare, 15, 120);
-    // NOTE: keep this priority formula in sync with the other occurrence in this file.
-    const priority: 1 | 2 | 3 = isFinishFirst ? 1 : daysUntilDue <= 1 ? 1 : daysUntilDue <= 3 ? 2 : 3;
-    const daysWord = daysUntilDue === 1 ? "tomorrow" : `in ${daysUntilDue} days`;
-    return {
-      id: item.id,
-      title: `Study: ${item.title}`,
-      reason: `${item.courseName} · ${kindNoun(item.kind)} ${daysWord} · reserving study time.`,
-      durationMinutes,
-      priority,
-      focusMode: item.focusMode,
-    };
-  });
+  return planned.map(({ item, ramp, durationMinutes }) => ({
+    id: item.id,
+    title: `Study: ${item.title}`,
+    reason: studyReason(item, ramp, todayLocalDate),
+    durationMinutes,
+    priority: priorityFor(item, todayLocalDate),
+    focusMode: item.focusMode,
+  }));
+}
 
-  return tasks;
+/**
+ * Study ramps to show on unscored, upcoming exams and quizzes (course item detail on web and mobile),
+ * keyed by item id, matching what Today plans: deferred items are left out while any finish_first
+ * item is active, and a finish_first item's today block (within Today's horizon) has its front-loaded
+ * length, added as a dayNumber 0 block when its ramp hasn't started. Items with an explicit estimate
+ * of 0, or nothing left to study, are left out. Pass all the student's items (any kind, any course),
+ * since a finish_first item anywhere holds deferred ones back.
+ */
+export function upcomingStudyRamps(
+  items: StudyItem[],
+  todayLocalDate: string,
+  doneMinutesByItemId: Record<string, number> = {},
+): Record<string, StudyRamp> {
+  const finishFirstActive = hasActiveFinishFirst(items, todayLocalDate);
+  const ramps: Record<string, StudyRamp> = {};
+  for (const item of items) {
+    if (item.kind === "assignment" || item.scoreEarned !== null) continue;
+    if (item.estimatedEffortHours !== null && !(item.estimatedEffortHours > 0)) continue;
+    if (item.focusMode === "deferred" && finishFirstActive) continue;
+    const ramp = studyRamp(item, todayLocalDate, doneMinutesByItemId[item.id] ?? 0);
+    if (ramp.days.length === 0) continue;
+    const daysUntilDue = diffInDays(item.dueLocalDate, todayLocalDate);
+    if (item.focusMode === "finish_first" && daysUntilDue <= STUDY_HORIZON_DAYS) {
+      const minutes = todayBlockMinutes(item, ramp, todayLocalDate);
+      const rest = ramp.days.filter((day) => !day.isToday);
+      const today = ramp.days.find((day) => day.isToday);
+      ramps[item.id] = {
+        ...ramp,
+        days: [{ localDate: todayLocalDate, dayNumber: today?.dayNumber ?? 0, minutes, isToday: true }, ...rest],
+      };
+      continue;
+    }
+    ramps[item.id] = ramp;
+  }
+  return ramps;
+}
+
+/** Plain note for effort that won't fit before the due date, or null when it all fits. */
+export function studyRampOverflowNote(ramp: Pick<StudyRamp, "kind" | "unscheduledMinutes">): string | null {
+  if (ramp.unscheduledMinutes <= 0) return null;
+  const target = ramp.kind === "exam" ? "the exam" : ramp.kind === "quiz" ? "the quiz" : "the due date";
+  const cap = formatStudyMinutes(STUDY_BLOCK_MAX_MINUTES);
+  return `${formatStudyMinutes(ramp.unscheduledMinutes)} won't fit before ${target} at ${cap} a day. Start studying earlier.`;
+}
+
+/** Course detail payload (web page and GET /api/mobile/courses/[id] studyPlans): ramps by item id. */
+export type CourseStudyPlans = {
+  /** The student's local today, for labelling ramp days. */
+  todayLocalDate: string;
+  byItemId: Record<string, StudyRamp>;
+};
+
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** "Today", "Tomorrow", or "Wed Oct 21" for a ramp day. */
+export function studyRampDayLabel(localDate: string, todayLocalDate: string): string {
+  const offset = diffInDays(localDate, todayLocalDate);
+  if (offset === 0) return "Today";
+  if (offset === 1) return "Tomorrow";
+  const date = new Date(`${localDate}T00:00:00Z`);
+  return `${WEEKDAYS[date.getUTCDay()]} ${MONTHS[date.getUTCMonth()]} ${date.getUTCDate()}`;
+}
+
+/** "45 min", "2 h", or "1 h 30 min". */
+export function formatStudyMinutes(minutes: number): string {
+  const rounded = Math.max(0, Math.round(minutes));
+  if (rounded < 60) return `${rounded} min`;
+  const hours = Math.floor(rounded / 60);
+  const rest = rounded % 60;
+  return rest === 0 ? `${hours} h` : `${hours} h ${rest} min`;
 }

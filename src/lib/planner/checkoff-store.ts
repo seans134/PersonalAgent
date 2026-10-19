@@ -1,5 +1,5 @@
-import { dateInTimezone } from "@personal-agent/core/calendar";
-import { isPlanDateInWindow } from "@personal-agent/core/planner";
+import { dateInTimezone, shiftDate } from "@personal-agent/core/calendar";
+import { isPlanDateInWindow, studyDoneMinutesByItem } from "@personal-agent/core/planner";
 import type {
   PlanAcceptRequest,
   PlanAcceptResponse,
@@ -14,12 +14,16 @@ type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 
 type StatusRow = { item_key: string; status: PlanItemStatus };
 
-/** The student's local date today, from their profile timezone (same default the planner uses). */
-export async function todayPlanDateForUser(supabase: SupabaseClient, userId: string): Promise<string> {
+/** The student's profile timezone (same default the planner uses). */
+export async function profileTimezoneForUser(supabase: SupabaseClient, userId: string): Promise<string> {
   const { data, error } = await supabase.from("user_profiles").select("timezone").eq("user_id", userId).maybeSingle();
   if (error) throw new Error(`Unable to load profile: ${error.message}`);
-  const timezone = (data as { timezone?: string | null } | null)?.timezone ?? "America/Toronto";
-  return dateInTimezone(new Date(), timezone);
+  return (data as { timezone?: string | null } | null)?.timezone ?? "America/Toronto";
+}
+
+/** The student's local date today, from their profile timezone. */
+export async function todayPlanDateForUser(supabase: SupabaseClient, userId: string): Promise<string> {
+  return dateInTimezone(new Date(), await profileTimezoneForUser(supabase, userId));
 }
 
 /** Rejects plan dates outside the student's local today ±1 day. Returns an error message, or null when allowed. */
@@ -63,6 +67,8 @@ export async function writePlanItemStatus(
         item_key: input.itemKey,
         item_type: input.itemType,
         status: input.status,
+        // Only done study blocks record minutes (the parser also rejects minutes on other types).
+        minutes: input.status === "done" && input.itemType === "study" ? (input.minutes ?? null) : null,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "user_id,plan_date,item_key" },
@@ -70,6 +76,34 @@ export async function writePlanItemStatus(
     if (error) throw new Error(`Unable to save plan check-off: ${error.message}`);
   }
   return { planDate: input.planDate, itemKey: input.itemKey, status: input.status };
+}
+
+/** How far back done study blocks count toward an item's ramp (the longest ramp is 7 days). */
+const STUDY_DONE_LOOKBACK_DAYS = 14;
+
+/**
+ * Study minutes checked off as done before today, per course item id.
+ * Only rows that recorded minutes count (rows saved before minutes were sent have none).
+ */
+export async function readStudyDoneMinutes(
+  supabase: SupabaseClient,
+  userId: string,
+  todayPlanDate: string,
+): Promise<Record<string, number>> {
+  const since = shiftDate(todayPlanDate, -STUDY_DONE_LOOKBACK_DAYS);
+  const { data, error } = await supabase
+    .from("plan_item_statuses")
+    .select("item_key, plan_date, status, minutes")
+    .eq("user_id", userId)
+    .eq("item_type", "study")
+    .eq("status", "done")
+    .gte("plan_date", since)
+    .lt("plan_date", todayPlanDate);
+  if (error) throw new Error(`Unable to load study check-offs: ${error.message}`);
+  return studyDoneMinutesByItem(
+    (data ?? []) as Array<{ item_key: string; plan_date: string; status: PlanItemStatus; minutes: number | null }>,
+    todayPlanDate,
+  );
 }
 
 /** Records the commitment once per plan date; accepting again keeps the first time and returns created: false. */

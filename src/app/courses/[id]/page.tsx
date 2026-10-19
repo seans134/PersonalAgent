@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { courseGradeFromRows, courseNeededFromRows, gradeInputsFromRows } from "@/lib/courses/grade";
 import { getCourseDetail } from "@/lib/courses/queries";
+import { studyPlansForCourseItems } from "@/lib/courses/study-plans";
 import type { CourseItemRow } from "@/lib/courses/types";
 import { createClient } from "@/lib/supabase/server";
 import { CategoryEditor } from "./category-editor";
@@ -36,6 +37,7 @@ export default async function CourseDetailPage({
   const grade = courseGradeFromRows(categories, items);
   const needed = courseNeededFromRows(categories, items, course.target_grade);
   const gradeInputs = gradeInputsFromRows(categories, items);
+  const studyPlans = await studyPlansForCourseItems(supabase, user.id, items);
   const meta = [course.code, course.term].filter(Boolean).join(" · ");
 
   const itemsByCategory = new Map<string, CourseItemRow[]>();
@@ -93,7 +95,13 @@ export default async function CourseDetailPage({
                     <h3 className="text-sm font-medium text-ink-muted">{group.name}</h3>
                     <div className="flex flex-col gap-2 overflow-x-auto">
                       {group.items.map((item) => (
-                        <ItemRow categories={categories} item={item} key={item.id} />
+                        <ItemRow
+                          categories={categories}
+                          item={item}
+                          key={item.id}
+                          studyPlan={studyPlans?.byItemId[item.id] ?? null}
+                          todayLocalDate={studyPlans?.todayLocalDate ?? null}
+                        />
                       ))}
                     </div>
                   </div>

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedRequestClient } from "@/lib/supabase/request";
 import { getCourseDetail } from "@/lib/courses/queries";
 import { courseGradeFromRows, courseNeededFromRows } from "@/lib/courses/grade";
+import { studyPlansForCourseItems } from "@/lib/courses/study-plans";
 
 function optionalText(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -21,7 +22,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     if (!detail) return NextResponse.json({ error: "Course not found." }, { status: 404 });
     const grade = courseGradeFromRows(detail.categories, detail.items);
     const needed = courseNeededFromRows(detail.categories, detail.items, detail.course.target_grade);
-    return NextResponse.json({ ...detail, grade, needed });
+    // studyPlans: CourseStudyPlans (packages/core/src/grades/study.ts), the ramp for each upcoming exam/quiz.
+    const studyPlans = await studyPlansForCourseItems(result.auth.supabase, result.auth.user.id, detail.items);
+    return NextResponse.json({ ...detail, grade, needed, studyPlans });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to load course.";
     return NextResponse.json({ error: message }, { status: 500 });
