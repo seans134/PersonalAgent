@@ -47,6 +47,12 @@ export default async function CoursesPage({
         >
           Semester view: every exam and deadline by week
         </Link>
+        <Link
+          className="ml-2 mt-4 inline-flex rounded-lg border border-teal px-3 py-2 text-sm font-medium text-teal transition hover:bg-surface2"
+          href="/courses/gpa"
+        >
+          GPA by term
+        </Link>
       </div>
 
       {params.error ? (

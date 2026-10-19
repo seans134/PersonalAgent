@@ -25,6 +25,7 @@ type CoursesScreenProps = {
   onImportSyllabus: () => void;
   onOpenCourse: (id: string) => void;
   onOpenSemester: () => void;
+  onOpenGpa: () => void;
 };
 
 export type CourseFormState = {
@@ -61,7 +62,7 @@ export function courseInputFromForm(form: CourseFormState): MobileCourseInput {
   };
 }
 
-export function CoursesScreen({ accessToken, onImportSyllabus, onOpenCourse, onOpenSemester }: CoursesScreenProps) {
+export function CoursesScreen({ accessToken, onImportSyllabus, onOpenCourse, onOpenSemester, onOpenGpa }: CoursesScreenProps) {
   const theme = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const [courses, setCourses] = useState<MobileCourseSummary[]>([]);
@@ -160,9 +161,14 @@ export function CoursesScreen({ accessToken, onImportSyllabus, onOpenCourse, onO
         <Text style={styles.eyebrow}>Courses</Text>
         <Text style={styles.title}>Track grades and deadlines.</Text>
         <Text style={styles.body}>See how you&apos;re tracking toward your target grade in every course.</Text>
-        <Pressable accessibilityRole="button" hitSlop={8} onPress={onOpenSemester} style={[styles.smallButton, styles.semesterButton]}>
-          <Text style={styles.smallButtonText}>Semester view</Text>
-        </Pressable>
+        <View style={[styles.headerActions, styles.semesterButton]}>
+          <Pressable accessibilityRole="button" hitSlop={8} onPress={onOpenSemester} style={styles.smallButton}>
+            <Text style={styles.smallButtonText}>Semester view</Text>
+          </Pressable>
+          <Pressable accessibilityRole="button" hitSlop={8} onPress={onOpenGpa} style={styles.smallButton}>
+            <Text style={styles.smallButtonText}>GPA</Text>
+          </Pressable>
+        </View>
       </View>
 
       {message ? (

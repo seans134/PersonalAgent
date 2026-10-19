@@ -28,6 +28,7 @@ import {
 } from "@personal-agent/core";
 import { captureEvent } from "../lib/analytics";
 import { BulletBar } from "./BulletBar";
+import { CourseDetailsSection } from "./CourseDetailsSection";
 import { CourseItemModal } from "./CourseItemModal";
 import { Icon } from "./Icon";
 import { ShareCourseSection } from "./ShareCourseSection";
@@ -281,6 +282,7 @@ export function CourseDetailScreen({ accessToken, courseId, onBack, backLabel = 
               items={detail.items}
               needed={detail.needed}
             />
+            <CourseDetailsSection accessToken={accessToken} course={detail.course} onSaved={loadDetail} />
             <ShareCourseSection
               accessToken={accessToken}
               archived={Boolean(detail.course.archived_at)}

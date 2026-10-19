@@ -7,6 +7,7 @@ import { studyPlansForCourseItems } from "@/lib/courses/study-plans";
 import type { CourseItemRow } from "@/lib/courses/types";
 import { createClient } from "@/lib/supabase/server";
 import { CategoryEditor } from "./category-editor";
+import { CourseDetailsForm } from "./course-details-form";
 import { GradeSummary } from "./grade-summary";
 import { AddItemPanel } from "./item-form";
 import { ItemRow } from "./item-row";
@@ -85,6 +86,7 @@ export default async function CourseDetailPage({
         <aside className="lg:sticky lg:top-4 lg:self-start">
           <GradeSummary course={course} grade={grade} gradeInputs={gradeInputs} needed={needed} />
           <SharePanel archived={Boolean(course.archived_at)} courseId={course.id} initialShare={share} />
+          <CourseDetailsForm course={course} />
         </aside>
 
         <section className="flex flex-col gap-6">

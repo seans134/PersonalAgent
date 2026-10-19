@@ -18,6 +18,7 @@ export type MobileScreen =
   | "courses"
   | "courseDetail"
   | "semester"
+  | "gpa"
   | "syllabusImport"
   | "insights"
   | "onboarding"
@@ -43,6 +44,7 @@ export const screenToTab: Record<MobileScreen, MobileTab> = {
   courses: "courses",
   courseDetail: "courses",
   semester: "courses",
+  gpa: "courses",
   syllabusImport: "courses",
   insights: "profile",
   onboarding: "profile",

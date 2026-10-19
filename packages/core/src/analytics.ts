@@ -15,6 +15,8 @@ export const analyticsEvents = {
   scheduleAdded: "schedule_added",
   // Properties: week_count, crunch_week_count.
   semesterViewed: "semester_viewed",
+  // Properties: term_count, course_count (courses counted in GPA).
+  gpaViewed: "gpa_viewed",
   // A share link was created for a course (no properties).
   courseShared: "course_shared",
   // A classmate added a shared course. Properties: item_count.

@@ -7,6 +7,8 @@ import {
   redactShareTokens,
   type CourseSharePreview,
   type CourseStudyPlans,
+  type GpaSummary,
+  type LetterGrade,
   type NeededScore,
   type PlanAcceptResponse,
   type PlanItemStatus,
@@ -965,6 +967,9 @@ export type MobileCourseDetail = {
     term: string | null;
     target_grade: number | null;
     archived_at: string | null;
+    // GPA fields; optional so a server without them still parses.
+    credits?: number | null;
+    final_grade_override?: LetterGrade | null;
   };
   categories: Array<{ id: string; name: string; weight: number; position: number }>;
   items: Array<{
@@ -1006,6 +1011,9 @@ export type MobileCourseUpdateInput = {
   color?: string | null;
   term?: string | null;
   targetGrade?: number | null;
+  // Credits 0-20 and the transcript's final letter; null clears.
+  credits?: number | null;
+  finalGrade?: LetterGrade | null;
   archived?: boolean;
 };
 
@@ -1125,6 +1133,19 @@ export async function joinMobileSharedCourse(accessToken: string, token: string)
 export async function fetchMobileSemester(accessToken: string, term?: string | null): Promise<SemesterTimeline> {
   const path = term ? `/api/mobile/semester?term=${encodeURIComponent(term)}` : "/api/mobile/semester";
   return fetchJson<SemesterTimeline>(path, accessToken, { method: "GET" }, "Unable to load semester.");
+}
+
+/** GET /api/mobile/gpa: per-term and cumulative GPA; `target` adds the term GPA needed to reach it. */
+export async function fetchMobileGpa(
+  accessToken: string,
+  options: { target?: number | null; term?: string | null } = {},
+): Promise<GpaSummary> {
+  // Built by hand: React Native's URLSearchParams lacks set().
+  const query: string[] = [];
+  if (options.target !== null && options.target !== undefined) query.push(`target=${encodeURIComponent(String(options.target))}`);
+  if (options.term) query.push(`term=${encodeURIComponent(options.term)}`);
+  const path = query.length > 0 ? `/api/mobile/gpa?${query.join("&")}` : "/api/mobile/gpa";
+  return fetchJson<GpaSummary>(path, accessToken, { method: "GET" }, "Unable to load GPA.");
 }
 
 export async function updateMobileCourse(accessToken: string, id: string, input: MobileCourseUpdateInput) {
