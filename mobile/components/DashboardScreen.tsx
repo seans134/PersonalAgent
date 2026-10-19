@@ -14,6 +14,7 @@ import {
   examsWithinDays,
   features,
   formatDaysAway,
+  isCheckoffForToday,
   localPlanDate,
   mergePlanItemStatuses,
   nextPlanItemStatus,
@@ -69,10 +70,10 @@ const UPCOMING_EXAM_DAYS = 14;
 
 const STALE_PLAN_NOTICE = "This plan is from a previous day. Pull down to generate a fresh plan first.";
 
-/** The plan's date: the server's planDate, or (for plans cached before check-off) the day it was generated. */
+/** Judged in the profile timezone the server dated the plan in; plans cached before check-off use the generated day. */
 function isPlanForToday(plan: MobileTodayPlanResponse): boolean {
-  const planDate = plan.checkoff?.planDate ?? localPlanDate(new Date(plan.meta.generatedAt));
-  return planDate === localPlanDate();
+  if (plan.checkoff) return isCheckoffForToday(plan.checkoff);
+  return localPlanDate(null, new Date(plan.meta.generatedAt)) === localPlanDate();
 }
 
 function withItems(plan: MobileTodayPlanResponse, items: PlannedItem[]): MobileTodayPlanResponse {
@@ -181,7 +182,7 @@ export function DashboardScreen({ accessToken, onOpenCourse, onOpenCourses }: Da
         }
         return {
           ...withItems(current, mergePlanItemStatuses(current.plan.items, statuses)),
-          checkoff: { planDate: checkoff.planDate, acceptedAt: saved.acceptedAt ?? current.checkoff?.acceptedAt ?? null },
+          checkoff: { ...checkoff, acceptedAt: saved.acceptedAt ?? current.checkoff?.acceptedAt ?? null },
         };
       });
       if (synced) await persistPlan();

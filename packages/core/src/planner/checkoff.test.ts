@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   applyPlanItemStatus,
   isPlanDate,
+  isCheckoffForToday,
   isPlanDateInWindow,
   localPlanDate,
   mergePlanItemStatuses,
@@ -117,7 +118,18 @@ describe("check-off helpers", () => {
   });
 
   it("formats the device-local date", () => {
-    expect(localPlanDate(new Date(2026, 0, 5, 23, 59))).toBe("2026-01-05");
+    expect(localPlanDate(null, new Date(2026, 0, 5, 23, 59))).toBe("2026-01-05");
+    expect(localPlanDate("Not/AZone", new Date(2026, 0, 5, 23, 59))).toBe("2026-01-05");
+  });
+
+  it("judges today in the plan's profile timezone, not the device's", () => {
+    // 03:30 UTC on Oct 20 is still Oct 19 in Toronto but already Oct 20 in Tokyo and London.
+    const now = new Date("2026-10-20T03:30:00Z");
+    expect(localPlanDate("America/Toronto", now)).toBe("2026-10-19");
+    expect(localPlanDate("Asia/Tokyo", now)).toBe("2026-10-20");
+    expect(isCheckoffForToday({ planDate: "2026-10-19", timezone: "America/Toronto" }, now)).toBe(true);
+    expect(isCheckoffForToday({ planDate: "2026-10-19", timezone: "Asia/Tokyo" }, now)).toBe(false);
+    expect(isCheckoffForToday({ planDate: "2026-10-18", timezone: "America/Toronto" }, now)).toBe(false);
   });
 
   it("validates plan dates", () => {

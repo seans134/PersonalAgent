@@ -230,7 +230,7 @@ export async function generateTodayPlanForUser(input: {
       plan,
       contextEvents,
       summary: enhanced.summary,
-      checkoff: { planDate, acceptedAt },
+      checkoff: { planDate, timezone, acceptedAt },
       meta: {
         goalsCount: goals.length,
         eventsCount: contextEvents.length,

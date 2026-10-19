@@ -230,6 +230,7 @@ describe("generateTodayPlanForUser", () => {
     expect(goal?.status).toBe("done");
     expect(result.body.checkoff.acceptedAt).toBe("2026-10-19T09:00:00.000Z");
     expect(result.body.checkoff.planDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(result.body.checkoff.timezone).toBe("UTC");
     expect(result.body.meta.warnings).toEqual([]);
   });
 

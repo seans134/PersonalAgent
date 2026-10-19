@@ -1,3 +1,5 @@
+import { dateInTimezone } from "../calendar";
+import type { TodayPlanCheckoff } from "./client-types";
 import type { PlannedItem, PlannedItemType, PlanItemStatus } from "./types";
 
 // Plan check-off: students mark today's plan items done or skipped, and the marks
@@ -95,10 +97,25 @@ export function isPlanDate(value: unknown): value is string {
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
 }
 
-/** The device's local calendar date (YYYY-MM-DD), to compare with a plan's planDate. */
-export function localPlanDate(now: Date = new Date()): string {
+/**
+ * Today's date (YYYY-MM-DD) in the given timezone, the profile timezone the server dated the plan in.
+ * Falls back to the device's local date when no (or an unknown) timezone is given, e.g. older cached plans.
+ */
+export function localPlanDate(timezone?: string | null, now: Date = new Date()): string {
+  if (timezone) {
+    try {
+      return dateInTimezone(now, timezone);
+    } catch {
+      // Unknown IANA zone on this runtime; use the device date.
+    }
+  }
   const pad = (value: number) => String(value).padStart(2, "0");
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
+/** Whether a plan's check-off date is still today in the timezone the server used for it. */
+export function isCheckoffForToday(checkoff: Pick<TodayPlanCheckoff, "planDate" | "timezone">, now: Date = new Date()): boolean {
+  return checkoff.planDate === localPlanDate(checkoff.timezone, now);
 }
 
 /** Check-offs are accepted for the student's local today ±1 day (covers clock and timezone edges). */

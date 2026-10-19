@@ -5,7 +5,7 @@ import {
   analyticsEvents,
   applyPlanItemStatus,
   features,
-  localPlanDate,
+  isCheckoffForToday,
   nextPlanItemStatus,
   planCheckoffCounts,
   type PlanAcceptResponse,
@@ -105,8 +105,8 @@ export function TodayPlanPanel() {
   const [pendingKeys, setPendingKeys] = useState<ReadonlySet<string>>(new Set());
   const [accepting, setAccepting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
-  // Check-off only applies to a plan dated today on this device; an older plan shows read-only.
-  const planIsForToday = planData?.checkoff?.planDate === localPlanDate();
+  // Check-off only applies to a plan dated today (in the profile timezone the server used); an older plan shows read-only.
+  const planIsForToday = planData?.checkoff ? isCheckoffForToday(planData.checkoff) : false;
   const checkoff = planIsForToday ? planData?.checkoff : undefined;
   const staleCheckoffDate = planData?.checkoff && !planIsForToday ? planData.checkoff.planDate : null;
   const counts = planData ? planCheckoffCounts(planData.plan.items) : null;
@@ -133,7 +133,7 @@ export function TodayPlanPanel() {
 
   async function handleCheckoff(item: PlannedItem, tapped: PlanItemStatus) {
     if (!planData || !checkoff || !item.key || pendingKeysRef.current.has(item.key)) return;
-    if (checkoff.planDate !== localPlanDate()) {
+    if (!isCheckoffForToday(checkoff)) {
       setActionError("This plan is from a previous day. Plan your day again to check off today's items.");
       return;
     }
@@ -165,7 +165,7 @@ export function TodayPlanPanel() {
 
   async function handleAccept() {
     if (!planData || !checkoff || accepting) return;
-    if (checkoff.planDate !== localPlanDate()) {
+    if (!isCheckoffForToday(checkoff)) {
       setActionError("This plan is from a previous day. Plan your day again first.");
       return;
     }

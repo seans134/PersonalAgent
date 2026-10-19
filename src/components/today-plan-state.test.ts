@@ -80,7 +80,7 @@ describe("today-plan-state", () => {
         ],
         constrained: false,
       },
-      checkoff: { planDate: "2026-10-19", acceptedAt: null },
+      checkoff: { planDate: "2026-10-19", timezone: "America/Toronto", acceptedAt: null },
       meta: { goalsCount: 1, eventsCount: 0, generatedAt: "2026-10-19T12:00:00.000Z", warnings: [] },
     });
 
@@ -88,7 +88,7 @@ describe("today-plan-state", () => {
       ["study:item-1", "done"],
       ["goal:read", null],
     ]);
-    expect(parsed.checkoff).toEqual({ planDate: "2026-10-19", acceptedAt: null });
+    expect(parsed.checkoff).toEqual({ planDate: "2026-10-19", timezone: "America/Toronto", acceptedAt: null });
 
     let state = reduceTodayPlanState(initialTodayPlanState, { type: "succeeded", payload: parsed });
     state = reduceTodayPlanState(state, { type: "itemStatus", key: "goal:read", status: "skipped" });

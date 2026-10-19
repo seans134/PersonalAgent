@@ -134,6 +134,7 @@ export function parseTodayPlanResponse(payload: unknown): TodayPlanResponse {
   const checkoff = isRecord(payload.checkoff) && isPlanDate(payload.checkoff.planDate)
     ? {
         planDate: payload.checkoff.planDate,
+        ...(typeof payload.checkoff.timezone === "string" ? { timezone: payload.checkoff.timezone } : {}),
         acceptedAt: typeof payload.checkoff.acceptedAt === "string" ? payload.checkoff.acceptedAt : null,
       }
     : undefined;

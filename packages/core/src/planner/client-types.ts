@@ -11,6 +11,8 @@ export type TodayPlanContextEvent = {
 /** Today's check-off state: the student's local plan date and when they committed to the plan. */
 export type TodayPlanCheckoff = {
   planDate: string;
+  /** The profile timezone planDate was computed in; clients judge "today" in it. Absent on older cached plans. */
+  timezone?: string;
   acceptedAt: string | null;
 };
 
