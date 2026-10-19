@@ -1,0 +1,30 @@
+// Core-loop analytics event names shared by web and mobile, so both surfaces report
+// identical events. Properties are counts and enums only, never names, emails or free text.
+export const analyticsEvents = {
+  onboardingCompleted: "onboarding_completed",
+  coursesReady: "courses_ready",
+  courseCreated: "course_created",
+  syllabusImported: "syllabus_imported",
+  planGenerated: "plan_generated",
+  neededScoreViewed: "needed_score_viewed",
+} as const;
+
+export type AnalyticsEventName = (typeof analyticsEvents)[keyof typeof analyticsEvents];
+
+export type SyllabusImportSource = "photo" | "pdf" | "docx" | "text";
+
+/** Where an imported syllabus came from: the uploaded file's type, or pasted text when there's no file. */
+export function syllabusImportSource(file: { name: string; type?: string | null } | null): SyllabusImportSource {
+  if (!file) return "text";
+  const type = (file.type ?? "").toLowerCase();
+  const name = file.name.toLowerCase();
+  if (type.startsWith("image/") || /\.(jpe?g|png|heic|heif|webp|gif)$/.test(name)) return "photo";
+  if (type.includes("wordprocessingml") || name.endsWith(".docx")) return "docx";
+  if (type === "application/pdf" || name.endsWith(".pdf")) return "pdf";
+  return "text";
+}
+
+/** A student is ready for a study plan once they have at least one course and some class times. */
+export function hasCoursesReady(progress: { courseCount: number; classTimeCount: number }): boolean {
+  return progress.courseCount > 0 && progress.classTimeCount > 0;
+}

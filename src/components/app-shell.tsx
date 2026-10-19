@@ -130,7 +130,7 @@ export function AppShell({
             <span className="block font-display text-lg font-bold tracking-tight text-ink">Atlas</span>
             <span className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.12em] text-teal">
               <span className="inline-block h-px w-4 bg-teal" aria-hidden="true" />
-              Your day, charted
+              Study Planner
             </span>
           </Link>
         </div>

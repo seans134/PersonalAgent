@@ -1,8 +1,17 @@
 "use client";
 
-import { describeNeeded, type CourseGrade, type GradeCategory, type GradedItem, type NeededScore } from "@personal-agent/core";
+import { useEffect } from "react";
+import {
+  analyticsEvents,
+  describeNeeded,
+  type CourseGrade,
+  type GradeCategory,
+  type GradedItem,
+  type NeededScore,
+} from "@personal-agent/core";
 import { BulletBar } from "@/components/bullet-bar";
 import { formatGrade } from "@/components/grade-format";
+import { captureEventOnce } from "@/lib/analytics";
 import type { CourseRow } from "@/lib/courses/types";
 import { WhatIfProjection } from "./what-if";
 
@@ -20,6 +29,10 @@ export function GradeSummary({
   const averageLabel = formatGrade(grade.average);
   const targetLabel = course.target_grade !== null ? formatGrade(course.target_grade) : null;
   const neededCopy = describeNeeded(needed);
+  const neededShown = neededCopy !== null;
+  useEffect(() => {
+    if (neededShown) captureEventOnce(course.id, analyticsEvents.neededScoreViewed, { status: needed.status });
+  }, [course.id, neededShown, needed.status]);
   const weightSum = grade.categories.reduce((sum, category) => sum + Number(category.weight), 0);
 
   return (

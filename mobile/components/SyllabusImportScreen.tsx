@@ -20,7 +20,9 @@ import {
   removeSyllabusCategory,
   renameSyllabusCategory,
   summarizeSyllabusWeights,
+  syllabusImportSource,
   toSyllabusReview,
+  type SyllabusImportSource,
 } from "@personal-agent/core";
 import { Icon } from "./Icon";
 import {
@@ -157,6 +159,8 @@ export function SyllabusImportScreen({
   const [showPaste, setShowPaste] = useState(false);
   const [parsingLabel, setParsingLabel] = useState<string | null>(null);
   const [review, setReview] = useState<ReviewState | null>(null);
+  // Where the draft under review came from, reported when it's applied.
+  const [source, setSource] = useState<SyllabusImportSource>("text");
   const [error, setError] = useState("");
   const [applying, setApplying] = useState(false);
   const [picking, setPicking] = useState(false);
@@ -183,7 +187,10 @@ export function SyllabusImportScreen({
 
     try {
       const result = await parseSyllabusImport(accessToken, file, pastedText);
-      if (mountedRef.current) setReview(reviewFromDraft(result.draft));
+      if (mountedRef.current) {
+        setSource(syllabusImportSource(file));
+        setReview(reviewFromDraft(result.draft));
+      }
     } catch (parseError) {
       if (mountedRef.current) setError(parseError instanceof Error ? parseError.message : "Unable to parse syllabus.");
     }
@@ -257,7 +264,7 @@ export function SyllabusImportScreen({
     setApplying(true);
 
     try {
-      const result = await applySyllabusImport(accessToken, draft);
+      const result = await applySyllabusImport(accessToken, draft, source);
       if (mountedRef.current) onImported(result.courseId);
       return;
     } catch (applyError) {

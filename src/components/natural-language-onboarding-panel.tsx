@@ -40,7 +40,7 @@ const MODE_COPY: Record<
   },
   weekly_rhythm: {
     title: "Add weekly rhythm from text",
-    description: "Paste recurring habits, study blocks, personal plans, and unavailable time.",
+    description: "Paste recurring study blocks, work shifts, and times you're busy.",
     placeholder: "Example: I study Spanish Monday and Wednesday 7-8, go to the gym Saturday morning, and keep Sunday night blocked.",
     parseLabel: "Parse weekly rhythm",
   },

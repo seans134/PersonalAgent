@@ -104,19 +104,19 @@ export default async function Home() {
       <header className="mb-8">
         <p className="flex items-center gap-2.5 font-mono text-[12px] uppercase tracking-[0.14em] text-teal">
           <span className="inline-block h-px w-6 bg-teal" aria-hidden="true" />
-          Atlas
+          Atlas · Study Planner
         </p>
-        <h1 className="mt-3 text-balance font-display text-4xl font-bold tracking-tight text-ink">Your day, charted.</h1>
+        <h1 className="mt-3 text-balance font-display text-4xl font-bold tracking-tight text-ink">Know what to study today.</h1>
         <p className="mt-3 max-w-xl text-ink-muted">
           {features.wellnessTracking
             ? "Goals, calendar, meals, and training — routed into a single plan, with the times kept honest."
-            : "Goals, classes, and calendar — routed into a single plan, with the times kept honest."}
+            : "Your classes, deadlines, and exams, turned into a daily study plan."}
         </p>
       </header>
 
       {!user ? (
         <section className="rounded-[16px] border border-line bg-surface p-6 shadow-[var(--shadow-sm)]">
-          <p className="mb-4 text-ink-muted">Sign in to start charting your day.</p>
+          <p className="mb-4 text-ink-muted">Sign in to add your courses and get a daily study plan.</p>
           <Link
             className="inline-flex rounded-[11px] bg-teal px-5 py-2.5 font-display text-sm font-medium text-on-teal transition hover:bg-teal-strong"
             href="/auth"

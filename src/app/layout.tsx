@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Space_Grotesk, Instrument_Sans, Space_Mono } from "next/font/google";
+import { AnalyticsProvider } from "@/components/analytics-provider";
 import { AppShell } from "@/components/app-shell";
 import { createClient } from "@/lib/supabase/server";
 import "./globals.css";
@@ -26,8 +27,9 @@ const monoFont = Space_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Atlas",
-  description: "Your day, charted.",
+  title: "Atlas: Study Planner",
+  description:
+    "Import your syllabi, get a daily study plan around your classes, see what you need on the final, and get exam reminders.",
 };
 
 export default async function RootLayout({
@@ -51,6 +53,7 @@ export default async function RootLayout({
         />
       </head>
       <body className="bg-paper text-ink antialiased">
+        <AnalyticsProvider userId={user?.id ?? null} />
         <AppShell isSignedIn={Boolean(user)}>{children}</AppShell>
       </body>
     </html>

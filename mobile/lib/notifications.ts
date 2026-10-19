@@ -136,8 +136,8 @@ export async function saveNotificationPreferences(
     const { hour, minute } = parseTime(preferences.dailyPlanTime);
     dailyIds.push(await Notifications.scheduleNotificationAsync({
       content: {
-        title: "Plan your day with Atlas",
-        body: "Generate or review today's plan.",
+        title: "Plan today's study time",
+        body: "Open Atlas to build or review today's study plan.",
         data: { screen: "dashboard" },
         sound: "default",
       },
@@ -223,14 +223,40 @@ export const disabledNotificationPreferences: NotificationPreferences = {
   examRemindersEnabled: false,
 };
 
-export async function cancelAllAtlasNotifications() {
-  await AsyncStorage.setItem(PREFERENCES_KEY, JSON.stringify(disabledNotificationPreferences));
+async function cancelScheduledAtlasNotifications() {
   await cancelExamReminders();
   const stored = await readIdentifiers();
   await Promise.all(Object.values(stored).flat().map((id) => Notifications.cancelScheduledNotificationAsync(id)));
   await writeIdentifiers({ dailyPlan: [], workouts: [], todayPlan: [] });
+}
+
+// "Disable All Reminders": cancels everything and saves every reminder as off.
+export async function cancelAllAtlasNotifications() {
+  await AsyncStorage.setItem(PREFERENCES_KEY, JSON.stringify(disabledNotificationPreferences));
+  await cancelScheduledAtlasNotifications();
   captureEvent("notifications_disabled");
   return disabledNotificationPreferences;
+}
+
+// Account deletion: cancels everything and resets preferences to defaults, so the next account
+// on this device starts with exam reminders on rather than inheriting a disabled state.
+export async function resetAtlasNotifications() {
+  endExamReminderSession();
+  await AsyncStorage.removeItem(PREFERENCES_KEY);
+  await cancelScheduledAtlasNotifications();
+  return defaultNotificationPreferences;
+}
+
+// Bumped on sign-out. A sync carries the generation from when its course load started, and is
+// skipped if the student signed out since, so a refresh finishing late can't reschedule reminders.
+let examReminderSession = 0;
+
+export function currentExamReminderSession() {
+  return examReminderSession;
+}
+
+export function endExamReminderSession() {
+  examReminderSession += 1;
 }
 
 // Exam reminders are rebuilt from scratch on every sync. Syncs run one at a time so two overlapping
@@ -284,8 +310,9 @@ async function examRemindersPermitted() {
 
 // Replaces the scheduled exam reminders with ones for each active course's next exam:
 // 3 days and 1 day before, at 9:00 device-local time. Returns how many were scheduled.
-export function syncExamReminders(courses: MobileCourseSummary[]) {
+export function syncExamReminders(courses: MobileCourseSummary[], session = examReminderSession) {
   return enqueueExamTask(async () => {
+    if (session !== examReminderSession) return 0;
     const preferences = await readNotificationPreferences();
     if (!preferences.examRemindersEnabled) {
       await cancelExamRemindersNow();
@@ -304,6 +331,8 @@ export function syncExamReminders(courses: MobileCourseSummary[]) {
       return 0;
     }
     if (!(await examRemindersPermitted())) return 0;
+    // The permission prompt can sit open across a sign-out.
+    if (session !== examReminderSession) return 0;
 
     await cancelExamRemindersNow();
     const identifiers: string[] = [];

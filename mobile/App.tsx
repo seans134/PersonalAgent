@@ -48,7 +48,7 @@ import { ThemeProvider, useTheme } from "./lib/theme";
 import { handleAuthDeepLink } from "./lib/auth-deep-link";
 import { captureEvent, identifyAnalyticsUser, resetAnalyticsUser, Sentry } from "./lib/analytics";
 import { fetchMobileOnboardingStatus } from "./lib/api";
-import { cancelExamReminders } from "./lib/notifications";
+import { cancelExamReminders, endExamReminderSession } from "./lib/notifications";
 import { supabase } from "./lib/supabase";
 
 // After a sign-in the user made (or sign-up), students who haven't finished onboarding
@@ -118,7 +118,8 @@ function App() {
       if (event === "PASSWORD_RECOVERY") setIsRecoveringPassword(true);
       if (event === "SIGNED_OUT") {
         setActiveScreen("dashboard");
-        // Exam reminders belong to the signed-out student's courses.
+        // Exam reminders belong to the signed-out student's courses; stop in-flight course loads rescheduling them.
+        endExamReminderSession();
         void cancelExamReminders().catch(() => undefined);
       }
       // Token refreshes and restored sessions keep the student on their current screen.
@@ -165,6 +166,7 @@ function App() {
   }, []);
 
   async function signOut() {
+    endExamReminderSession();
     await supabase.auth.signOut();
     resetAnalyticsUser();
   }

@@ -5,7 +5,7 @@ import { ActivityIndicator, Linking, Modal, Pressable, ScrollView, StyleSheet, T
 import { deleteMobileAccount } from "../lib/api";
 import { resetAnalyticsUser } from "../lib/analytics";
 import { getMobileEnv } from "../lib/env";
-import { cancelAllAtlasNotifications } from "../lib/notifications";
+import { resetAtlasNotifications } from "../lib/notifications";
 import { supabase } from "../lib/supabase";
 
 type AccountSettingsScreenProps = {
@@ -43,7 +43,7 @@ export function AccountSettingsScreen({ accessToken, onAccountDeleted }: Account
     try {
       await deleteMobileAccount(accessToken);
       await Promise.allSettled([
-        cancelAllAtlasNotifications(),
+        resetAtlasNotifications(),
         supabase.auth.signOut({ scope: "local" }),
       ]);
       resetAnalyticsUser();

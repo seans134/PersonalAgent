@@ -152,7 +152,7 @@ export function WeeklyRhythmScreen({ accessToken }: WeeklyRhythmScreenProps) {
       <View style={styles.header}>
         <Text style={styles.title}>Weekly rhythm</Text>
         <Text style={styles.body}>
-          Add recurring habits and protected time that shape your week outside school and work.
+          Add recurring study blocks and protected time that shape your week outside class and work.
         </Text>
       </View>
 

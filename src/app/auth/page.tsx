@@ -24,7 +24,10 @@ export default async function AuthPage({
     <main className="mx-auto flex min-h-screen w-full max-w-5xl items-center px-6 py-12">
       <section className="grid w-full gap-6 md:grid-cols-2">
         <div className="space-y-4">
-          <h1 className="text-3xl font-semibold tracking-tight text-ink">Atlas</h1>
+          <div>
+            <h1 className="text-3xl font-semibold tracking-tight text-ink">Atlas</h1>
+            <p className="font-mono text-[12px] uppercase tracking-[0.14em] text-teal">Study Planner</p>
+          </div>
           <p className="text-ink-muted">
             Sign in or create an account to add your courses and class times and get a daily study plan.
           </p>

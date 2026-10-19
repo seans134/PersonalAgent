@@ -99,8 +99,8 @@ export function AuthScreen({
       style={styles.container}
     >
       <View style={styles.header}>
-        <Text style={styles.brand}>Atlas</Text>
-        <Text style={styles.title}>Plan today from your real life.</Text>
+        <Text style={styles.brand}>Atlas · Study Planner</Text>
+        <Text style={styles.title}>Know what to study today.</Text>
       </View>
 
       <View style={styles.form}>

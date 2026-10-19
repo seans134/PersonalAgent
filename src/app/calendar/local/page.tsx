@@ -947,10 +947,10 @@ export default function LocalCalendarPage() {
 
       <header className="mb-8 pr-24">
         <div>
-          <p className="text-sm font-medium uppercase tracking-wide text-ink-muted">Local calendar</p>
+          <p className="text-sm font-medium uppercase tracking-wide text-ink-muted">Calendar</p>
           <h1 className="text-3xl font-semibold tracking-tight text-ink">{title}</h1>
           <p className="mt-2 max-w-2xl text-ink-muted">
-            A simple local calendar view powered by the app&apos;s calendar model.
+            Your classes, work shifts, and events. Atlas plans study time around them.
           </p>
         </div>
       </header>
@@ -1020,6 +1020,7 @@ export default function LocalCalendarPage() {
           <h2 className="mt-1 text-xl font-semibold text-ink">June 8</h2>
 
           <div className="mt-5 space-y-3">
+            {todayEvents.length === 0 ? <p className="text-sm text-ink-muted">Nothing scheduled today.</p> : null}
             {todayEvents.map((event) => (
               <button
                 className={`w-full rounded-lg border p-3 text-left ${eventColor(event.category)}`}

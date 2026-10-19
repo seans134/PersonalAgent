@@ -1,6 +1,7 @@
 {
   "expo": {
     "name": "Atlas",
+    "description": "Atlas: Study Planner. Import your syllabi, get a daily study plan around your classes, see what you need on the final, and get exam reminders.",
     "slug": "atlas",
     "scheme": "atlas",
     "version": "1.0.0",

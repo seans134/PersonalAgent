@@ -69,8 +69,9 @@ export async function completeOnboarding(formData?: FormData) {
     redirect("/auth");
   }
 
+  let firstCompletion = false;
   try {
-    await markOnboardingComplete(supabase, user.id);
+    firstCompletion = !(await markOnboardingComplete(supabase, user.id)).alreadyCompleted;
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to finish onboarding.";
     // Errors go back to the page the student submitted from (class times or Done).
@@ -79,5 +80,6 @@ export async function completeOnboarding(formData?: FormData) {
   }
 
   revalidatePath("/");
-  redirect("/onboarding/done");
+  // The flag lets Done capture onboarding_completed once, client-side.
+  redirect(firstCompletion ? "/onboarding/done?completed=1" : "/onboarding/done");
 }

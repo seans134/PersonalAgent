@@ -49,7 +49,7 @@ const stepCopy: Record<OnboardingStepKey, { title: string; body: string }> = {
   },
   done: {
     title: "You're set",
-    body: "Head to Today and tap Generate today to chart your first study plan.",
+    body: "Head to Today and tap Plan my day to get your first study plan.",
   },
 };
 

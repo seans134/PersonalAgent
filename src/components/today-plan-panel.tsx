@@ -1,6 +1,8 @@
 "use client";
 
 import { useReducer } from "react";
+import { analyticsEvents, features } from "@personal-agent/core";
+import { captureEvent } from "@/lib/analytics";
 import type { TodayPlanResponse } from "@/lib/planner/client-types";
 import { TodayPlanMeridian } from "./today-plan-meridian";
 import {
@@ -9,13 +11,18 @@ import {
   reduceTodayPlanState,
 } from "./today-plan-state";
 
-const legend = [
+const allLegend = [
   { key: "goal", label: "Goal", color: "var(--color-goal)" },
-  { key: "focus", label: "Focus", color: "var(--color-focus)" },
+  { key: "focus", label: "Study", color: "var(--color-focus)" },
   { key: "fitness", label: "Fitness", color: "var(--color-fitness)" },
   { key: "wellness", label: "Wellness", color: "var(--color-wellness)" },
   { key: "commit", label: "Fixed", color: "var(--color-commit)" },
 ];
+
+// Fitness and wellness items only appear while wellness tracking is on.
+const legend = features.wellnessTracking
+  ? allLegend
+  : allLegend.filter((entry) => entry.key !== "fitness" && entry.key !== "wellness");
 
 function formatGeneratedAt(value: string): string {
   const date = new Date(value);
@@ -66,6 +73,7 @@ export function TodayPlanPanel() {
     try {
       const payload = await requestTodayPlan();
       dispatch({ type: "succeeded", payload });
+      captureEvent(analyticsEvents.planGenerated);
     } catch (error) {
       dispatch({
         type: "failed",
@@ -78,8 +86,8 @@ export function TodayPlanPanel() {
     <section className="space-y-4 rounded-[16px] border border-line bg-surface p-6 shadow-[var(--shadow-sm)]">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="font-display text-xl font-bold tracking-tight text-ink">Today, charted</h2>
-          <p className="text-sm text-ink-muted">A route through your day from your goals, preferences, and calendar.</p>
+          <h2 className="font-display text-xl font-bold tracking-tight text-ink">Today&apos;s study plan</h2>
+          <p className="text-sm text-ink-muted">Study time fitted around your classes, deadlines, and exams.</p>
         </div>
         <button
           className="inline-flex items-center rounded-[11px] bg-teal px-5 py-2.5 font-display text-sm font-medium text-on-teal transition hover:bg-teal-strong disabled:cursor-not-allowed disabled:opacity-60"
@@ -87,7 +95,7 @@ export function TodayPlanPanel() {
           onClick={handleGeneratePlan}
           type="button"
         >
-          {isLoading ? "Charting..." : "Generate today"}
+          {isLoading ? "Planning..." : "Plan my day"}
         </button>
       </div>
 
@@ -100,7 +108,7 @@ export function TodayPlanPanel() {
           <div className="grid gap-3 sm:grid-cols-3">
             <StatTile label="Goals used" value={planData.meta.goalsCount} />
             <StatTile label="Events" value={planData.meta.eventsCount} />
-            <StatTile label="Moves" value={planData.plan.items.length} />
+            <StatTile label="Blocks" value={planData.plan.items.length} />
           </div>
 
           {planData.meta.warnings.length > 0 ? (
@@ -122,7 +130,7 @@ export function TodayPlanPanel() {
           ) : null}
 
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h3 className="font-display text-lg font-bold tracking-tight text-ink">Your day</h3>
+            <h3 className="font-display text-lg font-bold tracking-tight text-ink">Today&apos;s plan</h3>
             <div className="flex flex-wrap gap-3">
               {legend.map((entry) => (
                 <span className="flex items-center gap-1.5" key={entry.key}>
@@ -138,10 +146,10 @@ export function TodayPlanPanel() {
             generatedAt={planData.meta.generatedAt}
             items={planData.plan.items}
           />
-          <p className="text-right font-mono text-[11px] text-ink-muted">Charted {formatGeneratedAt(planData.meta.generatedAt)}</p>
+          <p className="text-right font-mono text-[11px] text-ink-muted">Planned {formatGeneratedAt(planData.meta.generatedAt)}</p>
         </div>
       ) : (
-        <p className="text-sm text-ink-muted">No plan yet — generate one to chart your day.</p>
+        <p className="text-sm text-ink-muted">No plan yet. Plan your day to see when to study.</p>
       )}
     </section>
   );

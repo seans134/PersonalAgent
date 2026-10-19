@@ -1,9 +1,9 @@
 import type { TodayPlanResponse } from "@personal-agent/core/planner/client-types";
 import type { HabitDigest, HabitMetrics, HabitPeriod, Nudge } from "@personal-agent/core/habits";
-import type { NeededScore } from "@personal-agent/core";
+import { analyticsEvents, hasCoursesReady, type NeededScore, type SyllabusImportSource } from "@personal-agent/core";
 import { captureEvent, captureException } from "./analytics";
 import { requireMobileEnv } from "./env";
-import { syncExamReminders } from "./notifications";
+import { currentExamReminderSession, syncExamReminders } from "./notifications";
 
 export type { HabitDigest, HabitMetrics, HabitPeriod, Nudge };
 
@@ -426,11 +426,17 @@ export async function completeMobileOnboarding(
     "Unable to finish onboarding.",
   );
   if (!body.alreadyCompleted) {
-    captureEvent("onboarding_completed", {
+    captureEvent(analyticsEvents.onboardingCompleted, {
       courses: progress.courseCount,
       class_times: progress.classTimeCount,
-      skipped_setup: progress.courseCount === 0 || progress.classTimeCount === 0,
+      skipped_setup: !hasCoursesReady(progress),
     });
+    if (hasCoursesReady(progress)) {
+      captureEvent(analyticsEvents.coursesReady, {
+        courses: progress.courseCount,
+        class_times: progress.classTimeCount,
+      });
+    }
   }
   return body;
 }
@@ -476,7 +482,7 @@ export async function generateMobileTodayPlan(accessToken: string): Promise<Mobi
     { method: "POST" },
     "Unable to generate today plan.",
   );
-  captureEvent("plan_generated");
+  captureEvent(analyticsEvents.planGenerated);
   return body;
 }
 
@@ -942,11 +948,13 @@ export async function fetchMobileCourses(
   includeArchived?: boolean,
 ): Promise<{ courses: MobileCourseSummary[] }> {
   const path = includeArchived ? "/api/mobile/courses?archived=1" : "/api/mobile/courses";
+  // Noted before the request so a load that finishes after sign-out can't reschedule reminders.
+  const reminderSession = currentExamReminderSession();
   const response = await fetchJson<{ courses: MobileCourseSummary[] }>(
     path, accessToken, { method: "GET" }, "Unable to load courses.",
   );
   // Every course-summary load is the one place exam reminders are rescheduled (Today, Courses, after edits).
-  void syncExamReminders(response.courses).catch(() => undefined);
+  void syncExamReminders(response.courses, reminderSession).catch(() => undefined);
   return response;
 }
 
@@ -968,7 +976,7 @@ export async function createMobileCourse(accessToken: string, input: MobileCours
     { method: "POST", body: JSON.stringify(input) },
     "Unable to create course.",
   );
-  captureEvent("course_created");
+  captureEvent(analyticsEvents.courseCreated, { source: "manual" });
   return response;
 }
 
@@ -1122,7 +1130,11 @@ export async function parseSyllabusImport(
   );
 }
 
-export async function applySyllabusImport(accessToken: string, draft: MobileSyllabusDraft) {
+export async function applySyllabusImport(
+  accessToken: string,
+  draft: MobileSyllabusDraft,
+  source: SyllabusImportSource,
+) {
   const input: MobileSyllabusApplyInput = { draft };
   const response = await fetchJson<MobileSyllabusApplyResult>(
     "/api/mobile/courses/import/apply",
@@ -1130,8 +1142,13 @@ export async function applySyllabusImport(accessToken: string, draft: MobileSyll
     { method: "POST", body: JSON.stringify(input) },
     "Unable to create course.",
   );
-  captureEvent("course_created", {
+  captureEvent(analyticsEvents.courseCreated, {
     source: "syllabus_import",
+    categories: response.applied.categories,
+    items: response.applied.items,
+  });
+  captureEvent(analyticsEvents.syllabusImported, {
+    source,
     categories: response.applied.categories,
     items: response.applied.items,
   });
