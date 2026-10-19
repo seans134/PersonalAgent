@@ -8,6 +8,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { examLabel, examsWithinDays, formatDaysAway } from "@personal-agent/core";
 import {
   fetchMobileCourses,
   generateMobileTodayPlan,
@@ -43,6 +44,8 @@ function formatGrade(value: number | null): string {
 function formatShortDate(iso: string): string {
   return new Date(iso).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
 }
+
+const UPCOMING_EXAM_DAYS = 14;
 
 function greetingFor(date: Date) {
   const hour = date.getHours();
@@ -166,6 +169,15 @@ export function DashboardScreen({ accessToken, onOpenCourse, onOpenCourses }: Da
     setSchedulingReminder(false);
   }
 
+  // Day counts use the device's local calendar.
+  const upcomingExams = courses
+    ? examsWithinDays(
+        courses.flatMap((course) => (course.nextExam ? [{ ...course.nextExam, course }] : [])),
+        now,
+        UPCOMING_EXAM_DAYS,
+      )
+    : [];
+
   const hasPlanContent =
     plan !== null && (plan.plan.items.length > 0 || plan.contextEvents.length > 0);
 
@@ -195,6 +207,31 @@ export function DashboardScreen({ accessToken, onOpenCourse, onOpenCourses }: Da
       {notice ? (
         <View style={styles.noticeBanner}>
           <Text style={theme.text("label", "teal")}>{notice}</Text>
+        </View>
+      ) : null}
+
+      {upcomingExams.length > 0 ? (
+        <View style={[styles.card, styles.coursesCard]}>
+          <Text style={theme.text("title", "ink")}>Upcoming exams</Text>
+          {upcomingExams.map((exam, index) => (
+            <Pressable
+              key={exam.id}
+              onPress={() => onOpenCourse(exam.course.id)}
+              style={({ pressed }) => [
+                styles.courseRow,
+                index < upcomingExams.length - 1 && styles.courseRowDivider,
+                pressed && styles.pressed,
+              ]}
+            >
+              <View style={styles.courseCopy}>
+                <Text numberOfLines={1} style={theme.text("heading", "ink")}>{examLabel(exam.course, exam.title)}</Text>
+                <Text numberOfLines={1} style={theme.text("body", "inkMuted")}>
+                  {`${exam.course.name} · ${formatShortDate(exam.dueAt)}`}
+                </Text>
+              </View>
+              <Text style={theme.text("monoLabel", "teal")}>{formatDaysAway(exam.daysAway)}</Text>
+            </Pressable>
+          ))}
         </View>
       ) : null}
 

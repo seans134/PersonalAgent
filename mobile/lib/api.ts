@@ -3,6 +3,7 @@ import type { HabitDigest, HabitMetrics, HabitPeriod, Nudge } from "@personal-ag
 import type { NeededScore } from "@personal-agent/core";
 import { captureEvent, captureException } from "./analytics";
 import { requireMobileEnv } from "./env";
+import { syncExamReminders } from "./notifications";
 
 export type { HabitDigest, HabitMetrics, HabitPeriod, Nudge };
 
@@ -857,6 +858,8 @@ export type MobileCourseSummary = {
   average: number | null;
   gradedWeight: number;
   nextItem: { id: string; title: string; kind: "assignment" | "quiz" | "exam"; dueAt: string } | null;
+  // Soonest ungraded exam due after now.
+  nextExam: { id: string; title: string; dueAt: string } | null;
   dueThisWeek: number;
   // Average needed on the remaining work to hit targetGrade.
   needed: NeededScore;
@@ -939,7 +942,23 @@ export async function fetchMobileCourses(
   includeArchived?: boolean,
 ): Promise<{ courses: MobileCourseSummary[] }> {
   const path = includeArchived ? "/api/mobile/courses?archived=1" : "/api/mobile/courses";
-  return fetchJson<{ courses: MobileCourseSummary[] }>(path, accessToken, { method: "GET" }, "Unable to load courses.");
+  const response = await fetchJson<{ courses: MobileCourseSummary[] }>(
+    path, accessToken, { method: "GET" }, "Unable to load courses.",
+  );
+  // Every course-summary load is the one place exam reminders are rescheduled (Today, Courses, after edits).
+  void syncExamReminders(response.courses).catch(() => undefined);
+  return response;
+}
+
+// Re-fetches course summaries after a change that can move or remove an exam, which reschedules
+// exam reminders. Never throws; resolves to whether the refresh succeeded.
+export async function refreshExamReminders(accessToken: string): Promise<boolean> {
+  try {
+    await fetchMobileCourses(accessToken);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function createMobileCourse(accessToken: string, input: MobileCourseInput) {
@@ -963,21 +982,26 @@ export async function fetchMobileCourseDetail(accessToken: string, id: string): 
 }
 
 export async function updateMobileCourse(accessToken: string, id: string, input: MobileCourseUpdateInput) {
-  return fetchJson<{ course: MobileCourseDetail["course"] }>(
+  const response = await fetchJson<{ course: MobileCourseDetail["course"] }>(
     `/api/mobile/courses/${id}`,
     accessToken,
     { method: "PATCH", body: JSON.stringify(input) },
     "Unable to update course.",
   );
+  // Renames and archiving change exam reminder copy or remove them.
+  void refreshExamReminders(accessToken);
+  return response;
 }
 
 export async function deleteMobileCourse(accessToken: string, id: string) {
-  return fetchJson<{ ok: true }>(
+  const response = await fetchJson<{ ok: true }>(
     `/api/mobile/courses/${id}`,
     accessToken,
     { method: "DELETE" },
     "Unable to remove course.",
   );
+  void refreshExamReminders(accessToken);
+  return response;
 }
 
 export async function saveMobileCategory(accessToken: string, courseId: string, input: MobileCourseCategoryInput) {
@@ -999,12 +1023,14 @@ export async function deleteMobileCategory(accessToken: string, courseId: string
 }
 
 export async function saveMobileItem(accessToken: string, courseId: string, input: MobileCourseItemInput) {
-  return fetchJson<{ item: MobileCourseDetail["items"][number] }>(
+  const response = await fetchJson<{ item: MobileCourseDetail["items"][number] }>(
     `/api/mobile/courses/${courseId}/items`,
     accessToken,
     { method: input.itemId ? "PATCH" : "POST", body: JSON.stringify(input) },
     "Unable to save item.",
   );
+  void refreshExamReminders(accessToken);
+  return response;
 }
 
 export async function setMobileItemGrade(
@@ -1020,16 +1046,20 @@ export async function setMobileItemGrade(
     "Unable to save grade.",
   );
   captureEvent("course_item_graded");
+  // A graded exam no longer needs reminders.
+  void refreshExamReminders(accessToken);
   return response;
 }
 
 export async function deleteMobileItem(accessToken: string, courseId: string, itemId: string) {
-  return fetchJson<{ ok: true }>(
+  const response = await fetchJson<{ ok: true }>(
     `/api/mobile/courses/${courseId}/items`,
     accessToken,
     { method: "DELETE", body: JSON.stringify({ itemId }) },
     "Unable to remove item.",
   );
+  void refreshExamReminders(accessToken);
+  return response;
 }
 
 // Syllabus import: draft/result shapes mirror src/lib/courses/syllabus-parse.ts and the
@@ -1105,5 +1135,6 @@ export async function applySyllabusImport(accessToken: string, draft: MobileSyll
     categories: response.applied.categories,
     items: response.applied.items,
   });
+  void refreshExamReminders(accessToken);
   return response;
 }

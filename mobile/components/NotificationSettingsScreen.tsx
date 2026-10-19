@@ -3,11 +3,12 @@ import { useTheme } from "../lib/theme";
 import type { Theme } from "../lib/theme";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { features } from "@personal-agent/core";
-import { fetchMobileWorkoutPlan } from "../lib/api";
+import { fetchMobileWorkoutPlan, refreshExamReminders } from "../lib/api";
 import {
   cancelAllAtlasNotifications,
   defaultNotificationPreferences,
   getAtlasScheduledNotificationCount,
+  notificationsPermitted,
   readNotificationPreferences,
   saveNotificationPreferences,
   type NotificationPreferences,
@@ -57,9 +58,14 @@ export function NotificationSettingsScreen({ accessToken }: NotificationSettings
         workoutEnabled: features.wellnessTracking && preferences.workoutEnabled,
       };
       const count = await saveNotificationPreferences(nextPreferences, workoutItems);
+      // Exam reminders come from course summaries; reloading them reschedules (or clears) them.
+      if (nextPreferences.examRemindersEnabled) await refreshExamReminders(accessToken);
       setPreferences(nextPreferences);
-      setScheduledCount(count);
-      setMessage(`Saved. ${count} recurring reminder${count === 1 ? "" : "s"} scheduled.`);
+      setScheduledCount(await getAtlasScheduledNotificationCount());
+      const examNote = nextPreferences.examRemindersEnabled && !(await notificationsPermitted())
+        ? " Exam reminders need notifications turned on for Atlas in device settings."
+        : "";
+      setMessage(`Saved. ${count} recurring reminder${count === 1 ? "" : "s"} scheduled.${examNote}`);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to save notification settings.");
     } finally {
@@ -72,9 +78,9 @@ export function NotificationSettingsScreen({ accessToken }: NotificationSettings
     setMessage(null);
     setError(null);
     try {
-      await cancelAllAtlasNotifications();
-      setPreferences(defaultNotificationPreferences);
-      setLeadMinutes(String(defaultNotificationPreferences.planLeadMinutes));
+      const disabled = await cancelAllAtlasNotifications();
+      setPreferences(disabled);
+      setLeadMinutes(String(disabled.planLeadMinutes));
       setScheduledCount(0);
       setMessage("All Atlas reminders are disabled.");
     } catch (nextError) {
@@ -145,6 +151,21 @@ export function NotificationSettingsScreen({ accessToken }: NotificationSettings
           />
         </View>
       ) : null}
+
+      <View style={styles.panel}>
+        <View style={styles.settingHeader}>
+          <View style={styles.settingCopy}>
+            <Text style={styles.settingTitle}>Exam reminders</Text>
+            <Text style={styles.settingBody}>3 days and 1 day before each upcoming exam, at 9:00.</Text>
+          </View>
+          <Switch
+            onValueChange={(examRemindersEnabled) => setPreferences((current) => ({ ...current, examRemindersEnabled }))}
+            trackColor={{ false: theme.colors.line, true: theme.colors.signal }}
+            thumbColor={preferences.examRemindersEnabled ? theme.colors.teal : theme.colors.paper}
+            value={preferences.examRemindersEnabled}
+          />
+        </View>
+      </View>
 
       <View style={styles.panel}>
         <Text style={styles.settingTitle}>{"Today's plan lead time"}</Text>

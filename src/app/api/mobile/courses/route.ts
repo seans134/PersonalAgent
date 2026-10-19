@@ -22,6 +22,7 @@ async function requireAuth(request: NextRequest) {
   return { auth };
 }
 
+// Response envelope ({ courses } with nextExam) is pinned in src/app/api/mobile-contract.test.ts.
 export async function GET(request: NextRequest) {
   const result = await requireAuth(request);
   if ("response" in result) return result.response;
