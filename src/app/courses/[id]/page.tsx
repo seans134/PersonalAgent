@@ -5,8 +5,10 @@ import { getCourseDetail } from "@/lib/courses/queries";
 import { getCourseShare } from "@/lib/courses/sharing";
 import { studyPlansForCourseItems } from "@/lib/courses/study-plans";
 import type { CourseItemRow } from "@/lib/courses/types";
+import { loadCourseStudyMinutes } from "@/lib/study/sessions";
 import { createClient } from "@/lib/supabase/server";
 import { CategoryEditor } from "./category-editor";
+import { CourseStudyTime } from "./course-study-time";
 import { CourseDetailsForm } from "./course-details-form";
 import { GradeSummary } from "./grade-summary";
 import { AddItemPanel } from "./item-form";
@@ -48,6 +50,8 @@ export default async function CourseDetailPage({
   const studyPlans = await studyPlansForCourseItems(supabase, user.id, items);
   // Sharing is secondary; a failure here shouldn't take down the course page.
   const share = await getCourseShare(supabase, user.id, course.id).catch(() => null);
+  // Study time is secondary too; without it the course page still renders.
+  const studyMinutes = await loadCourseStudyMinutes(supabase, user.id, course.id).catch(() => null);
   const meta = [course.code, course.term].filter(Boolean).join(" · ");
 
   const itemsByCategory = new Map<string, CourseItemRow[]>();
@@ -75,6 +79,7 @@ export default async function CourseDetailPage({
         <div className="mt-4">
           <h1 className="font-display text-3xl font-semibold tracking-tight text-ink">{course.name}</h1>
           {meta ? <p className="mt-2 text-ink-muted">{meta}</p> : null}
+          <CourseStudyTime archived={Boolean(course.archived_at)} courseId={course.id} initialMinutes={studyMinutes} />
         </div>
       </div>
 

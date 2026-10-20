@@ -16,7 +16,16 @@ import {
   type PlannedItemType,
   type PlanStatusResponse,
   type SemesterTimeline,
+  type StudySession,
+  type StudySessionCurrentResponse,
+  type StudySessionManualRequest,
+  type StudySessionManualResponse,
+  type StudySessionStartRequest,
+  type StudySessionStartResponse,
+  type StudySessionStopResponse,
+  type StudySummary,
   type SyllabusImportSource,
+  studyMinutesBucket,
 } from "@personal-agent/core";
 import { captureEvent, captureException } from "./analytics";
 import { requireMobileEnv } from "./env";
@@ -537,7 +546,8 @@ export async function fetchMobilePlanStatus(accessToken: string, planDate: strin
 export async function setMobilePlanItemStatus(
   accessToken: string,
   input: { planDate: string; itemKey: string; itemType: PlannedItemType; status: PlanItemStatus | null; minutes?: number | null },
-  counts: { item_count: number; done_count: number; skipped_count: number },
+  /** null when the plan isn't on screen (e.g. marked done from the study timer): no plan_item_completed then. */
+  counts: { item_count: number; done_count: number; skipped_count: number } | null,
 ): Promise<PlanItemStatusResponse> {
   const body = await fetchJson<PlanItemStatusResponse>(
     "/api/mobile/plan/status",
@@ -545,7 +555,7 @@ export async function setMobilePlanItemStatus(
     { method: "PUT", body: JSON.stringify(input) },
     "Unable to save check-off.",
   );
-  if (input.status) {
+  if (input.status && counts) {
     captureEvent(analyticsEvents.planItemCompleted, { item_type: input.itemType, status: input.status, ...counts });
   }
   return body;
@@ -574,6 +584,89 @@ export async function fetchMobileCalendar(accessToken: string): Promise<MobileCa
     { method: "GET" },
     "Unable to load calendar.",
   );
+}
+
+// ---- Study timer: /api/mobile/study-sessions/* (types in packages/core/src/study-time) ----
+
+/** A failed study-session request; on 409 (timer already running) running is that timer. */
+export class StudySessionRequestError extends Error {
+  constructor(
+    message: string,
+    readonly running: StudySession | null,
+  ) {
+    super(message);
+  }
+}
+
+/** The running timer, and a timer this read stopped at the 6-hour limit. */
+export async function fetchCurrentStudySession(accessToken: string): Promise<StudySessionCurrentResponse> {
+  return fetchJson<StudySessionCurrentResponse>(
+    "/api/mobile/study-sessions/current",
+    accessToken,
+    { method: "GET" },
+    "Unable to load the study timer.",
+  );
+}
+
+export async function startStudySession(accessToken: string, input: StudySessionStartRequest): Promise<StudySession> {
+  const { apiBaseUrl } = requireMobileEnv();
+  // Not fetchJson: a 409 carries the running timer, which the timer bar shows instead.
+  const response = await fetch(`${apiBaseUrl.replace(/\/$/, "")}/api/mobile/study-sessions`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  const body = (await response.json().catch(() => null)) as (StudySessionStartResponse & { error?: string; running?: StudySession }) | null;
+  if (!response.ok || !body?.session) {
+    if (response.status !== 409) captureEvent("api_request_failed", { path: "/api/mobile/study-sessions", status: response.status });
+    throw new StudySessionRequestError(body?.error ?? `Unable to start the timer. (status ${response.status})`, body?.running ?? null);
+  }
+  return body.session;
+}
+
+/** Stops the timer; under a minute it is discarded. Fires study_session_completed when saved. */
+export async function stopStudySession(accessToken: string, id: string): Promise<StudySessionStopResponse> {
+  const body = await fetchJson<StudySessionStopResponse>(
+    `/api/mobile/study-sessions/${encodeURIComponent(id)}/stop`,
+    accessToken,
+    { method: "POST" },
+    "Unable to stop the timer.",
+  );
+  if (body.session && !body.discarded) {
+    captureEvent(analyticsEvents.studySessionCompleted, {
+      minutes_bucket: studyMinutesBucket(body.session.durationMinutes ?? 0),
+      source: body.session.source,
+    });
+  }
+  return body;
+}
+
+export async function discardStudySession(accessToken: string, id: string) {
+  return fetchJson<{ ok: true }>(
+    `/api/mobile/study-sessions/${encodeURIComponent(id)}`,
+    accessToken,
+    { method: "DELETE" },
+    "Unable to discard the timer.",
+  );
+}
+
+export async function logManualStudySession(accessToken: string, input: StudySessionManualRequest): Promise<StudySession> {
+  const body = await fetchJson<StudySessionManualResponse>(
+    "/api/mobile/study-sessions/manual",
+    accessToken,
+    { method: "POST", body: JSON.stringify(input) },
+    "Unable to log study time.",
+  );
+  captureEvent(analyticsEvents.studySessionCompleted, { minutes_bucket: studyMinutesBucket(input.minutes), source: "manual" });
+  return body.session;
+}
+
+/** Study-time insights; courseId adds that course's all-time total (courseTotalMinutes). */
+export async function fetchStudySummary(accessToken: string, courseId?: string | null): Promise<StudySummary> {
+  const path = courseId
+    ? `/api/mobile/study-sessions/summary?courseId=${encodeURIComponent(courseId)}`
+    : "/api/mobile/study-sessions/summary";
+  return fetchJson<StudySummary>(path, accessToken, { method: "GET" }, "Unable to load study time.");
 }
 
 async function fetchJson<T>(

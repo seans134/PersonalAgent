@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import type { PlannedItem, PlanItemStatus } from "@/lib/planner";
 import type { TodayPlanContextEvent } from "@/lib/planner/client-types";
+import { StartStudyButton } from "./study-timer/study-timer-bar";
 
 type EntryCategory = PlannedItem["type"] | "commit";
 
@@ -84,6 +85,7 @@ function MeridianRow({
   index,
   onCheckoff,
   pending,
+  studyPlanDate,
 }: {
   entry: Entry;
   isFirst: boolean;
@@ -91,6 +93,7 @@ function MeridianRow({
   index: number;
   onCheckoff?: PlanItemCheckoffHandler;
   pending: boolean;
+  studyPlanDate?: string;
 }) {
   const status = entry.item?.status ?? null;
   const accent = status === "skipped" ? "var(--color-ink-muted)" : accentVar(entry.category);
@@ -149,6 +152,9 @@ function MeridianRow({
               label={status === "skipped" ? "Undo skip" : "Skip"}
               onClick={() => onCheckoff(item, "skipped")}
             />
+            {item.type === "study" && status === null && studyPlanDate ? (
+              <StartStudyButton target={{ planItemKey: item.key, planDate: studyPlanDate }} />
+            ) : null}
           </div>
         ) : null}
       </div>
@@ -178,6 +184,7 @@ export function TodayPlanMeridian({
   items,
   onCheckoff,
   pendingKeys,
+  studyPlanDate,
 }: {
   contextEvents: TodayPlanContextEvent[];
   generatedAt?: string;
@@ -185,6 +192,8 @@ export function TodayPlanMeridian({
   /** Omit to show the plan read-only (e.g. a plan with no check-off date). */
   onCheckoff?: PlanItemCheckoffHandler;
   pendingKeys?: ReadonlySet<string>;
+  /** Today's plan date; study blocks then offer "Start studying" (the study timer). */
+  studyPlanDate?: string;
 }) {
   const planEntries: Entry[] = items.map((item, index) => ({
     key: `plan-${index}-${item.startTime}`,
@@ -229,6 +238,7 @@ export function TodayPlanMeridian({
         key={entry.key}
         onCheckoff={onCheckoff}
         pending={entry.item?.key ? Boolean(pendingKeys?.has(entry.item.key)) : false}
+        studyPlanDate={studyPlanDate}
       />,
     );
   });

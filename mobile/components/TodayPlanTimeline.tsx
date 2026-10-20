@@ -4,6 +4,7 @@ import type { PlannedItem, PlanItemStatus } from "@personal-agent/core/planner/t
 import type { TodayPlanContextEvent } from "@personal-agent/core/planner/client-types";
 import { useTheme } from "../lib/theme";
 import type { ThemeColors } from "../lib/theme";
+import { StartStudyButton } from "./StudyTimer";
 
 export type PlanItemCheckoffHandler = (item: PlannedItem, tapped: PlanItemStatus) => void;
 
@@ -13,6 +14,8 @@ type TimelineProps = {
   /** Omit to show the plan read-only (a stale or pre-check-off cached plan). */
   onCheckoff?: PlanItemCheckoffHandler;
   pendingKeys?: ReadonlySet<string>;
+  /** Today's plan date; study blocks then offer "Start studying" (the study timer). */
+  studyPlanDate?: string;
 };
 
 // How an entry maps onto the category color system. Plan items carry their own
@@ -104,12 +107,14 @@ function MeridianRow({
   isLast,
   onCheckoff,
   pending,
+  studyPlanDate,
 }: {
   entry: Entry;
   isFirst: boolean;
   isLast: boolean;
   onCheckoff?: PlanItemCheckoffHandler;
   pending: boolean;
+  studyPlanDate?: string;
 }) {
   const theme = useTheme();
   const { colors } = theme;
@@ -182,6 +187,9 @@ function MeridianRow({
               label={status === "skipped" ? "Undo skip" : "Skip"}
               onPress={() => onCheckoff(item, "skipped")}
             />
+            {item.type === "study" && status === null && studyPlanDate ? (
+              <StartStudyButton target={{ planItemKey: item.key, planDate: studyPlanDate }} />
+            ) : null}
           </View>
         ) : null}
       </View>
@@ -202,7 +210,7 @@ function NowMarker({ label }: { label: string }) {
   );
 }
 
-export function TodayPlanTimeline({ contextEvents, items, onCheckoff, pendingKeys }: TimelineProps) {
+export function TodayPlanTimeline({ contextEvents, items, onCheckoff, pendingKeys, studyPlanDate }: TimelineProps) {
   const theme = useTheme();
   const { colors } = theme;
 
@@ -250,6 +258,7 @@ export function TodayPlanTimeline({ contextEvents, items, onCheckoff, pendingKey
         key={entry.key}
         onCheckoff={onCheckoff}
         pending={entry.item?.key ? Boolean(pendingKeys?.has(entry.item.key)) : false}
+        studyPlanDate={studyPlanDate}
       />,
     );
   });
@@ -347,6 +356,7 @@ const styles = StyleSheet.create({
   },
   checkoffRow: {
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: 8,
     marginTop: 8,
   },

@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useSyncExternalStore } from "react";
 import { features } from "@personal-agent/core";
+import { StudyTimerBar } from "./study-timer/study-timer-bar";
+import { StudyTimerProvider } from "./study-timer/study-timer-provider";
 
 // Students live in Today, Courses and Calendar, so those lead; setup pages follow.
 const allNavItems = [
@@ -12,6 +14,7 @@ const allNavItems = [
   { href: "/courses/semester", label: "Semester" },
   { href: "/courses/gpa", label: "GPA" },
   { href: "/calendar/local", label: "Calendar" },
+  { href: "/insights", label: "Insights" },
   { href: "/goals", label: "Goals" },
   { href: "/goals/completed", label: "Completed goals" },
   { href: "/onboarding/schedule", label: "School & work" },
@@ -20,7 +23,6 @@ const allNavItems = [
   { href: "/tracking/meals/saved", label: "Saved meals" },
   { href: "/tracking/workouts", label: "Workouts" },
   { href: "/tracking/workouts/plan", label: "Workout plan" },
-  { href: "/tracking/insights", label: "Insights" },
   { href: "/profile", label: "Profile" },
 ];
 
@@ -103,106 +105,110 @@ export function AppShell({
     .reduce<string | null>((best, item) => (best === null || item.href.length > best.length ? item.href : best), null);
 
   return (
-    <div className="min-h-screen">
-      <button
-        aria-controls="app-sidebar"
-        aria-expanded={isMenuOpen}
-        aria-label={isMenuOpen ? "Close menu" : "Open menu"}
-        className="fixed left-4 top-4 z-50 inline-flex h-11 w-11 items-center justify-center rounded-[11px] border border-line bg-surface text-ink shadow-[var(--shadow-sm)] transition hover:bg-surface2"
-        onClick={() => setIsMenuOpen((current) => !current)}
-        type="button"
-      >
-        <span className="sr-only">{isMenuOpen ? "Close menu" : "Open menu"}</span>
-        <span aria-hidden="true" className="flex flex-col gap-1">
-          <span className={`block h-0.5 w-5 rounded-full bg-current transition ${isMenuOpen ? "translate-y-1.5 rotate-45" : ""}`} />
-          <span className={`block h-0.5 w-5 rounded-full bg-current transition ${isMenuOpen ? "opacity-0" : ""}`} />
-          <span className={`block h-0.5 w-5 rounded-full bg-current transition ${isMenuOpen ? "-translate-y-1.5 -rotate-45" : ""}`} />
-        </span>
-      </button>
+    <StudyTimerProvider enabled={isSignedIn}>
+      <div className="min-h-screen">
+        <button
+          aria-controls="app-sidebar"
+          aria-expanded={isMenuOpen}
+          aria-label={isMenuOpen ? "Close menu" : "Open menu"}
+          className="fixed left-4 top-4 z-50 inline-flex h-11 w-11 items-center justify-center rounded-[11px] border border-line bg-surface text-ink shadow-[var(--shadow-sm)] transition hover:bg-surface2"
+          onClick={() => setIsMenuOpen((current) => !current)}
+          type="button"
+        >
+          <span className="sr-only">{isMenuOpen ? "Close menu" : "Open menu"}</span>
+          <span aria-hidden="true" className="flex flex-col gap-1">
+            <span className={`block h-0.5 w-5 rounded-full bg-current transition ${isMenuOpen ? "translate-y-1.5 rotate-45" : ""}`} />
+            <span className={`block h-0.5 w-5 rounded-full bg-current transition ${isMenuOpen ? "opacity-0" : ""}`} />
+            <span className={`block h-0.5 w-5 rounded-full bg-current transition ${isMenuOpen ? "-translate-y-1.5 -rotate-45" : ""}`} />
+          </span>
+        </button>
 
-      <div
-        className={`fixed inset-0 z-30 bg-ink/40 transition-opacity ${isMenuOpen ? "opacity-100" : "pointer-events-none opacity-0"}`}
-        onClick={() => setIsMenuOpen(false)}
-      />
+        <div
+          className={`fixed inset-0 z-30 bg-ink/40 transition-opacity ${isMenuOpen ? "opacity-100" : "pointer-events-none opacity-0"}`}
+          onClick={() => setIsMenuOpen(false)}
+        />
 
-      <aside
-        className={`fixed left-0 top-0 z-40 flex h-screen w-72 max-w-[82vw] flex-col border-r border-line bg-surface px-5 py-6 shadow-[var(--shadow-md)] transition-transform duration-200 ${
-          isMenuOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
-        id="app-sidebar"
-      >
-        <div className="pl-14">
-          <Link className="block" href="/" onClick={() => setIsMenuOpen(false)}>
-            <span className="block font-display text-lg font-bold tracking-tight text-ink">Atlas</span>
-            <span className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.12em] text-teal">
-              <span className="inline-block h-px w-4 bg-teal" aria-hidden="true" />
-              Study Planner
-            </span>
-          </Link>
-        </div>
-
-        <nav aria-label="Primary navigation" className="mt-8 flex flex-1 flex-col gap-1 overflow-y-auto">
-          {navItems.map((item) => {
-            const isActive = item.href === activeHref;
-
-            return (
-              <Link
-                className={`rounded-[11px] px-3 py-2 text-sm font-medium transition ${
-                  isActive ? "bg-teal text-on-teal" : "text-ink-muted hover:bg-surface2 hover:text-ink"
-                }`}
-                href={item.href}
-                key={item.href}
-                onClick={() => setIsMenuOpen(false)}
-              >
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
-
-        <div className="mt-6 flex flex-col gap-4 border-t border-line pt-5">
-          <ThemeToggle />
-          {isSignedIn ? (
-            <form action="/logout" method="post">
-              <button
-                className="w-full rounded-[11px] border border-line px-3 py-2 text-center text-sm font-medium text-ink transition hover:bg-surface2"
-                onClick={() => setIsMenuOpen(false)}
-                type="submit"
-              >
-                Sign out
-              </button>
-            </form>
-          ) : (
-            <Link
-              className="block rounded-[11px] border border-line px-3 py-2 text-center text-sm font-medium text-ink transition hover:bg-surface2"
-              href="/auth"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              Sign in
+        <aside
+          className={`fixed left-0 top-0 z-40 flex h-screen w-72 max-w-[82vw] flex-col border-r border-line bg-surface px-5 py-6 shadow-[var(--shadow-md)] transition-transform duration-200 ${
+            isMenuOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
+          id="app-sidebar"
+        >
+          <div className="pl-14">
+            <Link className="block" href="/" onClick={() => setIsMenuOpen(false)}>
+              <span className="block font-display text-lg font-bold tracking-tight text-ink">Atlas</span>
+              <span className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.12em] text-teal">
+                <span className="inline-block h-px w-4 bg-teal" aria-hidden="true" />
+                Study Planner
+              </span>
             </Link>
-          )}
-        </div>
-      </aside>
+          </div>
 
-      <div className="flex min-h-screen min-w-0 flex-col pt-10">
-        <div className="flex-1">{children}</div>
-        <footer className="border-t border-line px-6 py-5">
-          <nav
-            aria-label="Legal and support links"
-            className="mx-auto flex w-full max-w-4xl flex-wrap gap-x-5 gap-y-2 text-sm text-ink-muted"
-          >
-            <Link className="transition hover:text-ink" href="/privacy">
-              Privacy
-            </Link>
-            <Link className="transition hover:text-ink" href="/terms">
-              Terms
-            </Link>
-            <Link className="transition hover:text-ink" href="/support">
-              Support
-            </Link>
+          <nav aria-label="Primary navigation" className="mt-8 flex flex-1 flex-col gap-1 overflow-y-auto">
+            {navItems.map((item) => {
+              const isActive = item.href === activeHref;
+
+              return (
+                <Link
+                  className={`rounded-[11px] px-3 py-2 text-sm font-medium transition ${
+                    isActive ? "bg-teal text-on-teal" : "text-ink-muted hover:bg-surface2 hover:text-ink"
+                  }`}
+                  href={item.href}
+                  key={item.href}
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
           </nav>
-        </footer>
+
+          <div className="mt-6 flex flex-col gap-4 border-t border-line pt-5">
+            <ThemeToggle />
+            {isSignedIn ? (
+              <form action="/logout" method="post">
+                <button
+                  className="w-full rounded-[11px] border border-line px-3 py-2 text-center text-sm font-medium text-ink transition hover:bg-surface2"
+                  onClick={() => setIsMenuOpen(false)}
+                  type="submit"
+                >
+                  Sign out
+                </button>
+              </form>
+            ) : (
+              <Link
+                className="block rounded-[11px] border border-line px-3 py-2 text-center text-sm font-medium text-ink transition hover:bg-surface2"
+                href="/auth"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Sign in
+              </Link>
+            )}
+          </div>
+        </aside>
+
+        <div className="flex min-h-screen min-w-0 flex-col pt-10">
+          <div className="flex-1">{children}</div>
+          {/* The running study timer stays in view on every page (sticky to the viewport bottom). */}
+          <StudyTimerBar />
+          <footer className="border-t border-line px-6 py-5">
+            <nav
+              aria-label="Legal and support links"
+              className="mx-auto flex w-full max-w-4xl flex-wrap gap-x-5 gap-y-2 text-sm text-ink-muted"
+            >
+              <Link className="transition hover:text-ink" href="/privacy">
+                Privacy
+              </Link>
+              <Link className="transition hover:text-ink" href="/terms">
+                Terms
+              </Link>
+              <Link className="transition hover:text-ink" href="/support">
+                Support
+              </Link>
+            </nav>
+          </footer>
+        </div>
       </div>
-    </div>
+    </StudyTimerProvider>
   );
 }

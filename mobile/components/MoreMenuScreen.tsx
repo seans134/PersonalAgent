@@ -1,4 +1,5 @@
 import { ProfileFields } from "./ProfileFields";
+import { features } from "@personal-agent/core";
 import { useMemo } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useTheme, useThemePreference } from "../lib/theme";
@@ -14,7 +15,11 @@ type MoreMenuScreenProps = {
 };
 
 const allItems: Array<{ screen: MobileScreen; label: string; subtitle: string }> = [
-  { screen: "insights", label: "Insights", subtitle: "How your meals and workouts are trending" },
+  {
+    screen: "insights",
+    label: "Insights",
+    subtitle: features.wellnessTracking ? "Study time, meals and workouts" : "Study time by course and day",
+  },
   { screen: "goals", label: "Goals", subtitle: "Optional outcomes Atlas plans around" },
   { screen: "onboarding", label: "Setup", subtitle: "Courses and class times" },
   { screen: "weeklyRhythm", label: "Weekly rhythm", subtitle: "Study blocks, protected time, and work hours" },

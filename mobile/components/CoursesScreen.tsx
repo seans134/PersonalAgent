@@ -19,6 +19,7 @@ import {
   type MobileCourseInput,
   type MobileCourseSummary,
 } from "../lib/api";
+import { StartStudyButton } from "./StudyTimer";
 
 type CoursesScreenProps = {
   accessToken: string;
@@ -350,6 +351,7 @@ function CourseCard({
       ) : (
         <Text style={styles.courseCaption}>No upcoming items</Text>
       )}
+      {course.archivedAt === null ? <StartStudyButton target={{ courseId: course.id }} /> : null}
     </Pressable>
   );
 }

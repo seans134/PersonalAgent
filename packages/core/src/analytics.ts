@@ -21,6 +21,9 @@ export const analyticsEvents = {
   courseShared: "course_shared",
   // A classmate added a shared course. Properties: item_count.
   courseJoined: "course_joined",
+  // A study session was saved (timer stopped or time logged). Properties: minutes_bucket
+  // ("<15" | "15-30" | "30-60" | "60+", see studyMinutesBucket), source ("timer" | "manual").
+  studySessionCompleted: "study_session_completed",
 } as const;
 
 export type AnalyticsEventName = (typeof analyticsEvents)[keyof typeof analyticsEvents];

@@ -1,6 +1,6 @@
 "use client";
 
-import { useReducer, useRef, useState } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import {
   analyticsEvents,
   applyPlanItemStatus,
@@ -16,6 +16,7 @@ import {
 } from "@personal-agent/core";
 import { captureEvent } from "@/lib/analytics";
 import type { TodayPlanResponse } from "@/lib/planner/client-types";
+import { useStudyTimer, type StudyBlockOffer } from "./study-timer/study-timer-provider";
 import { TodayPlanMeridian } from "./today-plan-meridian";
 import {
   initialTodayPlanState,
@@ -132,16 +133,19 @@ export function TodayPlanPanel() {
     }
   }
 
-  async function handleCheckoff(item: PlannedItem, tapped: PlanItemStatus) {
-    if (!planData || !checkoff || !item.key || pendingKeysRef.current.has(item.key)) return;
+  /**
+   * Saves one item's status (optimistically, rolled back on failure). minutes overrides the
+   * scheduled length a done study block records, e.g. the real minutes from the study timer.
+   */
+  async function saveCheckoff(item: PlannedItem, status: PlanItemStatus | null, minutes?: number): Promise<boolean> {
+    if (!planData || !checkoff || !item.key || pendingKeysRef.current.has(item.key)) return false;
     if (!isCheckoffForToday(checkoff)) {
       setActionError("This plan is from a previous day. Plan your day again to check off today's items.");
-      return;
+      return false;
     }
     const key = item.key;
     const generatedAt = planData.meta.generatedAt;
     const previous = item.status ?? null;
-    const status = nextPlanItemStatus(previous, tapped);
     setActionError(null);
     setKeyPending(key, true);
     dispatch({ type: "itemStatus", key, status, generatedAt });
@@ -149,20 +153,53 @@ export function TodayPlanPanel() {
       await sendPlanRequest<PlanItemStatusResponse>(
         "/api/mobile/plan/status",
         "PUT",
-        { planDate: checkoff.planDate, itemKey: key, itemType: item.type, status, minutes: checkoffMinutesFor(item, status) },
+        {
+          planDate: checkoff.planDate,
+          itemKey: key,
+          itemType: item.type,
+          status,
+          minutes: status === "done" && minutes !== undefined && minutes > 0 ? minutes : checkoffMinutesFor(item, status),
+        },
         "Unable to save check-off.",
       );
       if (status) {
         const updated = planCheckoffCounts(applyPlanItemStatus(planData.plan.items, key, status));
         captureEvent(analyticsEvents.planItemCompleted, { item_type: item.type, status, ...updated });
       }
+      return true;
     } catch (error) {
       dispatch({ type: "itemStatus", key, status: previous, generatedAt });
       setActionError(error instanceof Error ? error.message : "Unable to save check-off.");
+      return false;
     } finally {
       setKeyPending(key, false);
     }
   }
+
+  async function handleCheckoff(item: PlannedItem, tapped: PlanItemStatus) {
+    await saveCheckoff(item, nextPlanItemStatus(item.status ?? null, tapped));
+  }
+
+  // "Mark done" after stopping a timer started from one of these blocks goes through this plan,
+  // so the card updates and the check-off counts stay right. Other plans (or none) fall back to
+  // the provider's direct save.
+  const { registerBlockDoneHandler } = useStudyTimer();
+  const saveCheckoffRef = useRef(saveCheckoff);
+  useEffect(() => {
+    saveCheckoffRef.current = saveCheckoff;
+  });
+  useEffect(() => {
+    if (!planData || !checkoff) return;
+    const items = planData.plan.items;
+    const planDate = checkoff.planDate;
+    registerBlockDoneHandler(async (offer: StudyBlockOffer) => {
+      const item = offer.planDate === planDate ? items.find((entry) => entry.key === offer.itemKey) : undefined;
+      if (!item) return false;
+      if (!(await saveCheckoffRef.current(item, "done", offer.minutes))) throw new Error("Unable to save check-off.");
+      return true;
+    });
+    return () => registerBlockDoneHandler(null);
+  }, [checkoff, planData, registerBlockDoneHandler]);
 
   async function handleAccept() {
     if (!planData || !checkoff || accepting) return;
@@ -285,6 +322,7 @@ export function TodayPlanPanel() {
             items={planData.plan.items}
             onCheckoff={checkoff ? handleCheckoff : undefined}
             pendingKeys={pendingKeys}
+            studyPlanDate={checkoff?.planDate}
           />
           <p className="text-right font-mono text-[11px] text-ink-muted">Planned {formatGeneratedAt(planData.meta.generatedAt)}</p>
         </div>

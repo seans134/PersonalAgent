@@ -54,6 +54,7 @@ import { parseJoinLink } from "@personal-agent/core";
 import { captureEvent, identifyAnalyticsUser, resetAnalyticsUser, Sentry } from "./lib/analytics";
 import { fetchMobileOnboardingStatus } from "./lib/api";
 import { cancelExamReminders, endExamReminderSession } from "./lib/notifications";
+import { StudyTimerProvider } from "./lib/study-timer";
 import { supabase } from "./lib/supabase";
 
 // After a sign-in the user made (or sign-up), students who haven't finished onboarding
@@ -497,9 +498,12 @@ function App() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <MobileAppShell activeTab={pendingJoinToken ? "courses" : screenToTab[activeScreen]} onSelectTab={handleSelectTab}>
-        {renderSignedInScreen()}
-      </MobileAppShell>
+      {/* Keyed by user so a different sign-in never shows the previous student's timer. */}
+      <StudyTimerProvider accessToken={session.access_token} key={session.user.id}>
+        <MobileAppShell activeTab={pendingJoinToken ? "courses" : screenToTab[activeScreen]} onSelectTab={handleSelectTab}>
+          {renderSignedInScreen()}
+        </MobileAppShell>
+      </StudyTimerProvider>
       <StatusBar style="dark" />
     </SafeAreaView>
   );

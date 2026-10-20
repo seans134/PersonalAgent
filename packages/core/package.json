@@ -17,6 +17,7 @@
     "./auth-deep-link": "./src/auth-deep-link.ts",
     "./features": "./src/features.ts",
     "./onboarding": "./src/onboarding/index.ts",
-    "./analytics": "./src/analytics.ts"
+    "./analytics": "./src/analytics.ts",
+    "./study-time": "./src/study-time/index.ts"
   }
 }
