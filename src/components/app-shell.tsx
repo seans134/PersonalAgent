@@ -24,6 +24,7 @@ const allNavItems = [
   { href: "/tracking/workouts", label: "Workouts" },
   { href: "/tracking/workouts/plan", label: "Workout plan" },
   { href: "/profile", label: "Profile" },
+  { href: "/pro", label: "Atlas Pro" },
 ];
 
 // Meal, workout and insights pages sit behind the shared wellness switch.

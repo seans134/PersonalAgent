@@ -26,6 +26,7 @@ export type MobileScreen =
   | "weeklyRhythm"
   | "notifications"
   | "settings"
+  | "pro"
   | "scheduleImport";
 
 export type MobileTab = "today" | "courses" | "calendar" | "meals" | "workouts" | "profile";
@@ -52,6 +53,7 @@ export const screenToTab: Record<MobileScreen, MobileTab> = {
   weeklyRhythm: "profile",
   notifications: "profile",
   settings: "profile",
+  pro: "profile",
 };
 
 // The screen a tab lands on when tapped.

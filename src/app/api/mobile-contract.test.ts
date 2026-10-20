@@ -213,6 +213,7 @@ function makeImportSupabase() {
       error: null,
     },
     course_items: { error: null },
+    syllabus_imports: { error: null },
   };
   const from = vi.fn((table: string) => {
     const builder: Record<string, unknown> = {};

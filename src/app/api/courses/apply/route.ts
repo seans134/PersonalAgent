@@ -2,6 +2,9 @@ import { revalidatePath } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 import { validateSyllabusDraft } from "@/lib/courses/syllabus-parse";
 import { getAuthenticatedRequestClient } from "@/lib/supabase/request";
+import { SYLLABUS_IMPORT_LIMIT_STATUS } from "@personal-agent/core";
+import { proLimitsEnforced } from "@/lib/subscription/config";
+import { recordSyllabusImport, syllabusImportLimitBody, syllabusImportUsage } from "@/lib/subscription/usage";
 
 export const runtime = "nodejs";
 
@@ -17,6 +20,14 @@ export async function POST(request: NextRequest) {
 
   try {
     const draft = validateSyllabusDraft(payload.draft);
+
+    // The free-tier limit (see the parse route); a 402 with code "syllabus_import_limit".
+    if (proLimitsEnforced()) {
+      const usage = await syllabusImportUsage(auth.supabase, auth.user.id);
+      if (!usage.allowed) {
+        return NextResponse.json(syllabusImportLimitBody(usage), { status: SYLLABUS_IMPORT_LIMIT_STATUS });
+      }
+    }
 
     // 1) Course
     const { data: course, error: courseError } = await auth.supabase
@@ -36,6 +47,8 @@ export async function POST(request: NextRequest) {
     }
 
     const courseId = course.id as string;
+    // Counted as soon as the course exists (always, so usage is accurate when limits are turned on).
+    await recordSyllabusImport(auth.supabase, auth.user.id, courseId);
 
     // 2) Categories — insert in order and map name -> id for the items below.
     const categoryIdByName = new Map<string, string>();

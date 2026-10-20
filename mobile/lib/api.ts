@@ -21,6 +21,7 @@ import {
   type PlannedItemType,
   type PlanStatusResponse,
   type SemesterTimeline,
+  type SubscriptionStatusResponse,
   type StudySession,
   type StudySessionCurrentResponse,
   type StudySessionManualRequest,
@@ -674,6 +675,17 @@ export async function fetchStudySummary(accessToken: string, courseId?: string |
   return fetchJson<StudySummary>(path, accessToken, { method: "GET" }, "Unable to load study time.");
 }
 
+/** A failed API call; code is the route's machine-readable error code (e.g. "syllabus_import_limit"). */
+export class ApiRequestError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly code: string | null,
+  ) {
+    super(message);
+  }
+}
+
 async function fetchJson<T>(
   path: string,
   accessToken: string,
@@ -701,12 +713,13 @@ async function fetchJson<T>(
   }
 
   if (!response.ok) {
-    const errorBody = body as { error?: string } | null;
+    const errorBody = body as { error?: string; code?: string } | null;
     // A 413 can come from the platform before our handler runs, without a JSON body.
     const statusMessage =
       response.status === 413 ? SYLLABUS_TOO_LARGE_MESSAGE : `${fallbackError} (status ${response.status})`;
-    const error = new Error(errorBody?.error ?? statusMessage);
-    captureEvent("api_request_failed", { path: reportedPath, status: response.status });
+    const error = new ApiRequestError(errorBody?.error ?? statusMessage, response.status, errorBody?.code ?? null);
+    // The free-tier limit is an expected answer (an upgrade prompt), not a failure to report.
+    if (response.status !== 402) captureEvent("api_request_failed", { path: reportedPath, status: response.status });
     if (response.status >= 500) captureException(error, { path: reportedPath, status: response.status });
     throw error;
   }
@@ -1470,4 +1483,15 @@ export async function resolveLmsPendingItem(
   );
   if (action.action === "assign" && action.kind === "exam") void refreshExamReminders(accessToken);
   return result;
+}
+
+// Atlas Pro (/api/mobile/subscription, contract in packages/core/src/subscription). Pro status always
+// comes from the server; the RevenueCat SDK (lib/purchases.ts) is only used to buy and restore.
+export async function fetchSubscriptionStatus(accessToken: string): Promise<SubscriptionStatusResponse> {
+  return fetchJson<SubscriptionStatusResponse>(
+    "/api/mobile/subscription",
+    accessToken,
+    { method: "GET" },
+    "Unable to load Atlas Pro.",
+  );
 }
