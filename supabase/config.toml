@@ -7,4 +7,4 @@ project_id = "atlas"
 
 [db]
 # Postgres major version of the linked project. Match your Supabase project's version.
-major_version = 15
+major_version = 17

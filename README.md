@@ -14,6 +14,13 @@ Current capabilities:
 - Courses & grade manager: weighted grade categories, assignments/quizzes/exams,
   a live course average, and planner study-time reservation
 - Optional Gemini enhancement layer for plan wording and summary (times remain deterministic)
+- Plan acceptance and check-off, exam study ramps, and a semester overview
+- Shareable course templates, GPA tracking, and per-course study timers/manual logs
+- LMS calendar feed imports for course deadlines
+- Atlas Pro subscription flows on web and mobile (billing-provider setup required before purchases go live; limits default off)
+
+For the current release, deployment references, Git state, verification results,
+and remaining work, read [HANDOFF.md](HANDOFF.md).
 
 ## Prerequisites
 
