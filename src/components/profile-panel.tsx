@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { defaultAtlasProfile, type AtlasProfile } from "@personal-agent/core";
+import { defaultAtlasProfile, GPA_SCALE_IDS, GPA_SCALES, isGpaScaleId, type AtlasProfile } from "@personal-agent/core";
 import { createClient } from "@/lib/supabase/client";
 const inputStyle = "w-full rounded-lg border border-line bg-surface px-3 py-2 text-ink";
 export function ProfilePanel() {
@@ -17,13 +17,14 @@ export function ProfilePanel() {
     try { const response = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }); const data = await response.json(); if (!response.ok) throw new Error(data.error || "Unable to save changes."); setMessage(data.message || "Profile saved."); setCurrentPassword(""); setNewPassword(""); setConfirmPassword(""); if (data.deleted) { await createClient().auth.signOut(); window.location.assign("/auth"); } }
     catch (e) { setError(e instanceof Error ? e.message : "Unable to save changes."); } finally { setBusy(false); }
   }
-  const field = (key: keyof AtlasProfile, label: string, type = "text") => <label className="block" key={key}>{label}<input className={inputStyle} type={type} value={profile[key] ?? ""} min={key === "focus_block_minutes" ? 15 : undefined} max={key === "focus_block_minutes" ? 240 : undefined} onChange={(e) => setProfile({ ...profile, [key]: type === "number" ? Number(e.target.value) : e.target.value || (key.startsWith("no_meeting") ? null : "") })} /></label>;
+  const field = (key: Exclude<keyof AtlasProfile, "gpa_scale">, label: string, type = "text") => <label className="block" key={key}>{label}<input className={inputStyle} type={type} value={profile[key] ?? ""} min={key === "focus_block_minutes" ? 15 : undefined} max={key === "focus_block_minutes" ? 240 : undefined} onChange={(e) => setProfile({ ...profile, [key]: type === "number" ? Number(e.target.value) : e.target.value || (key.startsWith("no_meeting") ? null : "") })} /></label>;
   return <div className="space-y-6">
     {error && <p role="alert" className="text-danger">{error}</p>}{message && <p role="status" className="text-success">{message}</p>}
     <fieldset disabled={busy || !loaded} className="space-y-4 rounded-xl border border-line bg-surface p-5"><legend className="font-semibold">Personal details & planning</legend><p>{email}</p>
       {field("display_name", "Display name")}{field("timezone", "Timezone")}
       <p className="text-sm text-ink-muted">Schedules use local wall-clock times. Changing timezone keeps the times you entered.</p>
       <div className="grid gap-3 sm:grid-cols-2">{field("work_start_time", "Work start", "time")}{field("work_end_time", "Work end", "time")}{field("no_meeting_start", "Unavailable from", "time")}{field("no_meeting_end", "Unavailable until", "time")}{field("focus_block_minutes", "Focus block length (minutes)", "number")}</div>
+      <label className="block">GPA scale<select className={inputStyle} value={profile.gpa_scale} onChange={(e) => { if (isGpaScaleId(e.target.value)) setProfile({ ...profile, gpa_scale: e.target.value }); }}>{GPA_SCALE_IDS.map((id) => <option key={id} value={id}>{GPA_SCALES[id].label}</option>)}</select></label>
       <button className="rounded-lg bg-teal px-4 py-2 text-on-teal" onClick={() => action("/api/mobile/profile", { profile }, "PATCH")}>Save profile</button>
     </fieldset>
     <fieldset disabled={busy || !loaded} className="space-y-3 rounded-xl border border-line p-5"><legend className="font-semibold">Account</legend>

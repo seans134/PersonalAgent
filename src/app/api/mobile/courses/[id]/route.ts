@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedRequestClient } from "@/lib/supabase/request";
-import { getCourseDetail } from "@/lib/courses/queries";
+import { parseCreditsInput, parseFinalGradeInput } from "@personal-agent/core";
+import { COURSE_COLUMNS, getCourseDetail } from "@/lib/courses/queries";
 import { courseGradeFromRows, courseNeededFromRows } from "@/lib/courses/grade";
 import { studyPlansForCourseItems } from "@/lib/courses/study-plans";
 
@@ -49,12 +50,15 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       }
       update.target_grade = n;
     }
+    // GPA fields: credits 0-20 (null clears), finalGrade is the transcript letter (null clears).
+    if ("credits" in payload) update.credits = parseCreditsInput(payload.credits);
+    if ("finalGrade" in payload) update.final_grade_override = parseFinalGradeInput(payload.finalGrade);
     if (typeof payload.archived === "boolean") {
       update.archived_at = payload.archived ? new Date().toISOString() : null;
     }
     const { data, error } = await result.auth.supabase
       .from("courses").update(update).eq("id", id).eq("user_id", result.auth.user.id)
-      .select("id, user_id, name, code, color, term, target_grade, archived_at, created_at").single();
+      .select(COURSE_COLUMNS).single();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ course: data });
   } catch (error) {

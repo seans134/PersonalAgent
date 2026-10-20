@@ -5,7 +5,8 @@ import type { CourseCategoryRow, CourseItemRow, CourseRow, CourseSummaryDTO } fr
 
 type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 
-const COURSE_COLUMNS = "id, user_id, name, code, color, term, target_grade, archived_at, created_at";
+export const COURSE_COLUMNS =
+  "id, user_id, name, code, color, term, target_grade, archived_at, created_at, credits, final_grade_override";
 const CATEGORY_COLUMNS = "id, course_id, user_id, name, weight, position, created_at";
 const ITEM_COLUMNS =
   "id, course_id, category_id, user_id, kind, title, due_at, end_at, location, score_earned, score_max, estimated_effort_hours, focus_mode, created_at";

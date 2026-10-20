@@ -10,6 +10,7 @@ const allNavItems = [
   { href: "/", label: "Today" },
   { href: "/courses", label: "Courses" },
   { href: "/courses/semester", label: "Semester" },
+  { href: "/courses/gpa", label: "GPA" },
   { href: "/calendar/local", label: "Calendar" },
   { href: "/goals", label: "Goals" },
   { href: "/goals/completed", label: "Completed goals" },

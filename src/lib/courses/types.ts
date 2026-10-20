@@ -1,8 +1,10 @@
-import type { NeededScore } from "@personal-agent/core";
+import type { LetterGrade, NeededScore } from "@personal-agent/core";
 
 export type CourseRow = {
   id: string; user_id: string; name: string; code: string | null; color: string | null;
   term: string | null; target_grade: number | null; archived_at: string | null; created_at: string;
+  // GPA (packages/core/src/grades/gpa.ts): credits, and the official final letter once the course is done.
+  credits: number | null; final_grade_override: LetterGrade | null;
 };
 export type CourseCategoryRow = {
   id: string; course_id: string; user_id: string; name: string; weight: number; position: number; created_at: string;

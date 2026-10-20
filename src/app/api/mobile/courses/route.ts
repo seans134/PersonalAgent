@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedRequestClient } from "@/lib/supabase/request";
-import { listCourseSummaries } from "@/lib/courses/queries";
+import { parseCreditsInput } from "@personal-agent/core";
+import { COURSE_COLUMNS, listCourseSummaries } from "@/lib/courses/queries";
 
 function optionalText(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -50,8 +51,9 @@ export async function POST(request: NextRequest) {
         color: optionalText(payload.color),
         term: optionalText(payload.term),
         target_grade: optionalPercent(payload.targetGrade),
+        credits: parseCreditsInput(payload.credits),
       })
-      .select("id, user_id, name, code, color, term, target_grade, archived_at, created_at")
+      .select(COURSE_COLUMNS)
       .single();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ course: data }, { status: 201 });

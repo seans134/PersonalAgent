@@ -21,6 +21,7 @@ import { CalendarScreen } from "./components/CalendarScreen";
 import { CourseDetailScreen } from "./components/CourseDetailScreen";
 import { CoursesScreen } from "./components/CoursesScreen";
 import { SemesterScreen } from "./components/SemesterScreen";
+import { GpaScreen } from "./components/GpaScreen";
 import { DashboardScreen } from "./components/DashboardScreen";
 import { GoalsScreen } from "./components/GoalsScreen";
 import { JoinCourseScreen } from "./components/JoinCourseScreen";
@@ -71,10 +72,12 @@ function App() {
   const [loadingSession, setLoadingSession] = useState(true);
   const [activeScreen, setActiveScreen] = useState<MobileScreen>("dashboard");
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
-  // Where the course detail's back button goes: Courses, or Semester when opened from there.
-  const [courseBackScreen, setCourseBackScreen] = useState<"courses" | "semester">("courses");
+  // Where the course detail's back button goes: Courses, or Semester/GPA when opened from there.
+  const [courseBackScreen, setCourseBackScreen] = useState<"courses" | "semester" | "gpa">("courses");
   // The term picked on Semester; kept here so it survives Semester -> course -> back. Null = default.
   const [semesterTerm, setSemesterTerm] = useState<string | null>(null);
+  // The cumulative GPA target typed on GPA; kept here so it survives GPA -> course -> back.
+  const [gpaTargetText, setGpaTargetText] = useState("");
   const [isRecoveringPassword, setIsRecoveringPassword] = useState(false);
   const [authLinkMessage, setAuthLinkMessage] = useState<string | undefined>();
   // Token from a course share link (atlas://join/<token>). Held across sign-in/sign-up, then
@@ -136,6 +139,7 @@ function App() {
         setActiveScreen("dashboard");
         setPendingJoinToken(null);
         setSemesterTerm(null);
+        setGpaTargetText("");
         // Exam reminders belong to the signed-out student's courses; stop in-flight course loads rescheduling them.
         endExamReminderSession();
         void cancelExamReminders().catch(() => undefined);
@@ -200,6 +204,12 @@ function App() {
   function openCourseFromSemester(courseId: string) {
     setSelectedCourseId(courseId);
     setCourseBackScreen("semester");
+    setActiveScreen("courseDetail");
+  }
+
+  function openCourseFromGpa(courseId: string) {
+    setSelectedCourseId(courseId);
+    setCourseBackScreen("gpa");
     setActiveScreen("courseDetail");
   }
 
@@ -327,6 +337,7 @@ function App() {
             onImportSyllabus={() => setActiveScreen("syllabusImport")}
             onOpenCourse={openCourse}
             onOpenSemester={() => setActiveScreen("semester")}
+            onOpenGpa={() => setActiveScreen("gpa")}
           />
         </View>
       );
@@ -341,6 +352,20 @@ function App() {
             onOpenCourse={openCourseFromSemester}
             onTermChange={setSemesterTerm}
             term={semesterTerm}
+          />
+        </View>
+      );
+    }
+
+    if (activeScreen === "gpa") {
+      return (
+        <View style={styles.tabBody}>
+          <GpaScreen
+            accessToken={token}
+            onBack={() => setActiveScreen("courses")}
+            onOpenCourse={openCourseFromGpa}
+            onTargetTextChange={setGpaTargetText}
+            targetText={gpaTargetText}
           />
         </View>
       );
@@ -365,7 +390,7 @@ function App() {
         <View style={styles.tabBody}>
           <CourseDetailScreen
             accessToken={token}
-            backLabel={courseBackScreen === "semester" ? "Semester" : "Courses"}
+            backLabel={courseBackScreen === "semester" ? "Semester" : courseBackScreen === "gpa" ? "GPA" : "Courses"}
             courseId={selectedCourseId}
             onBack={() => setActiveScreen(courseBackScreen)}
           />
