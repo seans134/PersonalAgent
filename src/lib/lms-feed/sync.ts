@@ -373,7 +373,7 @@ async function recordSuccess(supabase: SupabaseClient, userId: string, counts: L
   if (error) throw dbError("save the sync time");
 }
 
-const THROTTLED_MESSAGE = "Your feed synced a moment ago. Try again in a minute.";
+const THROTTLED_MESSAGE = "Atlas just checked your feed. Try again in a minute.";
 
 /**
  * Claims a sync attempt: sets last_attempt_at only when the last attempt is over a minute old.
