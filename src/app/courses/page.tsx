@@ -4,6 +4,7 @@ import { listCourseSummaries } from "@/lib/courses/queries";
 import { isGeminiConfigured } from "@/lib/gemini/client";
 import { createClient } from "@/lib/supabase/server";
 import { CourseCard } from "./course-card";
+import { LmsFeedPanel } from "./lms-feed-panel";
 import { NewCourseForm } from "./new-course-form";
 import { SyllabusImportPanel } from "./syllabus-import-panel";
 
@@ -61,6 +62,9 @@ export default async function CoursesPage({
 
       <div className="mb-8 space-y-6">
         <SyllabusImportPanel geminiConfigured={isGeminiConfigured()} />
+        <LmsFeedPanel
+          courses={activeCourses.map((course) => ({ id: course.id, name: course.name, code: course.code }))}
+        />
         <NewCourseForm />
       </div>
 

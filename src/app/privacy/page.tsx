@@ -21,6 +21,11 @@ export default function PrivacyPage() {
           App content may include goals, preferences, calendar events, class and work schedules, daily plans, meals,
           workouts, body-profile measurements, saved meals, notes, and feedback you give to AI-assisted features.
         </p>
+        <p>
+          If you connect an LMS calendar feed (for example Canvas or Moodle), Atlas stores the feed link, which works like a
+          password for that calendar, and reads it from the Atlas backend only to import your assignment and exam dates.
+          The link is never shown back in full, logged, or sent to analytics. Disconnecting the feed deletes the link.
+        </p>
       </DocumentSection>
 
       <DocumentSection title="How information is used">

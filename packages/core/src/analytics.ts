@@ -24,6 +24,10 @@ export const analyticsEvents = {
   // A study session was saved (timer stopped or time logged). Properties: minutes_bucket
   // ("<15" | "15-30" | "30-60" | "60+", see studyMinutesBucket), source ("timer" | "manual").
   studySessionCompleted: "study_session_completed",
+  // An LMS calendar feed was synced. Properties: trigger ("connect" | "manual" | "auto") and counts
+  // only (event_count, deadline_count, added_count, updated_count, needs_course_count); never the
+  // feed link or event titles. See lmsFeedSyncedProperties.
+  lmsFeedSynced: "lms_feed_synced",
 } as const;
 
 export type AnalyticsEventName = (typeof analyticsEvents)[keyof typeof analyticsEvents];
