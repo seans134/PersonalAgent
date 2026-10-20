@@ -4,10 +4,15 @@ import type { CalendarEvent } from "@personal-agent/core/calendar";
 import {
   analyticsEvents,
   hasCoursesReady,
+  lmsFeedSyncedProperties,
   redactShareTokens,
   type CourseSharePreview,
   type CourseStudyPlans,
   type GpaSummary,
+  type LmsDeadlineKind,
+  type LmsFeedStatusResponse,
+  type LmsFeedSyncResponse,
+  type LmsFeedSyncTrigger,
   type LetterGrade,
   type NeededScore,
   type PlanAcceptResponse,
@@ -1407,4 +1412,62 @@ export async function applySyllabusImport(
   });
   void refreshExamReminders(accessToken);
   return response;
+}
+
+// LMS calendar feed (/api/mobile/lms-feed, contract in packages/core/src/lms-feed/contract.ts).
+// The feed link is only ever sent (connect); responses carry a host-only mask.
+
+export async function fetchLmsFeedStatus(accessToken: string): Promise<LmsFeedStatusResponse> {
+  return fetchJson<LmsFeedStatusResponse>("/api/mobile/lms-feed", accessToken, { method: "GET" }, "Unable to load your LMS feed.");
+}
+
+function afterLmsSync(accessToken: string, result: LmsFeedSyncResponse, trigger: LmsFeedSyncTrigger) {
+  if (!result.synced || !result.counts) return;
+  captureEvent(analyticsEvents.lmsFeedSynced, lmsFeedSyncedProperties(result.counts, trigger));
+  // New or moved exams change exam reminders.
+  if (result.counts.added > 0 || result.counts.updated > 0) void refreshExamReminders(accessToken);
+}
+
+/** Connects (or replaces) the feed link and syncs it; the link is saved only if it works. */
+export async function connectLmsFeed(accessToken: string, url: string): Promise<LmsFeedSyncResponse> {
+  const result = await fetchJson<LmsFeedSyncResponse>(
+    "/api/mobile/lms-feed",
+    accessToken,
+    { method: "PUT", body: JSON.stringify({ url: url.trim() }) },
+    "Unable to connect your LMS feed.",
+  );
+  afterLmsSync(accessToken, result, "connect");
+  return result;
+}
+
+/** "Sync now" (manual) or the on-open sync (auto: only when the last sync is over 12 hours old). */
+export async function syncLmsFeed(accessToken: string, trigger: "manual" | "auto"): Promise<LmsFeedSyncResponse> {
+  const result = await fetchJson<LmsFeedSyncResponse>(
+    "/api/mobile/lms-feed/sync",
+    accessToken,
+    { method: "POST", body: JSON.stringify(trigger === "auto" ? { ifStale: true } : {}) },
+    "Unable to sync your LMS feed.",
+  );
+  afterLmsSync(accessToken, result, trigger);
+  return result;
+}
+
+export async function disconnectLmsFeed(accessToken: string) {
+  return fetchJson<{ ok: true }>("/api/mobile/lms-feed", accessToken, { method: "DELETE" }, "Unable to disconnect your LMS feed.");
+}
+
+/** Puts a feed deadline that matched no course into one, or skips it. */
+export async function resolveLmsPendingItem(
+  accessToken: string,
+  id: string,
+  action: { action: "assign"; courseId: string; kind: LmsDeadlineKind } | { action: "skip" },
+): Promise<LmsFeedStatusResponse> {
+  const result = await fetchJson<LmsFeedStatusResponse>(
+    `/api/mobile/lms-feed/items/${encodeURIComponent(id)}`,
+    accessToken,
+    { method: "PATCH", body: JSON.stringify(action) },
+    "Unable to update that deadline.",
+  );
+  if (action.action === "assign" && action.kind === "exam") void refreshExamReminders(accessToken);
+  return result;
 }

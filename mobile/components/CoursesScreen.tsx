@@ -19,6 +19,7 @@ import {
   type MobileCourseInput,
   type MobileCourseSummary,
 } from "../lib/api";
+import { LmsFeedSection } from "./LmsFeedSection";
 import { StartStudyButton } from "./StudyTimer";
 
 type CoursesScreenProps = {
@@ -221,6 +222,8 @@ export function CoursesScreen({ accessToken, onImportSyllabus, onOpenCourse, onO
           </>
         ) : null}
       </View>
+
+      <LmsFeedSection accessToken={accessToken} courses={courses} onDeadlinesChanged={loadCourses} />
 
       {loading && courses.length === 0 ? (
         <View style={styles.loadingRow}>
