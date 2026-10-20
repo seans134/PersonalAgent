@@ -25,7 +25,7 @@ create table if not exists public.study_sessions (
   check (ended_at is null or ended_at >= started_at),
   check (
     (ended_at is null and duration_minutes is null)
-    or (ended_at is not null and duration_minutes between 1 and 720)
+    or (ended_at is not null and duration_minutes is not null and duration_minutes between 1 and 720)
   ),
   check ((plan_item_key is null) = (plan_date is null))
 );
