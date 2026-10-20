@@ -1,11 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import {
   addSyllabusCategory,
   analyticsEvents,
   fromSyllabusReview,
+  isSyllabusImportLimitError,
   removeSyllabusCategory,
   renameSyllabusCategory,
   summarizeSyllabusWeights,
@@ -91,6 +93,8 @@ export function SyllabusImportPanel({
   const [source, setSource] = useState<SyllabusImportSource>("text");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  // Set when the import routes answer 402 syllabus_import_limit; shows an upgrade prompt.
+  const [limitReached, setLimitReached] = useState(false);
   const [isParsing, setIsParsing] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
 
@@ -155,6 +159,7 @@ export function SyllabusImportPanel({
   async function handleParse() {
     setError("");
     setNotice("");
+    setLimitReached(false);
     setDraft(null);
     setIsParsing(true);
 
@@ -177,6 +182,7 @@ export function SyllabusImportPanel({
         throw new Error(TOO_LARGE_MESSAGE);
       }
       const payload = (await response.json()) as ParseResponse;
+      if (isSyllabusImportLimitError(payload)) setLimitReached(true);
 
       if (!response.ok || isErrorResponse(payload)) {
         throw new Error(isErrorResponse(payload) ? payload.error : "Unable to parse syllabus.");
@@ -208,6 +214,7 @@ export function SyllabusImportPanel({
         body: JSON.stringify({ draft: fromSyllabusReview(draft) }),
       });
       const payload = (await response.json()) as ApplyResponse;
+      if (isSyllabusImportLimitError(payload)) setLimitReached(true);
 
       if (!response.ok || isErrorResponse(payload)) {
         throw new Error(isErrorResponse(payload) ? payload.error : "Unable to create course.");
@@ -295,6 +302,14 @@ export function SyllabusImportPanel({
 
       {notice ? <p className="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-teal">{notice}</p> : null}
       {error ? <p className="rounded-lg border border-danger bg-surface px-3 py-2 text-sm text-danger">{error}</p> : null}
+      {limitReached ? (
+        <Link
+          className="inline-block rounded-lg bg-teal px-5 py-2 text-sm font-medium text-on-teal"
+          href="/pro?from=import_limit"
+        >
+          See Atlas Pro
+        </Link>
+      ) : null}
 
       {draft ? (
         <div className="space-y-5 rounded-lg bg-surface2 p-4">

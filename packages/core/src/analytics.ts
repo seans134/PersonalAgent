@@ -28,6 +28,12 @@ export const analyticsEvents = {
   // only (event_count, deadline_count, added_count, updated_count, needs_course_count); never the
   // feed link or event titles. See lmsFeedSyncedProperties.
   lmsFeedSynced: "lms_feed_synced",
+  // The Atlas Pro paywall was shown. Properties: trigger ("import_limit" | "profile" | "menu", see
+  // PaywallTrigger), surface ("web" | "mobile"), available (whether purchase buttons were shown).
+  paywallViewed: "paywall_viewed",
+  // A Pro subscription was bought. Properties: plan ("monthly" | "yearly") only; never amounts,
+  // prices, currency, or store/customer ids.
+  subscriptionStarted: "subscription_started",
 } as const;
 
 export type AnalyticsEventName = (typeof analyticsEvents)[keyof typeof analyticsEvents];

@@ -22,10 +22,12 @@ import {
   summarizeSyllabusWeights,
   syllabusImportSource,
   toSyllabusReview,
+  SYLLABUS_IMPORT_LIMIT_CODE,
   type SyllabusImportSource,
 } from "@personal-agent/core";
 import { Icon } from "./Icon";
 import {
+  ApiRequestError,
   applySyllabusImport,
   parseSyllabusImport,
   type MobileSyllabusDraft,
@@ -42,6 +44,8 @@ type SyllabusImportScreenProps = {
   backLabel?: string;
   /** Called with the new course's id after a successful apply. */
   onImported: (courseId: string) => void;
+  /** Opens Atlas Pro when the free syllabus import limit is reached; without it only the message shows. */
+  onUpgrade?: () => void;
 };
 
 const KIND_OPTIONS: Array<{ value: MobileSyllabusItemKind; label: string }> = [
@@ -49,6 +53,10 @@ const KIND_OPTIONS: Array<{ value: MobileSyllabusItemKind; label: string }> = [
   { value: "quiz", label: "Quiz" },
   { value: "exam", label: "Exam" },
 ];
+
+function isLimitError(error: unknown): boolean {
+  return error instanceof ApiRequestError && error.code === SYLLABUS_IMPORT_LIMIT_CODE;
+}
 
 // Same minimum the web panel uses before it lets pasted text through.
 const MIN_TEXT_LENGTH = 8;
@@ -158,6 +166,7 @@ export function SyllabusImportScreen({
   onBack,
   backLabel = "Courses",
   onImported,
+  onUpgrade,
 }: SyllabusImportScreenProps) {
   const theme = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
@@ -168,6 +177,8 @@ export function SyllabusImportScreen({
   // Where the draft under review came from, reported when it's applied.
   const [source, setSource] = useState<SyllabusImportSource>("text");
   const [error, setError] = useState("");
+  // Set when the API answers 402 syllabus_import_limit (free imports used up this term).
+  const [limitReached, setLimitReached] = useState(false);
   const [applying, setApplying] = useState(false);
   const [picking, setPicking] = useState(false);
   // Refs guard against double taps landing before the busy state re-renders,
@@ -198,7 +209,10 @@ export function SyllabusImportScreen({
         setReview(reviewFromDraft(result.draft));
       }
     } catch (parseError) {
-      if (mountedRef.current) setError(parseError instanceof Error ? parseError.message : "Unable to parse syllabus.");
+      if (mountedRef.current) {
+        setLimitReached(isLimitError(parseError));
+        setError(parseError instanceof Error ? parseError.message : "Unable to parse syllabus.");
+      }
     }
 
     if (mountedRef.current) setParsingLabel(null);
@@ -274,7 +288,10 @@ export function SyllabusImportScreen({
       if (mountedRef.current) onImported(result.courseId);
       return;
     } catch (applyError) {
-      if (mountedRef.current) setError(applyError instanceof Error ? applyError.message : "Unable to create course.");
+      if (mountedRef.current) {
+        setLimitReached(isLimitError(applyError));
+        setError(applyError instanceof Error ? applyError.message : "Unable to create course.");
+      }
     }
 
     if (mountedRef.current) setApplying(false);
@@ -302,6 +319,15 @@ export function SyllabusImportScreen({
 
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {error ? <Text style={[styles.message, styles.messageError]}>{error}</Text> : null}
+        {limitReached && onUpgrade ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={onUpgrade}
+            style={({ pressed }) => [styles.upgradeButton, pressed && styles.buttonPressed]}
+          >
+            <Text style={theme.text("label", "onTeal")}>See Atlas Pro</Text>
+          </Pressable>
+        ) : null}
 
         {isParsing ? (
           <View style={styles.panel}>
@@ -919,6 +945,15 @@ function makeStyles(theme: Theme) {
     },
     buttonPressed: {
       opacity: 0.78,
+    },
+    upgradeButton: {
+      alignItems: "center",
+      alignSelf: "flex-start",
+      backgroundColor: colors.teal,
+      borderRadius: theme.radius.control,
+      justifyContent: "center",
+      minHeight: 44,
+      paddingHorizontal: theme.space.base,
     },
   });
 }

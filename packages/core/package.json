@@ -19,6 +19,7 @@
     "./onboarding": "./src/onboarding/index.ts",
     "./analytics": "./src/analytics.ts",
     "./study-time": "./src/study-time/index.ts",
-    "./lms-feed": "./src/lms-feed/index.ts"
+    "./lms-feed": "./src/lms-feed/index.ts",
+    "./subscription": "./src/subscription/index.ts"
   }
 }

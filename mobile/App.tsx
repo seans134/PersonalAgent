@@ -37,6 +37,7 @@ import {
   type MobileTab,
 } from "./components/MobileAppShell";
 import { MoreMenuScreen } from "./components/MoreMenuScreen";
+import { ProScreen } from "./components/ProScreen";
 import { InsightsScreen } from "./components/InsightsScreen";
 import { MealsScreen } from "./components/MealsScreen";
 import { OnboardingScreen } from "./components/OnboardingScreen";
@@ -50,11 +51,12 @@ import { WorkoutsScreen } from "./components/WorkoutsScreen";
 import { getMobileEnv } from "./lib/env";
 import { ThemeProvider, useTheme } from "./lib/theme";
 import { handleAuthDeepLink } from "./lib/auth-deep-link";
-import { parseJoinLink } from "@personal-agent/core";
+import { parseJoinLink, type PaywallTrigger } from "@personal-agent/core";
 import { captureEvent, identifyAnalyticsUser, resetAnalyticsUser, Sentry } from "./lib/analytics";
 import { fetchMobileOnboardingStatus } from "./lib/api";
 import { cancelExamReminders, endExamReminderSession } from "./lib/notifications";
 import { StudyTimerProvider } from "./lib/study-timer";
+import { resetPurchasesUser } from "./lib/purchases";
 import { supabase } from "./lib/supabase";
 
 // After a sign-in the user made (or sign-up), students who haven't finished onboarding
@@ -79,6 +81,11 @@ function App() {
   const [semesterTerm, setSemesterTerm] = useState<string | null>(null);
   // The cumulative GPA target typed on GPA; kept here so it survives GPA -> course -> back.
   const [gpaTargetText, setGpaTargetText] = useState("");
+  // Where the Atlas Pro screen was opened from (analytics) and where its back button goes.
+  const [proOrigin, setProOrigin] = useState<{ trigger: PaywallTrigger; back: "profile" | "syllabusImport" }>({
+    trigger: "menu",
+    back: "profile",
+  });
   const [isRecoveringPassword, setIsRecoveringPassword] = useState(false);
   const [authLinkMessage, setAuthLinkMessage] = useState<string | undefined>();
   // Token from a course share link (atlas://join/<token>). Held across sign-in/sign-up, then
@@ -134,7 +141,10 @@ function App() {
     } = supabase.auth.onAuthStateChange((event, nextSession) => {
       setSession(nextSession);
       if (nextSession) identifyAnalyticsUser(nextSession.user.id);
-      else resetAnalyticsUser();
+      else {
+        resetAnalyticsUser();
+        void resetPurchasesUser();
+      }
       if (event === "PASSWORD_RECOVERY") setIsRecoveringPassword(true);
       if (event === "SIGNED_OUT") {
         setActiveScreen("dashboard");
@@ -194,6 +204,12 @@ function App() {
     endExamReminderSession();
     await supabase.auth.signOut();
     resetAnalyticsUser();
+    void resetPurchasesUser();
+  }
+
+  function openPro(trigger: PaywallTrigger, back: "profile" | "syllabusImport") {
+    setProOrigin({ trigger, back });
+    setActiveScreen("pro");
   }
 
   function openCourse(courseId: string) {
@@ -308,7 +324,7 @@ function App() {
         <MoreMenuScreen accessToken={token} onAccountDeleted={() => {
             setPendingJoinToken(null);
             setSession(null);
-          }} onNavigate={setActiveScreen} onSignOut={signOut} />
+          }} onNavigate={(screen) => (screen === "pro" ? openPro("profile", "profile") : setActiveScreen(screen))} onSignOut={signOut} />
       );
     }
 
@@ -379,6 +395,7 @@ function App() {
             accessToken={token}
             onBack={() => setActiveScreen("courses")}
             onImported={openCourse}
+            onUpgrade={() => openPro("import_limit", "syllabusImport")}
           />
         </View>
       );
@@ -422,6 +439,19 @@ function App() {
         <View style={styles.tabBody}>
           <DetailHeader onBack={() => setActiveScreen("profile")} title="Notifications" />
           <NotificationSettingsScreen accessToken={token} />
+        </View>
+      );
+    }
+
+    if (activeScreen === "pro") {
+      return (
+        <View style={styles.tabBody}>
+          <DetailHeader
+            backLabel={proOrigin.back === "syllabusImport" ? "Import" : "More"}
+            onBack={() => setActiveScreen(proOrigin.back)}
+            title="Atlas Pro"
+          />
+          <ProScreen accessToken={token} trigger={proOrigin.trigger} userId={session!.user.id} />
         </View>
       );
     }

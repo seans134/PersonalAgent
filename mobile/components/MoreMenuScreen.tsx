@@ -1,7 +1,8 @@
 import { ProfileFields } from "./ProfileFields";
 import { features } from "@personal-agent/core";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { fetchSubscriptionStatus } from "../lib/api";
 import { useTheme, useThemePreference } from "../lib/theme";
 import type { Theme, ThemePreference } from "../lib/theme";
 import { Icon } from "./Icon";
@@ -24,6 +25,7 @@ const allItems: Array<{ screen: MobileScreen; label: string; subtitle: string }>
   { screen: "onboarding", label: "Setup", subtitle: "Courses and class times" },
   { screen: "weeklyRhythm", label: "Weekly rhythm", subtitle: "Study blocks, protected time, and work hours" },
   { screen: "notifications", label: "Notifications", subtitle: "Reminder schedule" },
+  { screen: "pro", label: "Atlas Pro", subtitle: "Unlimited syllabus imports" },
   { screen: "settings", label: "Support & privacy", subtitle: "Support and account" },
 ];
 
@@ -39,12 +41,33 @@ export function MoreMenuScreen({ onNavigate, onSignOut, accessToken, onAccountDe
   const theme = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const { preference, setPreference } = useThemePreference();
+  // Pro status from the API (never from the store SDK alone) for the Supporting Atlas badge.
+  const [isPro, setIsPro] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    fetchSubscriptionStatus(accessToken)
+      .then((status) => {
+        if (active) setIsPro(status.isPro);
+      })
+      .catch(() => {
+        // The badge is decorative; leave it off if the status can't load.
+      });
+    return () => {
+      active = false;
+    };
+  }, [accessToken]);
 
   return (
     <ScrollView style={{ backgroundColor: theme.colors.paper }} contentContainerStyle={styles.content}>
       <View style={styles.header}>
         <Text style={theme.text("monoLabel", "teal")}>Atlas</Text>
         <Text style={theme.text("displayXl", "ink")}>Profile</Text>
+        {isPro ? (
+          <View style={styles.badge}>
+            <Text style={theme.text("monoLabel", "onTeal")}>Pro · Supporting Atlas</Text>
+          </View>
+        ) : null}
       </View>
 
       <ProfileFields accessToken={accessToken} onAccountDeleted={onAccountDeleted} />
@@ -61,7 +84,9 @@ export function MoreMenuScreen({ onNavigate, onSignOut, accessToken, onAccountDe
           >
             <View style={styles.rowText}>
               <Text style={theme.text("heading", "ink")}>{item.label}</Text>
-              <Text style={theme.text("body", "inkMuted")}>{item.subtitle}</Text>
+              <Text style={theme.text("body", "inkMuted")}>
+                {item.screen === "pro" && isPro ? "Supporting Atlas · manage your plan" : item.subtitle}
+              </Text>
             </View>
             <Icon color={theme.colors.inkMuted} name="back" size={18} strokeWidth={2} />
           </Pressable>
@@ -108,6 +133,13 @@ function makeStyles(theme: Theme) {
     header: {
       gap: space.xs,
       paddingTop: space.xs,
+    },
+    badge: {
+      alignSelf: "flex-start",
+      backgroundColor: colors.teal,
+      borderRadius: 999,
+      paddingHorizontal: space.md,
+      paddingVertical: space.xs,
     },
     card: {
       backgroundColor: colors.surface,

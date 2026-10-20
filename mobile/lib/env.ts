@@ -7,6 +7,9 @@ const posthogApiKey = process.env.EXPO_PUBLIC_POSTHOG_API_KEY;
 const posthogHost = process.env.EXPO_PUBLIC_POSTHOG_HOST ?? "https://us.i.posthog.com";
 const sentryDsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
 const websiteUrl = process.env.EXPO_PUBLIC_WEBSITE_URL;
+// RevenueCat public SDK keys (Atlas Pro). Without the key for this platform the paywall says Pro is coming soon.
+const revenueCatIosApiKey = process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY;
+const revenueCatAndroidApiKey = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY;
 
 export function getMobileEnv() {
   return {
@@ -18,6 +21,8 @@ export function getMobileEnv() {
     posthogHost,
     sentryDsn,
     websiteUrl,
+    revenueCatIosApiKey,
+    revenueCatAndroidApiKey,
     isConfigured: Boolean(supabaseUrl && supabaseAnonKey && apiBaseUrl),
   };
 }

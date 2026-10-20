@@ -26,6 +26,11 @@ export default function PrivacyPage() {
           password for that calendar, and reads it from the Atlas backend only to import your assignment and exam dates.
           The link is never shown back in full, logged, or sent to analytics. Disconnecting the feed deletes the link.
         </p>
+        <p>
+          If you subscribe to Atlas Pro, payment is handled by Stripe (web) or the App Store / Google Play through
+          RevenueCat (mobile). Atlas never sees your card details; it stores your plan, its status and renewal date, and
+          the payment provider&apos;s customer reference so your subscription stays linked to your account.
+        </p>
       </DocumentSection>
 
       <DocumentSection title="How information is used">

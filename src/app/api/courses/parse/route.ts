@@ -3,6 +3,9 @@ import mammoth from "mammoth";
 import { parseSyllabus } from "@/lib/courses/syllabus-parse";
 import type { GeminiPart } from "@/lib/gemini/client";
 import { getAuthenticatedRequestClient } from "@/lib/supabase/request";
+import { SYLLABUS_IMPORT_LIMIT_STATUS } from "@personal-agent/core";
+import { proLimitsEnforced } from "@/lib/subscription/config";
+import { syllabusImportLimitBody, syllabusImportUsage } from "@/lib/subscription/usage";
 
 export const runtime = "nodejs";
 
@@ -65,6 +68,15 @@ export async function POST(request: NextRequest) {
   const contentLength = Number(request.headers.get("content-length"));
   if (Number.isFinite(contentLength) && contentLength > MAX_UPLOAD_BYTES + MULTIPART_OVERHEAD_BYTES) {
     return tooLarge();
+  }
+
+  // Free accounts get FREE_SYLLABUS_IMPORTS_PER_TERM imports a term once PRO_ENFORCE_LIMITS is on.
+  // Checked before parsing so a blocked import doesn't spend an AI call; apply checks again.
+  if (proLimitsEnforced()) {
+    const usage = await syllabusImportUsage(auth.supabase, auth.user.id);
+    if (!usage.allowed) {
+      return NextResponse.json(syllabusImportLimitBody(usage), { status: SYLLABUS_IMPORT_LIMIT_STATUS });
+    }
   }
 
   try {

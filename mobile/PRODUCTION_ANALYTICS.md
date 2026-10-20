@@ -34,6 +34,8 @@ Web and mobile send the same event names, defined once in `packages/core/src/ana
 | `gpa_viewed` | The GPA screen loads (once per visit) | `term_count`, `course_count` |
 | `study_session_completed` | A study session is saved (timer stopped at 1 min or more, or time logged by hand) | `minutes_bucket` (`<15` / `15-30` / `30-60` / `60+`), `source` (`timer` / `manual`) |
 | `lms_feed_synced` | An LMS calendar feed sync ran (connect, Sync now, or the on-open sync after 12 h) | `trigger` (`connect` / `manual` / `auto`), `event_count`, `deadline_count`, `added_count`, `updated_count`, `needs_course_count`; never the feed link or titles |
+| `paywall_viewed` | The Atlas Pro screen opens for a student who isn't Pro | `trigger` (`import_limit` / `profile` / `menu`), `surface` (`web` / `mobile`), `available` (purchase buttons shown) |
+| `subscription_started` | A Pro purchase completes (web: back from Stripe Checkout; mobile: store purchase) | `plan` (`monthly` / `yearly`) only; never prices, amounts or store ids |
 
 The web app uses `NEXT_PUBLIC_POSTHOG_KEY` and optional `NEXT_PUBLIC_POSTHOG_HOST`; with no key it makes no
 PostHog calls. Web `course_created` currently fires only for syllabus imports.
