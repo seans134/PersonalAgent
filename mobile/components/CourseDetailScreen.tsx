@@ -43,6 +43,7 @@ import {
   type MobileCourseDetail,
   type MobileCourseItemInput,
 } from "../lib/api";
+import { CourseStudyTimeSection } from "./CourseStudyTimeSection";
 
 type CourseDetailScreenProps = {
   accessToken: string;
@@ -275,6 +276,11 @@ export function CourseDetailScreen({ accessToken, courseId, onBack, backLabel = 
           </View>
         ) : detail ? (
           <>
+            <CourseStudyTimeSection
+              accessToken={accessToken}
+              archived={Boolean(detail.course.archived_at)}
+              courseId={courseId}
+            />
             <GradeSummarySection
               categories={detail.categories}
               course={detail.course}

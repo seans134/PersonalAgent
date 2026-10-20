@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { examLabel, examsWithinDays, features, formatDaysAway } from "@personal-agent/core";
 import { createClient } from "@/lib/supabase/server";
+import { StartStudyButton } from "@/components/study-timer/study-timer-bar";
 import { TodayPlanPanel } from "@/components/today-plan-panel";
 import { formatGrade } from "@/components/grade-format";
 import { listCourseSummaries } from "@/lib/courses/queries";
@@ -157,9 +158,9 @@ export default async function Home() {
               <h2 className="font-display text-lg font-semibold tracking-tight text-ink">Upcoming exams</h2>
               <ul className="divide-y divide-line">
                 {upcomingExams.map((exam) => (
-                  <li key={exam.id}>
+                  <li className="flex items-center gap-3" key={exam.id}>
                     <Link
-                      className="flex items-center justify-between gap-4 py-3 transition hover:text-teal"
+                      className="flex min-w-0 flex-1 items-center justify-between gap-4 py-3 transition hover:text-teal"
                       href={`/courses/${exam.course.id}`}
                     >
                       <div className="min-w-0">
@@ -172,6 +173,7 @@ export default async function Home() {
                         {formatDaysAway(exam.daysAway)}
                       </p>
                     </Link>
+                    <StartStudyButton className="shrink-0" label="Study" target={{ courseId: exam.course.id, courseItemId: exam.id }} />
                   </li>
                 ))}
               </ul>

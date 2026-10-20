@@ -33,10 +33,12 @@ import {
   type MobileTodayPlanResponse,
 } from "../lib/api";
 import { readCachedTodayPlan, writeCachedTodayPlan } from "../lib/cache";
+import { useStudyTimer, type StudyBlockOffer } from "../lib/study-timer";
 import { errorHaptic, successHaptic, tapHaptic } from "../lib/haptics";
 import { readNotificationPreferences, scheduleTodayPlanReminders } from "../lib/notifications";
 import { useTheme } from "../lib/theme";
 import type { Theme } from "../lib/theme";
+import { StartStudyButton } from "./StudyTimer";
 import { TodayPlanTimeline } from "./TodayPlanTimeline";
 
 type DashboardScreenProps = {
@@ -245,18 +247,21 @@ export function DashboardScreen({ accessToken, onOpenCourse, onOpenCourses }: Da
     setRefreshing(false);
   }
 
-  async function handleCheckoff(item: PlannedItem, tapped: PlanItemStatus) {
+  /**
+   * Saves one item's status (optimistically, rolled back on failure). minutes overrides the
+   * scheduled length a done study block records, e.g. the real minutes from the study timer.
+   */
+  async function saveCheckoff(item: PlannedItem, status: PlanItemStatus | null, minutes?: number): Promise<boolean> {
     const current = planRef.current;
-    if (!current?.checkoff || !item.key || pendingKeysRef.current.has(item.key)) return;
+    if (!current?.checkoff || !item.key || pendingKeysRef.current.has(item.key)) return false;
     // Re-checked at tap time: the day may have rolled over since the plan was shown.
     if (!isPlanForToday(current)) {
       setNotice(STALE_PLAN_NOTICE);
-      return;
+      return false;
     }
     const key = item.key;
     const generatedAt = current.meta.generatedAt;
     const previous = current.plan.items.find((entry) => entry.key === key)?.status ?? null;
-    const status = nextPlanItemStatus(previous, tapped);
     const setStatus = (value: PlanItemStatus | null) =>
       updateCurrentPlan(generatedAt, (latest) => withItems(latest, applyPlanItemStatus(latest.plan.items, key, value)));
 
@@ -273,7 +278,7 @@ export function DashboardScreen({ accessToken, onOpenCourse, onOpenCourses }: Da
           itemKey: key,
           itemType: item.type,
           status,
-          minutes: checkoffMinutesFor(item, status),
+          minutes: status === "done" && minutes !== undefined && minutes > 0 ? minutes : checkoffMinutesFor(item, status),
         },
         planCheckoffCounts(planRef.current?.plan.items ?? []),
       );
@@ -286,7 +291,32 @@ export function DashboardScreen({ accessToken, onOpenCourse, onOpenCourses }: Da
     }
     setKeyPending(key, false);
     if (saved) await persistPlan();
+    return saved;
   }
+
+  async function handleCheckoff(item: PlannedItem, tapped: PlanItemStatus) {
+    const previous = planRef.current?.plan.items.find((entry) => entry.key === item.key)?.status ?? null;
+    await saveCheckoff(item, nextPlanItemStatus(previous, tapped));
+  }
+
+  // "Mark done" after stopping a timer started from a block of today's plan goes through this
+  // screen, so the card updates and the check-off counts stay right.
+  const { registerBlockDoneHandler } = useStudyTimer();
+  const saveCheckoffRef = useRef(saveCheckoff);
+  useEffect(() => {
+    saveCheckoffRef.current = saveCheckoff;
+  });
+  useEffect(() => {
+    registerBlockDoneHandler(async (offer: StudyBlockOffer) => {
+      const current = planRef.current;
+      const item =
+        current?.checkoff?.planDate === offer.planDate ? current.plan.items.find((entry) => entry.key === offer.itemKey) : undefined;
+      if (!item) return false;
+      if (!(await saveCheckoffRef.current(item, "done", offer.minutes))) throw new Error("Unable to save check-off.");
+      return true;
+    });
+    return () => registerBlockDoneHandler(null);
+  }, [registerBlockDoneHandler]);
 
   async function handleAccept() {
     const current = planRef.current;
@@ -411,7 +441,10 @@ export function DashboardScreen({ accessToken, onOpenCourse, onOpenCourses }: Da
                   {`${exam.course.name} · ${formatShortDate(exam.dueAt)}`}
                 </Text>
               </View>
-              <Text style={theme.text("monoLabel", "teal")}>{formatDaysAway(exam.daysAway)}</Text>
+              <View style={styles.courseStats}>
+                <Text style={theme.text("monoLabel", "teal")}>{formatDaysAway(exam.daysAway)}</Text>
+                <StartStudyButton label="Study" target={{ courseId: exam.course.id, courseItemId: exam.id }} />
+              </View>
             </Pressable>
           ))}
         </View>
@@ -502,6 +535,7 @@ export function DashboardScreen({ accessToken, onOpenCourse, onOpenCourses }: Da
               items={plan.plan.items}
               onCheckoff={checkoff ? handleCheckoff : undefined}
               pendingKeys={pendingKeys}
+              studyPlanDate={checkoff?.planDate}
             />
           ) : (
             <View style={[styles.card, styles.emptyDay]}>

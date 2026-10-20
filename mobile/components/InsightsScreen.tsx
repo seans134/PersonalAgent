@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { features } from "@personal-agent/core";
 import { useTheme } from "../lib/theme";
 import type { Theme } from "../lib/theme";
 import { SegmentedTabs } from "./MobileAppShell";
 import { fetchMobileInsights, type HabitPeriod, type MobileHabitReport } from "../lib/api";
+import { StudyTimeSection } from "./StudyTimeSection";
 
 type InsightsScreenProps = {
   accessToken: string;
@@ -33,6 +35,7 @@ export function InsightsScreen({ accessToken }: InsightsScreenProps) {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [message, setMessage] = useState<string | undefined>();
+  const [studyRefreshKey, setStudyRefreshKey] = useState(0);
 
   const load = useCallback(
     async (target: HabitPeriod, refresh = false) => {
@@ -54,6 +57,8 @@ export function InsightsScreen({ accessToken }: InsightsScreenProps) {
   );
 
   useEffect(() => {
+    // The meal and workout digest only loads while wellness tracking is on.
+    if (!features.wellnessTracking) return;
     const timeout = setTimeout(() => {
       if (!reports[period]) {
         void load(period);
@@ -64,7 +69,8 @@ export function InsightsScreen({ accessToken }: InsightsScreenProps) {
 
   async function handleRefresh() {
     setRefreshing(true);
-    await load(period, true);
+    setStudyRefreshKey((key) => key + 1);
+    if (features.wellnessTracking) await load(period, true);
     setRefreshing(false);
   }
 
@@ -76,14 +82,18 @@ export function InsightsScreen({ accessToken }: InsightsScreenProps) {
       contentContainerStyle={styles.content}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.colors.teal} />}
     >
-      <SegmentedTabs<HabitPeriod>
-        value={period}
-        onChange={setPeriod}
-        options={[
-          { value: "daily", label: "Daily digest" },
-          { value: "weekly", label: "Weekly review" },
-        ]}
-      />
+      <StudyTimeSection accessToken={accessToken} refreshKey={studyRefreshKey} />
+
+      {features.wellnessTracking ? (
+        <SegmentedTabs<HabitPeriod>
+          value={period}
+          onChange={setPeriod}
+          options={[
+            { value: "daily", label: "Daily digest" },
+            { value: "weekly", label: "Weekly review" },
+          ]}
+        />
+      ) : null}
 
       {message ? <Text style={[theme.text("body", "danger"), styles.message]}>{message}</Text> : null}
 

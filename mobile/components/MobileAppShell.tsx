@@ -4,6 +4,7 @@ import { features } from "@personal-agent/core";
 import { useTheme } from "../lib/theme";
 import type { Theme } from "../lib/theme";
 import { Icon, type IconName } from "./Icon";
+import { StudyTimerBar } from "./StudyTimer";
 
 export type MobileScreen =
   | "dashboard"
@@ -79,7 +80,6 @@ export const wellnessScreens: ReadonlySet<MobileScreen> = new Set<MobileScreen>(
   "workouts",
   "workoutPlan",
   "workoutCoach",
-  "insights",
 ]);
 
 export function isScreenEnabled(screen: MobileScreen): boolean {
@@ -101,6 +101,9 @@ export function MobileAppShell({ activeTab, children, onSelectTab }: MobileAppSh
   return (
     <View style={styles.container}>
       <View style={styles.content}>{children}</View>
+
+      {/* The running study timer, above the tab bar on every screen. */}
+      <StudyTimerBar />
 
       <View style={styles.tabBar}>
         {tabs.map((tab) => {

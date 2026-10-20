@@ -9,3 +9,4 @@ export * from "./course-share";
 export * from "./onboarding";
 export * from "./schedule-import";
 export * from "./profile";
+export * from "./study-time";
