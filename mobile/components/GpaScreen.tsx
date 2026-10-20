@@ -43,6 +43,8 @@ export function GpaScreen({ accessToken, onBack, onOpenCourse, targetText, onTar
   const [appliedTarget, setAppliedTarget] = useState<number | null>(() =>
     parseGpaTargetInput(targetText, Number.POSITIVE_INFINITY),
   );
+  // The target the shown summary was computed with (lags appliedTarget while a load is in flight).
+  const [loadedTarget, setLoadedTarget] = useState<number | null>(null);
   const viewed = useRef(false);
   const requestId = useRef(0);
 
@@ -53,6 +55,7 @@ export function GpaScreen({ accessToken, onBack, onOpenCourse, targetText, onTar
       const result = await fetchMobileGpa(accessToken, { target: appliedTarget });
       if (id !== requestId.current) return;
       setSummary(result);
+      setLoadedTarget(appliedTarget);
       if (!viewed.current) {
         viewed.current = true;
         captureEvent(analyticsEvents.gpaViewed, { term_count: result.terms.length, course_count: result.courseCount });
@@ -76,6 +79,8 @@ export function GpaScreen({ accessToken, onBack, onOpenCourse, targetText, onTar
   const typedTarget = parseGpaTargetInput(targetText, scale.max);
   const targetInvalid = targetText.trim() !== "" && typedTarget === null;
   const neededCopy = summary ? describeGpaNeeded(summary.needed) : null;
+  // The typed target differs from the one the shown answer used (edited, or still loading).
+  const targetPending = typedTarget !== appliedTarget || loadedTarget !== appliedTarget;
 
   return (
     <View style={styles.screen}>
@@ -172,7 +177,9 @@ export function GpaScreen({ accessToken, onBack, onOpenCourse, targetText, onTar
               </View>
               {targetInvalid ? (
                 <Text style={styles.errorText}>Enter a GPA above 0 and up to {formatGpa(scale.max)}.</Text>
-              ) : neededCopy ? (
+              ) : typedTarget !== appliedTarget && targetText.trim() ? (
+                <Text style={styles.body}>Tap What do I need? to update.</Text>
+              ) : neededCopy && !targetPending ? (
                 <Text style={[styles.bodyInk, summary.needed.status === "out_of_reach" && styles.warningText]}>{neededCopy}</Text>
               ) : null}
             </View>

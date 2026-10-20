@@ -62,10 +62,21 @@ export function gradePoints(letter: LetterGrade, scale: GpaScale): number {
   return scale.points[letter];
 }
 
-/** GPA for display, two decimals; "—" when there is none. */
-export function formatGpa(value: number | null): string {
+/**
+ * GPA for display, two decimals; "—" when there is none. `round` "up" is for a GPA the student
+ * needs (a shown 3.71 must be enough), "down" for a best case (never overstate it); both ignore
+ * float noise, so 3.7000000001 needed still reads 3.70.
+ */
+export function formatGpa(value: number | null, round: "nearest" | "up" | "down" = "nearest"): string {
   if (value === null || !Number.isFinite(value)) return "—";
-  return Math.max(0, value).toFixed(2);
+  const hundredths =
+    round === "up" ? Math.ceil(value * 100 - 1e-6) : round === "down" ? Math.floor(value * 100 + 1e-6) : Math.round(value * 100);
+  return Math.max(0, hundredths / 100).toFixed(2);
+}
+
+/** Credit totals rounded to hundredths, so 0.1 + 0.2 credits reads 0.3. */
+export function roundCredits(value: number): number {
+  return Math.round(value * 100) / 100;
 }
 
 export const MAX_COURSE_CREDITS = 20;
@@ -117,7 +128,8 @@ export type GpaCourse = {
   points: number;
 };
 
-export type GpaExclusionReason = "no_credits" | "no_grade";
+/** zero_credits: credits set to 0, as for a pass/fail course. */
+export type GpaExclusionReason = "no_credits" | "zero_credits" | "no_grade";
 export type GpaExcludedCourse = { id: string; label: string; term: string | null; reason: GpaExclusionReason };
 
 export type GpaTerm = {
@@ -209,13 +221,14 @@ function gpaOf(entries: Counted[]): number | null {
 }
 
 function sumCredits(entries: { credits: number }[]): number {
-  return entries.reduce((sum, e) => sum + e.credits, 0);
+  return roundCredits(entries.reduce((sum, e) => sum + e.credits, 0));
 }
 
 /**
  * Per-term and cumulative GPA on `scaleId`, credit-weighted. `targetGpa` (optional) is a cumulative
  * goal: `needed` says what GPA the open term needs to reach it. The open term is `requestedTerm`
- * when it has unfinished courses with credits, else the latest such term.
+ * when it has unfinished courses with credits, else the latest such dated term ("Fall 2026"); free-text
+ * terms only when no dated term is open, and the no-term group last of all.
  */
 export function buildGpaSummary(input: {
   courses: GpaCourseInput[];
@@ -236,8 +249,12 @@ export function buildGpaSummary(input: {
     const group = groups.get(key)!;
     const label = courseLabel(course);
     const credits = course.credits;
-    if (credits === null || !Number.isFinite(credits) || credits <= 0) {
+    if (credits === null || !Number.isFinite(credits) || credits < 0) {
       excluded.push({ id: course.id, label, term, reason: "no_credits" });
+      continue;
+    }
+    if (credits === 0) {
+      excluded.push({ id: course.id, label, term, reason: "zero_credits" });
       continue;
     }
 
@@ -294,7 +311,7 @@ export function buildGpaSummary(input: {
       credits: sumCredits(counted),
       finalGpa: gpaOf(finals),
       finalCredits: sumCredits(finals),
-      inProgressCredits: sumCredits(counted) - sumCredits(finals),
+      inProgressCredits: roundCredits(sumCredits(counted) - sumCredits(finals)),
     },
     terms,
     excluded,
@@ -321,7 +338,9 @@ function gpaNeeded(
   const requested = normalizeTerm(requestedTerm)?.toLowerCase();
   const openTerm =
     openGroups.find((g) => g.term !== null && g.term.toLowerCase() === requested)
-    // Latest dated term; the no-term group only when it's the only one open.
+    // Groups are in term order (dated, then free-text, then no term): latest dated term first,
+    // then the latest free-text term, then the no-term group.
+    ?? [...openGroups].reverse().find((g) => g.term !== null && termSortKey(g.term) !== null)
     ?? [...openGroups].reverse().find((g) => g.term !== null)
     ?? openGroups[openGroups.length - 1];
 
@@ -334,7 +353,7 @@ function gpaNeeded(
       priorPoints += course.credits * course.points;
     }
   }
-  const termCredits = openTerm.open;
+  const termCredits = roundCredits(openTerm.open);
   const totalCredits = priorCredits + termCredits;
   let neededGpa = (target * totalCredits - priorPoints) / termCredits;
   if (Math.abs(neededGpa) <= EPS) neededGpa = 0;
@@ -355,9 +374,10 @@ export function describeGpaNeeded(needed: GpaNeeded): string | null {
     case "secured":
       return `You'll stay at or above ${formatGpa(needed.target)} whatever you get${needed.term ? ` in ${needed.term}` : " this term"}.`;
     case "out_of_reach":
-      return `${formatGpa(needed.target)} is out of reach this term: the best cumulative GPA you can reach is ${formatGpa(needed.maxPossible)}.`;
+      // Target up, best case down: the two never read the same.
+      return `${formatGpa(needed.target, "up")} is out of reach this term: the best cumulative GPA you can reach is ${formatGpa(needed.maxPossible, "down")}.`;
     case "needed":
-      return `You need a ${formatGpa(needed.neededGpa)} term GPA${needed.term ? ` in ${needed.term}` : " this term"} (${needed.termCredits} credits) to reach ${formatGpa(needed.target)}.`;
+      return `You need a ${formatGpa(needed.neededGpa, "up")} term GPA${needed.term ? ` in ${needed.term}` : " this term"} (${needed.termCredits} credits) to reach ${formatGpa(needed.target)}.`;
   }
 }
 
@@ -371,6 +391,7 @@ export function parseGpaTargetInput(text: string | null | undefined, scaleMax: n
 
 export const GPA_EXCLUSION_COPY: Record<GpaExclusionReason, string> = {
   no_credits: "No credits set",
+  zero_credits: "0 credits (pass/fail)",
   no_grade: "No grades yet",
 };
 

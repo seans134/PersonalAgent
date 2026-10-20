@@ -3,6 +3,7 @@ import {
   buildGpaSummary,
   describeGpaNeeded,
   formatGpa,
+  GPA_EXCLUSION_COPY,
   gpaScale,
   gradePoints,
   parseCreditsInput,
@@ -78,6 +79,14 @@ describe("input parsing", () => {
     expect(formatGpa(3.6666)).toBe("3.67");
     expect(formatGpa(null)).toBe("—");
   });
+
+  it("rounds a needed GPA up and a best case down, ignoring float noise", () => {
+    expect(formatGpa(3.7012, "up")).toBe("3.71");
+    expect(formatGpa(3.7000000001, "up")).toBe("3.70");
+    expect(formatGpa(3.6999, "down")).toBe("3.69");
+    expect(formatGpa(3.6999999999, "down")).toBe("3.70");
+    expect(formatGpa(3.6999)).toBe("3.70");
+  });
 });
 
 describe("termSortKey", () => {
@@ -90,6 +99,28 @@ describe("termSortKey", () => {
 });
 
 describe("buildGpaSummary", () => {
+  it("rounds credit totals to hundredths", () => {
+    const summary = buildGpaSummary({
+      scaleId: "us_4_0",
+      targetGpa: 3,
+      courses: [
+        course({ id: "a", credits: 0.1, finalGrade: "A" }),
+        course({ id: "b", credits: 0.2, currentPercent: 90 }),
+        course({ id: "c", credits: 0.1 }),
+      ],
+    });
+    expect(summary.terms[0].credits).toBe(0.3);
+    expect(summary.cumulative).toMatchObject({ credits: 0.3, finalCredits: 0.1, inProgressCredits: 0.2 });
+    expect(summary.needed).toMatchObject({ termCredits: 0.3 });
+    expect(describeGpaNeeded(summary.needed)).not.toMatch(/0000/);
+  });
+
+  it("lists 0-credit courses as pass/fail, not missing credits", () => {
+    const summary = buildGpaSummary({ scaleId: "us_4_0", courses: [course({ id: "pf", credits: 0, currentPercent: 95 })] });
+    expect(summary.excluded).toEqual([{ id: "pf", label: "pf", term: "Fall 2026", reason: "zero_credits" }]);
+    expect(GPA_EXCLUSION_COPY.zero_credits).toBe("0 credits (pass/fail)");
+  });
+
   it("weights by credits and splits final from in-progress grades", () => {
     const summary = buildGpaSummary({
       scaleId: "us_4_0",
@@ -139,7 +170,7 @@ describe("buildGpaSummary", () => {
     });
     expect(summary.excluded).toEqual([
       { id: "lab", label: "BIO 101L", term: "Fall 2026", reason: "no_credits" },
-      { id: "zero", label: "zero", term: "Fall 2026", reason: "no_credits" },
+      { id: "zero", label: "zero", term: "Fall 2026", reason: "zero_credits" },
       { id: "new", label: "new", term: "Fall 2026", reason: "no_grade" },
     ]);
     expect(summary.cumulative.gpa).toBeCloseTo(2.7, 9);
@@ -230,6 +261,41 @@ describe("buildGpaSummary", () => {
       // Spring's in-progress grade now counts as it stands.
       if (picked.needed.status === "no_target" || picked.needed.status === "no_open_term") throw new Error("expected a need");
       expect(picked.needed.neededGpa).toBeCloseTo((3.4 * 30 - (61 + 3 * 3.7)) / 8, 9);
+    });
+
+    it("rounds the needed GPA up and the best case down in the copy", () => {
+      // Prior 15 cr at 3.0 (45 points); open 4 cr; best case (45 + 16) / 19 = 3.2105...
+      const courses = [
+        course({ id: "f1", term: "Fall 2025", credits: 15, finalGrade: "B" }),
+        course({ id: "w1", term: "Winter 2026", credits: 4, currentPercent: 85 }),
+      ];
+      // Need (3.21 * 19 - 45) / 4 = 3.9975 -> shown 4.00.
+      const close = buildGpaSummary({ scaleId: "us_4_0", courses, targetGpa: 3.21 });
+      expect(describeGpaNeeded(close.needed)).toMatch(/need a 4\.00 term GPA/);
+      // Out of reach: the target rounds up and the best case down, so they never read the same.
+      const beyond = buildGpaSummary({ scaleId: "us_4_0", courses, targetGpa: 3.2106 });
+      expect(beyond.needed.status).toBe("out_of_reach");
+      expect(describeGpaNeeded(beyond.needed)).toBe(
+        "3.22 is out of reach this term: the best cumulative GPA you can reach is 3.21.",
+      );
+      // Need (3.1 * 19 - 45) / 4 = 3.475 -> shown 3.48, never 3.47.
+      const needed = buildGpaSummary({ scaleId: "us_4_0", courses, targetGpa: 3.1 });
+      expect(describeGpaNeeded(needed.needed)).toMatch(/need a 3\.48 term GPA/);
+      // Need 3.4 + 1e-12: float noise doesn't bump it to 3.41.
+      const exact = buildGpaSummary({ scaleId: "us_4_0", courses, targetGpa: (45 + 3.4 * 4) / 19 });
+      expect(describeGpaNeeded(exact.needed)).toMatch(/need a 3\.40 term GPA/);
+    });
+
+    it("defaults to the latest dated term over a free-text term", () => {
+      const courses = [
+        course({ id: "f", term: "Fall 2026", credits: 3, currentPercent: 90 }),
+        course({ id: "x", term: "Term A", credits: 3, currentPercent: 90 }),
+        course({ id: "n", term: null, credits: 3, currentPercent: 90 }),
+      ];
+      expect(buildGpaSummary({ scaleId: "us_4_0", courses, targetGpa: 3.5 }).needed).toMatchObject({ term: "Fall 2026" });
+      const undated = courses.slice(1);
+      expect(buildGpaSummary({ scaleId: "us_4_0", courses: undated, targetGpa: 3.5 }).needed).toMatchObject({ term: "Term A" });
+      expect(buildGpaSummary({ scaleId: "us_4_0", courses: undated.slice(1), targetGpa: 3.5 }).needed).toMatchObject({ term: null });
     });
 
     it("has no open term when every credited course is final", () => {
